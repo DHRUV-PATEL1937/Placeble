@@ -778,6 +778,83 @@ h1, h2, h3, h4, .brand-name, .score-value strong { font-family: "Sora", sans-ser
 .prd-toast span { color: var(--text-primary); font-size: 8px; line-height: 1.5; }
 .prd-toast button { display: grid; width: 25px; height: 25px; place-items: center; border: 0; border-radius: 6px; color: var(--text-secondary); background: var(--surface-soft); cursor: pointer; }
 
+/* Professional workspace readability scale */
+.prd-nav-label { font-size: 10px; }
+.prd-sidebar nav button { font-size: 13px; }
+.prd-sidebar nav button em { font-size: 10px; }
+.prd-access strong { font-size: 11px; }
+.prd-access span { font-size: 11px; }
+.prd-user strong { font-size: 11px; }
+.prd-user small { font-size: 9px; }
+.prd-user > em { font-size: 9px; }
+.prd-search input { font-size: 13px; }
+.prd-context { font-size: 12px; }
+.prd-page-head p { font-size: 10px; }
+.prd-page-head div > span { font-size: 12px; }
+.prd-page-head > button, .prd-panel-head > button { font-size: 11px; }
+.prd-readonly { font-size: 11px; }
+.prd-stats small, .prd-stats p { font-size: 11px; }
+.prd-stats strong { font-size: 24px; }
+.prd-panel-head h2 { font-size: 16px; }
+.prd-panel-head p { font-size: 11px; }
+.prd-insight > p { font-size: 10px; }
+.prd-insight h2 { font-size: 20px; }
+.prd-insight small { font-size: 11px; }
+.prd-insight button { font-size: 11px; }
+.prd-table-header { font-size: 10px; }
+.prd-table-row { min-height: 64px; font-size: 12px; }
+.prd-student > i { font-size: 10px; }
+.prd-student small { font-size: 10px; }
+.prd-score > strong { font-size: 12px; }
+.prd-status, .prd-table-row > span:last-child > button { font-size: 10px; }
+.prd-company { font-size: 10px; }
+.prd-drives-mini strong { font-size: 11px; }
+.prd-drives-mini small { font-size: 11px; }
+.prd-drives-mini em { font-size: 9px; }
+.prd-bars small, .prd-bars b { font-size: 9px; }
+.prd-filter-row button { font-size: 10px; }
+.prd-drive-card header > span { font-size: 11px; }
+.prd-drive-card header em, .prd-drive-numbers small { font-size: 9px; }
+.prd-drive-card > p, .prd-drive-meta { font-size: 11px; }
+.prd-drive-card h2 { font-size: 17px; }
+.prd-drive-numbers strong { font-size: 18px; }
+.prd-drive-card > button { font-size: 11px; }
+.prd-add-card strong { font-size: 14px; }
+.prd-add-card span { font-size: 10px; }
+.prd-progress-copy > span { font-size: 10px; }
+.prd-progress-copy p { font-size: 12px; }
+.prd-progress-copy button { font-size: 11px; }
+.prd-progress-ring span { font-size: 9px; }
+.prd-progress-score small, .prd-progress-score p { font-size: 10px; }
+.prd-progress-score > div:last-child > strong { font-size: 14px; }
+.prd-progress-score b { font-size: 11px; }
+.prd-progress-metrics small { font-size: 11px; }
+.prd-progress-metrics strong { font-size: 19px; }
+.prd-progress-metrics p { font-size: 10px; }
+.line-y, .prd-chart-events { font-size: 10px; }
+.prd-skill-gaps > div > span, .prd-funnel > div { font-size: 11px; }
+.prd-date span { font-size: 9px; }
+.prd-interviews article > div:nth-child(2) p,
+.prd-interviews article > div:nth-child(2) span,
+.prd-interviews article > div:nth-child(3),
+.prd-interviews article > em { font-size: 10px; }
+.prd-interviews article > div:nth-child(2) strong { font-size: 12px; }
+.prd-invite-head, .prd-invites > div:not(.prd-invite-head) { font-size: 11px; }
+.prd-invite-head, .prd-invites em, .prd-invites button { font-size: 10px; }
+.prd-followups button > span { font-size: 10px; }
+.prd-followups strong { font-size: 12px; }
+.prd-followups small { font-size: 10px; }
+.prd-followups em { font-size: 13px; }
+.prd-mentor-notes > p { font-size: 11px; }
+.prd-mentor-notes > button { font-size: 10px; }
+.prd-profile-modal > header span, .prd-profile-modal > header p, .prd-profile-score small,
+.prd-subscore-grid span, .prd-profile-section > span, .prd-profile-section em { font-size: 10px; }
+.prd-profile-score h3 { font-size: 15px; }
+.prd-profile-section > p { font-size: 11px; }
+.prd-primary, .prd-secondary { font-size: 11px; }
+.prd-invite-modal > p, .prd-invite-modal > small, .prd-invite-modal label > span,
+.prd-invite-modal input, .prd-invite-modal select, .prd-toast span { font-size: 11px; }
+
 @media (max-width: 1120px) {
   .student-progress-hero { grid-template-columns: 1fr; }
   .student-progress-goal { border-top: 1px solid rgba(255,255,255,.08); border-left: 0; }

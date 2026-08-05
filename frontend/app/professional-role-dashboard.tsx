@@ -32,7 +32,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { CSSProperties, FormEvent, useMemo, useState } from "react";
+import { CSSProperties, FormEvent, useEffect, useMemo, useState } from "react";
 
 type Role = "tpo" | "recruiter" | "faculty";
 type User = { name: string; email: string; role: Role };
@@ -237,6 +237,10 @@ export function ProfessionalRoleDashboard({ user, accessToken, onLogout }: { use
   const [invitations, setInvitations] = useState(initialInvites);
   const [toast, setToast] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [active]);
 
   const title = useMemo(() => {
     if (role === "tpo") return active === "Overview" ? "Institution overview" : active;
