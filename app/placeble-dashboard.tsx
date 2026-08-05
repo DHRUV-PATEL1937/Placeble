@@ -171,12 +171,14 @@ function ReadinessRing({ score, compact = false }: { score: number; compact?: bo
   );
 }
 
-function Sidebar({ current, setCurrent, open, setOpen }: {
+function Sidebar({ current, setCurrent, open, setOpen, user }: {
   current: View;
   setCurrent: (view: View) => void;
   open: boolean;
   setOpen: (open: boolean) => void;
+  user: { name: string; email: string };
 }) {
+  const initials = user.name.split(" ").map(part => part[0]).slice(0, 2).join("").toUpperCase();
   return (
     <>
       <button className={`sidebar-scrim ${open ? "is-visible" : ""}`} onClick={() => setOpen(false)} aria-label="Close menu" />
@@ -211,8 +213,8 @@ function Sidebar({ current, setCurrent, open, setOpen }: {
           <button onClick={() => setCurrent("Agents")}>Complete profile <ArrowRight size={15} /></button>
         </div>
         <div className="sidebar-user">
-          <div className="avatar">AK</div>
-          <div><strong>Arjun Kumar</strong><span>Computer Science · 2027</span></div>
+          <div className="avatar">{initials}</div>
+          <div><strong>{user.name}</strong><span>{user.email}</span></div>
           <MoreHorizontal size={18} />
         </div>
       </aside>
@@ -220,13 +222,16 @@ function Sidebar({ current, setCurrent, open, setOpen }: {
   );
 }
 
-function Header({ current, dark, setDark, setMenuOpen }: {
+function Header({ current, dark, setDark, setMenuOpen, user, onLogout }: {
   current: View;
   dark: boolean;
   setDark: (dark: boolean) => void;
   setMenuOpen: (open: boolean) => void;
+  user: { name: string };
+  onLogout: () => void;
 }) {
   const [noticesOpen, setNoticesOpen] = useState(false);
+  const initials = user.name.split(" ").map(part => part[0]).slice(0, 2).join("").toUpperCase();
   return (
     <header className="topbar">
       <div className="topbar-title">
@@ -251,7 +256,7 @@ function Header({ current, dark, setDark, setMenuOpen }: {
             </div>
           )}
         </div>
-        <button className="header-profile"><div className="avatar small">AK</div><ChevronDown size={16} /></button>
+        <button className="header-profile" onClick={onLogout} title="Sign out"><div className="avatar small">{initials}</div><span className="header-signout">Sign out</span></button>
       </div>
     </header>
   );
@@ -405,7 +410,7 @@ function BottomNav({ current, setCurrent }: { current: View; setCurrent: (view: 
   return <nav className="bottom-nav" aria-label="Mobile navigation">{navItems.map(({ label, icon: Icon }) => <button key={label} className={current === label ? "is-active" : ""} onClick={() => setCurrent(label)}><Icon size={20} /><span>{label === "Opportunities" ? "Jobs" : label}</span></button>)}</nav>;
 }
 
-export function PlacebleDashboard() {
+export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "student@placeble.local" }, onLogout = () => undefined }: { user?: { name: string; email: string }; onLogout?: () => void }) {
   const [current, setCurrent] = useState<View>("Overview");
   const [dark, setDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -427,9 +432,9 @@ export function PlacebleDashboard() {
   }, [current]);
   return (
     <div className="app-shell">
-      <Sidebar current={current} setCurrent={setCurrent} open={menuOpen} setOpen={setMenuOpen} />
+      <Sidebar current={current} setCurrent={setCurrent} open={menuOpen} setOpen={setMenuOpen} user={user} />
       <main className="main-shell">
-        <Header current={current} dark={dark} setDark={setDark} setMenuOpen={setMenuOpen} />
+        <Header current={current} dark={dark} setDark={setDark} setMenuOpen={setMenuOpen} user={user} onLogout={onLogout} />
         {view}
       </main>
       <BottomNav current={current} setCurrent={setCurrent} />

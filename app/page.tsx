@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PlacebleDashboard } from "./placeble-dashboard";
+import { PlacebleApp } from "./placeble-app";
 
 export const metadata: Metadata = {
   title: "Dashboard | Placeble",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-  return <PlacebleDashboard />;
+  return <PlacebleApp />;
 }
