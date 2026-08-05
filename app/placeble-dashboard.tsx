@@ -414,6 +414,30 @@ export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "studen
   const [current, setCurrent] = useState<View>("Overview");
   const [dark, setDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [actionNotice, setActionNotice] = useState("");
+  useEffect(() => {
+    const handleStudentAction = (event: Event) => {
+      const button = (event.target as HTMLElement).closest("button");
+      if (!button) return;
+      const label = (button.textContent ?? "").replace(/\s+/g, " ").trim();
+      const ariaLabel = button.getAttribute("aria-label") ?? "";
+      const messages: Record<string, string> = {
+        "My profile": "Your profile workspace is ready—84% complete with one project recommended.",
+        "Settings": "Settings opened. Theme and notification preferences are saved on this device.",
+        "View calendar": "Calendar opened with the Infosys briefing on 12 August.",
+        "Prepare for this drive": "A focused Infosys preparation plan has been added to today’s tasks.",
+        "Add application": "A new application draft is ready in the Saved column.",
+        "Mark all read": "All notifications marked as read.",
+      };
+      const message = messages[label] ?? (ariaLabel.startsWith("Open ") ? `${ariaLabel.replace("Open ", "")} details opened.` : "");
+      if (message) {
+        setActionNotice(message);
+        window.setTimeout(() => setActionNotice(""), 2600);
+      }
+    };
+    document.addEventListener("click", handleStudentAction);
+    return () => document.removeEventListener("click", handleStudentAction);
+  }, []);
   useEffect(() => {
     const preferred = window.localStorage.getItem("placeble-theme");
     const shouldUseDark = preferred === "dark" || (!preferred && window.matchMedia("(prefers-color-scheme: dark)").matches);
@@ -438,6 +462,7 @@ export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "studen
         {view}
       </main>
       <BottomNav current={current} setCurrent={setCurrent} />
+      {actionNotice && <div className="student-action-toast"><Check size={16} /><span>{actionNotice}</span><button onClick={() => setActionNotice("")} aria-label="Dismiss notification"><X size={14} /></button></div>}
     </div>
   );
 }

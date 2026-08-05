@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { PlacebleDashboard } from "./placeble-dashboard";
+import { ProfessionalRoleDashboard } from "./professional-role-dashboard";
 
 type Role = "student" | "tpo" | "recruiter" | "faculty";
 type AuthUser = {
@@ -153,7 +154,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (user: AuthUser, acc
 
         {view !== "forgot" && <>
           <div className="auth-divider"><span>or</span></div>
-          <button className="google-button" disabled title="Add Google OAuth credentials to enable"><span>G</span> Continue with Google <small>Not configured</small></button>
+          <button type="button" className="google-button" onClick={() => setNotice("Google sign-in is ready for provider credentials. Use email and password for the local demo.")} title="Add Google OAuth credentials to enable"><span>G</span> Continue with Google <small>Setup needed</small></button>
         </>}
 
         {view === "login" && <button className="portal-toggle" onClick={() => { setPortal(portal === "student" ? "institution" : "student"); setError(""); }}>
@@ -200,7 +201,7 @@ const roleContent = {
   },
 };
 
-function RoleDashboard({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
+export function LegacyRoleDashboard({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const role = user.role as "tpo" | "recruiter" | "faculty";
   const content = roleContent[role];
   const [nav, setNav] = useState(content.nav[0]);
@@ -244,5 +245,5 @@ export function PlacebleApp() {
   if (!user) return <AuthScreen onAuthenticated={authenticated} />;
   if (user.role === "student" && !user.onboardingCompleted) return <Onboarding user={user} accessToken={accessToken} onComplete={setUser} onLogout={logout} />;
   if (user.role === "student") return <PlacebleDashboard user={user} onLogout={logout} />;
-  return <RoleDashboard user={user} onLogout={logout} />;
+  return <ProfessionalRoleDashboard user={user} accessToken={accessToken} onLogout={logout} />;
 }
