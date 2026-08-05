@@ -33,10 +33,11 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-type View = "Overview" | "Agents" | "Opportunities" | "Applications";
+type View = "Overview" | "Progress" | "Agents" | "Opportunities" | "Applications";
 
 const navItems: { label: View; icon: typeof LayoutDashboard }[] = [
   { label: "Overview", icon: LayoutDashboard },
+  { label: "Progress", icon: TrendingUp },
   { label: "Agents", icon: WandSparkles },
   { label: "Opportunities", icon: BriefcaseBusiness },
   { label: "Applications", icon: ClipboardCheck },
@@ -388,6 +389,34 @@ function OpportunitiesView({ setCurrent }: { setCurrent: (view: View) => void })
   );
 }
 
+function ProgressView({ setCurrent }: { setCurrent: (view: View) => void }) {
+  const [range, setRange] = useState<"8 weeks" | "6 months">("8 weeks");
+  const [completedActions, setCompletedActions] = useState<string[]>([]);
+  const categories = [
+    { label: "Resume strength", value: 78, change: 8, icon: FileText, note: "Impact statements improved" },
+    { label: "Aptitude", value: 64, change: 5, icon: BookOpenCheck, note: "Quant accuracy is rising" },
+    { label: "Interview skills", value: 71, change: 11, icon: Mic2, note: "Stronger answer structure" },
+    { label: "Career activity", value: 75, change: 6, icon: BriefcaseBusiness, note: "Four focused applications" },
+  ];
+  const toggleAction = (action: string) => setCompletedActions(completedActions.includes(action) ? completedActions.filter(item => item !== action) : [...completedActions, action]);
+  return <div className="view-content inner-view student-progress-view">
+    <section className="student-progress-head"><div><p className="eyebrow">Your development over time</p><h2>Progress you can explain—and build on.</h2><p>See what changed your readiness, where momentum is strongest, and what to work on next.</p></div><button className="filter-chip" onClick={() => setRange(range === "8 weeks" ? "6 months" : "8 weeks")}>{range} <ChevronDown size={15} /></button></section>
+    <section className="student-progress-hero">
+      <div className="student-progress-score"><ReadinessRing score={72 + completedActions.length} /><div><span>Overall readiness</span><h3>Interview-ready momentum</h3><p>You’ve gained <strong>9 points</strong> since your baseline assessment. Keep this pace and you’re on track to reach 80 before the September drive window.</p><div className="student-progress-delta"><TrendingUp size={15} /><strong>+4</strong><span>this fortnight</span></div></div></div>
+      <div className="student-progress-goal"><div><Target size={19} /><span><small>Next milestone</small><strong>80 · Placement ready</strong></span><em>8 points to go</em></div><div className="goal-track"><span style={{ width: `${(72 + completedActions.length) / 80 * 100}%` }} /></div><p>At your recent pace, you’ll reach this milestone in approximately four weeks.</p></div>
+    </section>
+    <section className="student-progress-grid">
+      <article className="panel progress-trend-card"><header className="panel-heading"><div><span className="section-label">Readiness trend</span><h3>{range} of steady improvement</h3></div><span className="trend-summary"><TrendingUp size={14} /> +14.3%</span></header><div className="student-line-chart"><div className="chart-axis"><span>80</span><span>70</span><span>60</span><span>50</span></div><div className="chart-plot"><div className="chart-grid-lines" /><div className="chart-growth-area" /><span style={{ left: "3%", bottom: "20%" }} data-label="58" /><span style={{ left: "18%", bottom: "27%" }} data-label="61" /><span style={{ left: "34%", bottom: "34%" }} data-label="64" /><span style={{ left: "50%", bottom: "43%" }} data-label="67" /><span style={{ left: "66%", bottom: "47%" }} data-label="68" /><span style={{ left: "82%", bottom: "55%" }} data-label="70" /><span style={{ left: "96%", bottom: "63%" }} data-label="72" /></div></div><div className="chart-foot"><span>Baseline</span><span>Resume v2</span><span>Aptitude test</span><span>Interview #3</span><span>Today</span></div></article>
+      <aside className="panel weekly-consistency"><header className="panel-heading"><div><span className="section-label">Consistency</span><h3>Weekly activity</h3></div><strong>5-day run</strong></header><div className="activity-calendar">{[2,3,1,4,3,0,2,4,3,5,4,2,0,3,4,5,3,4,2,1,4,5,4,3,2,4,5,3].map((level,index) => <span key={index} className={`level-${level}`} title={`${level} preparation activities`} />)}</div><div className="consistency-stats"><div><strong>14</strong><span>active days</span></div><div><strong>9.4h</strong><span>focused work</span></div><div><strong>23</strong><span>tasks finished</span></div></div><p><Sparkles size={14} /> Your strongest preparation window is Tuesday–Thursday.</p></aside>
+    </section>
+    <section className="progress-category-section"><div className="progress-section-title"><div><span className="section-label">Score composition</span><h3>What is moving your readiness</h3></div><button className="text-button" onClick={() => setCurrent("Agents")}>Open your coaches <ArrowRight size={15} /></button></div><div className="progress-category-grid">{categories.map(({ label, value, change, icon: Icon, note }) => <article key={label}><span className="category-icon"><Icon size={19} /></span><div className="category-title"><span>{label}</span><strong>{value}</strong></div><div className="category-track"><span style={{ width: `${value}%` }} /></div><p>{note}</p><em><TrendingUp size={12} /> +{change} pts</em></article>)}</div></section>
+    <section className="progress-bottom-grid">
+      <article className="panel progress-milestones"><header className="panel-heading"><div><span className="section-label">Milestones</span><h3>Evidence of growth</h3></div><span>3 of 5 this term</span></header><div className="milestone-list"><div className="complete"><i><Check size={14} /></i><p><strong>Resume crossed ATS 75</strong><span>Completed 2 Aug · +3 readiness points</span></p><Trophy size={18} /></div><div className="complete"><i><Check size={14} /></i><p><strong>Three mock interviews completed</strong><span>Completed 29 Jul · Stronger specificity</span></p><Trophy size={18} /></div><div className="complete"><i><Check size={14} /></i><p><strong>Quant accuracy above 70%</strong><span>Completed 24 Jul · 120 questions practised</span></p><Trophy size={18} /></div><div><i>4</i><p><strong>Reach readiness 80</strong><span>8 points remaining</span></p><Target size={18} /></div></div></article>
+      <article className="panel progress-next-actions"><header className="panel-heading"><div><span className="section-label">Next best actions</span><h3>Turn insight into progress</h3></div><span>{completedActions.length}/3 done</span></header>{[["Complete a timed data set","Aptitude · 15 min","+1 readiness"],["Refine your second project","Resume · 10 min","+1 readiness"],["Practise a product case","Interview · 20 min","Build confidence"]].map(([action,meta,impact]) => <button key={action} className={completedActions.includes(action) ? "done" : ""} onClick={() => toggleAction(action)}><i>{completedActions.includes(action) ? <Check size={14} /> : <Clock3 size={14} />}</i><p><strong>{action}</strong><span>{meta}</span></p><em>{completedActions.includes(action) ? "Completed" : impact}</em></button>)}</article>
+    </section>
+  </div>;
+}
+
 function ApplicationsView() {
   const columns = [
     { name: "Saved", count: 4, cards: [{ company: "Atlassian", role: "Associate Engineer", meta: "84% match" }, { company: "Zoho", role: "Product Support Engineer", meta: "76% match" }] },
@@ -450,6 +479,7 @@ export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "studen
   }, [dark]);
   const view = useMemo(() => {
     if (current === "Overview") return <Overview setCurrent={setCurrent} />;
+    if (current === "Progress") return <ProgressView setCurrent={setCurrent} />;
     if (current === "Agents") return <AgentsView />;
     if (current === "Opportunities") return <OpportunitiesView setCurrent={setCurrent} />;
     return <ApplicationsView />;

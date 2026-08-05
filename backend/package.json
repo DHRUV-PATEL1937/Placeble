@@ -1,0 +1,41 @@
+{
+  "name": "@placeble/backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsup src/server.ts src/seed.ts --format esm --platform node --target node22 --clean",
+    "start": "node dist/server.js",
+    "seed": "tsx src/seed.ts",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.9.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.4",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "22.19.19",
+    "eslint": "9.39.4",
+    "globals": "16.4.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.23.8",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.59.3"
+  }
+}

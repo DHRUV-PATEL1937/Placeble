@@ -32,7 +32,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import { CSSProperties, FormEvent, useMemo, useState } from "react";
 
 type Role = "tpo" | "recruiter" | "faculty";
 type User = { name: string; email: string; role: Role };
@@ -83,8 +83,8 @@ const interviews = [
 ];
 
 const navByRole: Record<Role, string[]> = {
-  tpo: ["Overview", "Students", "Drives", "Invitations", "Analytics"],
-  recruiter: ["Overview", "Candidates", "Shortlist", "Interviews"],
+  tpo: ["Overview", "Students", "Drives", "Invitations", "Progress"],
+  recruiter: ["Overview", "Candidates", "Shortlist", "Interviews", "Progress"],
   faculty: ["Cohort", "At risk", "Progress"],
 };
 
@@ -154,9 +154,57 @@ function DrivesView({ onToast }: { onToast: (message: string) => void }) {
   return <section className="prd-card-grid">{drives.map(drive => <article className="prd-drive-card" key={drive.company}><header><span>{drive.company.slice(0, 2).toUpperCase()}</span><em>{drive.status}</em></header><p>{drive.company}</p><h2>{drive.role}</h2><div className="prd-drive-meta"><span><CalendarDays size={14} /> {drive.date}</span><span><UsersRound size={14} /> {drive.applicants} applicants</span></div><div className="prd-drive-numbers"><div><small>Eligible</small><strong>{drive.eligible}</strong></div><div><small>Avg. match</small><strong>{drive.match}%</strong></div></div><button onClick={() => onToast(`${drive.company} drive workspace opened.`)}>Manage drive <ArrowRight size={15} /></button></article>)}<button className="prd-add-card" onClick={() => onToast("New drive draft created. Add the role details when ready.")}><Plus size={23} /><strong>Create a drive</strong><span>Set eligibility, dates, and recruiter access.</span></button></section>;
 }
 
-function AnalyticsView() {
+export function LegacyAnalyticsView() {
   const [range, setRange] = useState("Last 12 weeks");
   return <div className="prd-analytics"><section className="prd-panel prd-wide-chart"><header className="prd-panel-head"><div><h2>Readiness trend</h2><p>Weekly cohort average · May to August 2026</p></div><button onClick={() => setRange(range === "Last 12 weeks" ? "Last 6 months" : "Last 12 weeks")}>{range} <ChevronDown size={14} /></button></header><div className="prd-line-chart"><div className="line-y"><span>80</span><span>70</span><span>60</span><span>50</span></div><div className="line-plot"><i style={{ left: "3%", bottom: "22%" }} /><i style={{ left: "21%", bottom: "31%" }} /><i style={{ left: "39%", bottom: "42%" }} /><i style={{ left: "57%", bottom: "47%" }} /><i style={{ left: "75%", bottom: "62%" }} /><i style={{ left: "93%", bottom: "72%" }} /><b /></div></div></section><section className="prd-analytics-row"><article className="prd-panel"><header className="prd-panel-head"><div><h2>Skill gaps</h2><p>Most common across active applicants</p></div></header><div className="prd-skill-gaps">{[["System design",64],["Data interpretation",57],["Business communication",46],["Advanced SQL",39],["Problem solving",34]].map(([skill,value]) => <div key={skill}><span>{skill}<b>{value} students</b></span><i><b style={{ width: `${value}%` }} /></i></div>)}</div></article><article className="prd-panel"><header className="prd-panel-head"><div><h2>Placement funnel</h2><p>Current academic year</p></div></header><div className="prd-funnel">{[["Eligible",304],["Applied",246],["Shortlisted",112],["Interviewed",68],["Placed",41]].map(([label,value],index) => <div key={label} style={{ width: `${100 - index * 11}%` }}><span>{label}</span><strong>{value}</strong></div>)}</div></article></section></div>;
+}
+
+function RoleProgressView({ role, onAction, onToast }: { role: Role; onAction: () => void; onToast: (message: string) => void }) {
+  const [range, setRange] = useState("Last 12 weeks");
+  const content = role === "tpo" ? {
+    eyebrow: "Institution progress",
+    title: "The cohort is moving toward placement readiness.",
+    description: "A single view of readiness growth, participation quality, and placement outcomes across the 2027 cohort.",
+    score: 68, delta: "+4.2", goal: "75 by the September drive window", cta: "Review 18 at-risk students",
+    chartTitle: "Cohort readiness trend", chartNote: "Weekly average across 304 eligible students",
+    metrics: [["Placement-ready", "128", "+22 this term"], ["Active participation", "81%", "+7% vs May"], ["Mentor follow-ups", "46/64", "18 still open"]],
+    gapTitle: "Priority skill gaps", gapNote: "Students who need targeted support",
+    gaps: [["System design",64],["Data interpretation",57],["Business communication",46],["Advanced SQL",39],["Problem solving",34]],
+    funnelTitle: "Placement outcome funnel", funnelNote: "Current academic year",
+    funnel: [["Eligible",304],["Applied",246],["Shortlisted",112],["Interviewed",68],["Placed",41]],
+  } : role === "recruiter" ? {
+    eyebrow: "Hiring progress",
+    title: "Your strongest candidates are moving faster.",
+    description: "Track how efficiently the Product Analyst pipeline is converting from matched profiles to confirmed hires.",
+    score: 62, delta: "+11.0", goal: "8 offers accepted by 31 August", cta: "Review your shortlist",
+    chartTitle: "Pipeline momentum", chartNote: "Qualified candidates progressing each week",
+    metrics: [["Profiles reviewed", "86", "+18 this week"], ["Shortlist quality", "82%", "Above benchmark"], ["Interviews booked", "8/12", "4 slots open"]],
+    gapTitle: "Candidate readiness mix", gapNote: "Average score by hiring signal",
+    gaps: [["Role skills",84],["Interview readiness",78],["Business communication",74],["Product thinking",69],["Case confidence",61]],
+    funnelTitle: "Hiring conversion", funnelNote: "Product Analyst drive",
+    funnel: [["Matched",86],["Reviewed",64],["Shortlisted",24],["Interviewed",12],["Offers",5]],
+  } : {
+    eyebrow: "Mentoring impact",
+    title: "Focused follow-ups are restoring momentum.",
+    description: "See how cohort engagement and preparation scores change after faculty interventions and check-ins.",
+    score: 74, delta: "+6.8", goal: "Reduce at-risk students below 10", cta: "Open priority follow-ups",
+    chartTitle: "Cohort engagement trend", chartNote: "Preparation activity after mentor check-ins",
+    metrics: [["Follow-ups complete", "46", "+12 this month"], ["Students re-engaged", "21", "84% response"], ["At-risk reduction", "28%", "Since semester start"]],
+    gapTitle: "Common support needs", gapNote: "Share of follow-ups mentioning each blocker",
+    gaps: [["Interview confidence",72],["Next-step clarity",61],["Quant consistency",54],["Resume evidence",43],["Time management",36]],
+    funnelTitle: "Mentoring outcomes", funnelNote: "Current semester",
+    funnel: [["Flagged",52],["Contacted",46],["Responded",39],["Re-engaged",21],["On track",16]],
+  };
+
+  return <div className="prd-analytics">
+    <section className="prd-progress-hero">
+      <div className="prd-progress-copy"><span>{content.eyebrow}</span><h2>{content.title}</h2><p>{content.description}</p><button onClick={onAction}>{content.cta} <ArrowRight size={15} /></button></div>
+      <div className="prd-progress-score"><div className="prd-progress-ring" style={{ "--progress": `${content.score * 3.6}deg` } as CSSProperties}><strong>{content.score}</strong><span>overall score</span></div><div><small>12-week change</small><strong><TrendingUp size={15} /> {content.delta} points</strong><p>Next goal</p><b>{content.goal}</b></div></div>
+    </section>
+    <section className="prd-progress-metrics">{content.metrics.map(([label, value, note], index) => <article key={label}><span>{index === 0 ? <UserCheck size={18} /> : index === 1 ? <TrendingUp size={18} /> : <CheckCircle2 size={18} />}</span><div><small>{label}</small><strong>{value}</strong><p>{note}</p></div></article>)}</section>
+    <section className="prd-panel prd-wide-chart"><header className="prd-panel-head"><div><h2>{content.chartTitle}</h2><p>{content.chartNote}</p></div><button onClick={() => setRange(range === "Last 12 weeks" ? "Last 6 months" : "Last 12 weeks")}>{range} <ChevronDown size={14} /></button></header><div className="prd-line-chart"><div className="line-y"><span>80</span><span>70</span><span>60</span><span>50</span></div><div className="line-plot"><i style={{ left: "3%", bottom: "22%" }} /><i style={{ left: "21%", bottom: "31%" }} /><i style={{ left: "39%", bottom: "42%" }} /><i style={{ left: "57%", bottom: "47%" }} /><i style={{ left: "75%", bottom: "62%" }} /><i style={{ left: "93%", bottom: "72%" }} /><b /></div></div><div className="prd-chart-events"><span>Baseline</span><span>First intervention</span><span>Midpoint review</span><span>Today</span></div></section>
+    <section className="prd-analytics-row"><article className="prd-panel"><header className="prd-panel-head"><div><h2>{content.gapTitle}</h2><p>{content.gapNote}</p></div><button onClick={() => onToast(`${content.gapTitle} report is ready to export.`)}><Download size={14} /> Report</button></header><div className="prd-skill-gaps">{content.gaps.map(([skill,value]) => <div key={skill}><span>{skill}<b>{value}{role === "tpo" ? " students" : "%"}</b></span><i><b style={{ width: `${value}%` }} /></i></div>)}</div></article><article className="prd-panel"><header className="prd-panel-head"><div><h2>{content.funnelTitle}</h2><p>{content.funnelNote}</p></div></header><div className="prd-funnel">{content.funnel.map(([label,value],index) => <div key={label} style={{ width: `${100 - index * 11}%` }}><span>{label}</span><strong>{value}</strong></div>)}</div></article></section>
+  </div>;
 }
 
 function InterviewsView({ onToast }: { onToast: (message: string) => void }) {
@@ -227,7 +275,7 @@ export function ProfessionalRoleDashboard({ user, accessToken, onLogout }: { use
     if (active === "Shortlist") return <DirectoryView role={role} search={search} onView={setSelectedStudent} shortlisted={shortlisted} onShortlist={toggleShortlist} onlyShortlisted onToast={showToast} />;
     if (active === "Drives") return <DrivesView onToast={showToast} />;
     if (active === "Invitations") return <InvitationsView invitations={invitations} onInvite={() => setInviteOpen(true)} onToast={showToast} />;
-    if (active === "Analytics" || active === "Progress") return <AnalyticsView />;
+    if (active === "Progress") return <RoleProgressView role={role} onAction={() => setActive(role === "tpo" ? "Students" : role === "recruiter" ? "Shortlist" : "At risk")} onToast={showToast} />;
     if (active === "Interviews") return <InterviewsView onToast={showToast} />;
     if (active === "At risk") return <FacultyProgress onView={setSelectedStudent} />;
     return null;
