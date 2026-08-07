@@ -244,6 +244,6 @@ export function PlacebleApp() {
   if (sessionState) return <SessionScreen type={sessionState} onLogout={logout} />;
   if (!user) return <AuthScreen onAuthenticated={authenticated} />;
   if (user.role === "student" && !user.onboardingCompleted) return <Onboarding user={user} accessToken={accessToken} onComplete={setUser} onLogout={logout} />;
-  if (user.role === "student") return <PlacebleDashboard user={user} onLogout={logout} />;
+  if (user.role === "student") return <PlacebleDashboard user={user} accessToken={accessToken} onLogout={logout} />;
   return <ProfessionalRoleDashboard user={{ name: user.name, email: user.email, role: user.role }} accessToken={accessToken} onLogout={logout} />;
 }

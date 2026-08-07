@@ -6,6 +6,7 @@ import { connectDatabase } from "./config/database";
 import { env } from "./config/env";
 import { authRouter } from "./routes/auth";
 import { institutionRouter } from "./routes/institution";
+import { resumeRouter } from "./routes/resume";
 
 const app = express();
 app.disable("x-powered-by");
@@ -17,6 +18,7 @@ app.use(cookieParser());
 app.get("/api/v1/health", (_request, response) => response.json({ status: "ok", database: env.MONGODB_DB_NAME }));
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/institution", institutionRouter);
+app.use("/api/v1/resume", resumeRouter);
 
 app.use((_request, response) => response.status(404).json({ message: "Route not found." }));
 

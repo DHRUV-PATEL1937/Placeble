@@ -32,8 +32,10 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { ReadinessScoreRing as ReadinessRing } from "./readiness-score-ring";
+import { ResumeMaker } from "./resume-maker";
 
-type View = "Overview" | "Progress" | "Agents" | "Opportunities" | "Applications";
+type View = "Overview" | "Progress" | "Agents" | "Resume Maker" | "Opportunities" | "Applications";
 
 const navItems: { label: View; icon: typeof LayoutDashboard }[] = [
   { label: "Overview", icon: LayoutDashboard },
@@ -143,35 +145,6 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function ReadinessRing({ score, compact = false }: { score: number; compact?: boolean }) {
-  const radius = compact ? 19 : 80;
-  const stroke = compact ? 4 : 10;
-  const size = compact ? 48 : 190;
-  const circumference = 2 * Math.PI * radius;
-  const center = size / 2;
-  const dashOffset = circumference * (1 - score / 100);
-  return (
-    <div className={`score-ring ${compact ? "score-ring--compact" : ""}`}>
-      <svg viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`Readiness score ${score} out of 100`}>
-        <circle className="score-track" cx={center} cy={center} r={radius} strokeWidth={stroke} />
-        <circle
-          className="score-progress"
-          cx={center}
-          cy={center}
-          r={radius}
-          strokeWidth={stroke}
-          strokeDasharray={circumference}
-          strokeDashoffset={dashOffset}
-        />
-      </svg>
-      <div className="score-value">
-        <strong>{score}</strong>
-        {!compact && <span>out of 100</span>}
-      </div>
-    </div>
-  );
-}
-
 function Sidebar({ current, setCurrent, open, setOpen, user }: {
   current: View;
   setCurrent: (view: View) => void;
@@ -193,7 +166,7 @@ function Sidebar({ current, setCurrent, open, setOpen, user }: {
           {navItems.map(({ label, icon: Icon }) => (
             <button
               key={label}
-              className={`nav-item ${current === label ? "is-active" : ""}`}
+              className={`nav-item ${current === label || (current === "Resume Maker" && label === "Agents") ? "is-active" : ""}`}
               onClick={() => { setCurrent(label); setOpen(false); }}
             >
               <Icon size={19} strokeWidth={1.8} />
@@ -348,7 +321,7 @@ function Overview({ setCurrent }: { setCurrent: (view: View) => void }) {
   );
 }
 
-function AgentsView() {
+function AgentsView({ onOpenResume }: { onOpenResume: () => void }) {
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
   return (
     <div className="view-content inner-view">
@@ -360,7 +333,7 @@ function AgentsView() {
             <div className="agent-card-top"><span className={`agent-icon ${tone}`}><Icon size={24} /></span><span className="agent-metric">{metric}</span></div>
             <div><h3>{name}</h3><p>{description}</p></div>
             <div className="agent-status"><span className={`status-dot ${tone}`} />{status}</div>
-            <button className="agent-action" onClick={() => setActiveAgent(name)}>{action}<ArrowRight size={16} /></button>
+            <button className="agent-action" onClick={() => name === "Resume Maker" ? onOpenResume() : setActiveAgent(name)}>{action}<ArrowRight size={16} /></button>
           </article>
         ))}
       </section>
@@ -439,7 +412,7 @@ function BottomNav({ current, setCurrent }: { current: View; setCurrent: (view: 
   return <nav className="bottom-nav" aria-label="Mobile navigation">{navItems.map(({ label, icon: Icon }) => <button key={label} className={current === label ? "is-active" : ""} onClick={() => setCurrent(label)}><Icon size={20} /><span>{label === "Opportunities" ? "Jobs" : label}</span></button>)}</nav>;
 }
 
-export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "student@placeble.local" }, onLogout = () => undefined }: { user?: { name: string; email: string }; onLogout?: () => void }) {
+export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "student@placeble.local" }, accessToken = "", onLogout = () => undefined }: { user?: { name: string; email: string }; accessToken?: string; onLogout?: () => void }) {
   const [current, setCurrent] = useState<View>("Overview");
   const [dark, setDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -480,10 +453,11 @@ export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "studen
   const view = useMemo(() => {
     if (current === "Overview") return <Overview setCurrent={setCurrent} />;
     if (current === "Progress") return <ProgressView setCurrent={setCurrent} />;
-    if (current === "Agents") return <AgentsView />;
+    if (current === "Agents") return <AgentsView onOpenResume={() => setCurrent("Resume Maker")} />;
+    if (current === "Resume Maker") return <ResumeMaker user={user} accessToken={accessToken} onBack={() => setCurrent("Agents")} />;
     if (current === "Opportunities") return <OpportunitiesView setCurrent={setCurrent} />;
     return <ApplicationsView />;
-  }, [current]);
+  }, [current, accessToken, user]);
   return (
     <div className="app-shell">
       <Sidebar current={current} setCurrent={setCurrent} open={menuOpen} setOpen={setMenuOpen} user={user} />

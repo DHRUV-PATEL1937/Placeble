@@ -1,6 +1,6 @@
 # Placeble Frontend
 
-The independent Placeble web client. It contains the role-aware login experience, student product, TPO dashboard, recruiter workspace, faculty view, and responsive design system.
+The independent Placeble web client. It contains the role-aware login experience, student product, TPO dashboard, recruiter workspace, faculty view, responsive design system, and the two-panel Resume Maker workspace.
 
 ## Local development
 
