@@ -34,8 +34,13 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { ReadinessScoreRing as ReadinessRing } from "./readiness-score-ring";
 import { ResumeMaker } from "./resume-maker";
+import { AptitudeTest } from "./aptitude-test";
+import { MockInterview } from "./mock-interview";
+import { JobMatching } from "./job-matching";
+import { CoverLetter } from "./cover-letter";
+import { GroupDiscussion } from "./group-discussion";
 
-type View = "Overview" | "Progress" | "Agents" | "Resume Maker" | "Opportunities" | "Applications";
+type View = "Overview" | "Progress" | "Agents" | "Resume Maker" | "Aptitude Test" | "Mock Interview" | "Job Matching" | "Cover Letter" | "Group Discussion" | "Opportunities" | "Applications";
 
 const navItems: { label: View; icon: typeof LayoutDashboard }[] = [
   { label: "Overview", icon: LayoutDashboard },
@@ -95,8 +100,8 @@ const agents = [
     name: "Group Discussion",
     description: "Build clarity, confidence, and leadership in a live room.",
     icon: UsersRound,
-    status: "Next skill to unlock",
-    action: "View pathway",
+    status: "Observer scorecard ready",
+    action: "Start discussion",
     metric: "1 session",
     tone: "slate",
   },
@@ -166,7 +171,7 @@ function Sidebar({ current, setCurrent, open, setOpen, user }: {
           {navItems.map(({ label, icon: Icon }) => (
             <button
               key={label}
-              className={`nav-item ${current === label || (current === "Resume Maker" && label === "Agents") ? "is-active" : ""}`}
+              className={`nav-item ${current === label || (["Resume Maker", "Aptitude Test", "Mock Interview", "Job Matching", "Cover Letter", "Group Discussion"].includes(current) && label === "Agents") ? "is-active" : ""}`}
               onClick={() => { setCurrent(label); setOpen(false); }}
             >
               <Icon size={19} strokeWidth={1.8} />
@@ -321,19 +326,19 @@ function Overview({ setCurrent }: { setCurrent: (view: View) => void }) {
   );
 }
 
-function AgentsView({ onOpenResume }: { onOpenResume: () => void }) {
+function AgentsView({ onOpenResume, onOpenAptitude, onOpenInterview, onOpenMatching, onOpenCoverLetter, onOpenGroupDiscussion }: { onOpenResume: () => void; onOpenAptitude: () => void; onOpenInterview: () => void; onOpenMatching: () => void; onOpenCoverLetter: () => void; onOpenGroupDiscussion: () => void }) {
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
   return (
     <div className="view-content inner-view">
       <section className="view-intro"><div><p className="eyebrow">Your preparation toolkit</p><h2>Six coaches. One clear path.</h2><p>Every session contributes to the same readiness score, so your effort stays connected.</p></div><div className="compact-score-card"><ReadinessRing score={72} compact /><span><strong>72 readiness</strong><small>4 points this fortnight</small></span></div></section>
-      <section className="recommended-strip"><span className="recommend-icon"><Sparkles size={18} /></span><div><strong>Recommended next: Aptitude Practice</strong><p>Data interpretation is your clearest opportunity to improve this week.</p></div><button className="button button-progress" onClick={() => setActiveAgent("Aptitude Practice")}>Start 15-min practice <ArrowRight size={16} /></button></section>
+      <section className="recommended-strip"><span className="recommend-icon"><Sparkles size={18} /></span><div><strong>Recommended next: Aptitude Practice</strong><p>Data interpretation is your clearest opportunity to improve this week.</p></div><button className="button button-progress" onClick={onOpenAptitude}>Start 15-min practice <ArrowRight size={16} /></button></section>
       <section className="agent-library">
         {agents.map(({ name, description, icon: Icon, status, action, metric, tone }) => (
           <article className="agent-card" key={name}>
             <div className="agent-card-top"><span className={`agent-icon ${tone}`}><Icon size={24} /></span><span className="agent-metric">{metric}</span></div>
             <div><h3>{name}</h3><p>{description}</p></div>
             <div className="agent-status"><span className={`status-dot ${tone}`} />{status}</div>
-            <button className="agent-action" onClick={() => name === "Resume Maker" ? onOpenResume() : setActiveAgent(name)}>{action}<ArrowRight size={16} /></button>
+            <button className="agent-action" onClick={() => name === "Resume Maker" ? onOpenResume() : name === "Aptitude Practice" ? onOpenAptitude() : name === "Mock Interview" ? onOpenInterview() : name === "Job Matching" ? onOpenMatching() : name === "Cover Letter" ? onOpenCoverLetter() : name === "Group Discussion" ? onOpenGroupDiscussion() : setActiveAgent(name)}>{action}<ArrowRight size={16} /></button>
           </article>
         ))}
       </section>
@@ -409,7 +414,7 @@ function ApplicationsView() {
 }
 
 function BottomNav({ current, setCurrent }: { current: View; setCurrent: (view: View) => void }) {
-  return <nav className="bottom-nav" aria-label="Mobile navigation">{navItems.map(({ label, icon: Icon }) => <button key={label} className={current === label ? "is-active" : ""} onClick={() => setCurrent(label)}><Icon size={20} /><span>{label === "Opportunities" ? "Jobs" : label}</span></button>)}</nav>;
+  return <nav className="bottom-nav" aria-label="Mobile navigation">{navItems.map(({ label, icon: Icon }) => <button key={label} className={current === label || (["Resume Maker", "Aptitude Test", "Mock Interview", "Job Matching", "Cover Letter", "Group Discussion"].includes(current) && label === "Agents") ? "is-active" : ""} onClick={() => setCurrent(label)}><Icon size={20} /><span>{label === "Opportunities" ? "Jobs" : label}</span></button>)}</nav>;
 }
 
 export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "student@placeble.local" }, accessToken = "", onLogout = () => undefined }: { user?: { name: string; email: string }; accessToken?: string; onLogout?: () => void }) {
@@ -453,8 +458,13 @@ export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "studen
   const view = useMemo(() => {
     if (current === "Overview") return <Overview setCurrent={setCurrent} />;
     if (current === "Progress") return <ProgressView setCurrent={setCurrent} />;
-    if (current === "Agents") return <AgentsView onOpenResume={() => setCurrent("Resume Maker")} />;
+    if (current === "Agents") return <AgentsView onOpenResume={() => setCurrent("Resume Maker")} onOpenAptitude={() => setCurrent("Aptitude Test")} onOpenInterview={() => setCurrent("Mock Interview")} onOpenMatching={() => setCurrent("Job Matching")} onOpenCoverLetter={() => setCurrent("Cover Letter")} onOpenGroupDiscussion={() => setCurrent("Group Discussion")} />;
     if (current === "Resume Maker") return <ResumeMaker user={user} accessToken={accessToken} onBack={() => setCurrent("Agents")} />;
+    if (current === "Aptitude Test") return <AptitudeTest accessToken={accessToken} onBack={() => setCurrent("Agents")} />;
+    if (current === "Mock Interview") return <MockInterview accessToken={accessToken} onBack={() => setCurrent("Agents")} />;
+    if (current === "Job Matching") return <JobMatching accessToken={accessToken} onBack={() => setCurrent("Agents")} />;
+    if (current === "Cover Letter") return <CoverLetter accessToken={accessToken} onBack={() => setCurrent("Agents")} onOpenResume={() => setCurrent("Resume Maker")} />;
+    if (current === "Group Discussion") return <GroupDiscussion accessToken={accessToken} onBack={() => setCurrent("Agents")} />;
     if (current === "Opportunities") return <OpportunitiesView setCurrent={setCurrent} />;
     return <ApplicationsView />;
   }, [current, accessToken, user]);

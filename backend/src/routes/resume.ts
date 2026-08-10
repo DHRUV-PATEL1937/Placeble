@@ -13,10 +13,12 @@ import {
   queueResumeJob,
   renderResumeDocx,
   renderResumePdf,
-  scoreResume,
+  scoreResumeWithEmbeddings,
   storeExport,
   type ResumeSection,
 } from "../services/resume-service";
+import { runResumeCopilot } from "../services/resume-copilot-service";
+import { markStudentMatchingProfileChanged } from "../services/matching-service";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 }, fileFilter: (_request, file, callback) => callback(null, /\.(pdf|docx)$/i.test(file.originalname)) });
@@ -68,7 +70,7 @@ router.post("/generate", async (request, response) => {
       const skillsSection = sections.find(section => section.type === "skills");
       if (skillsSection) skillsSection.content.items = [...new Set([...(Array.isArray(skillsSection.content.items) ? skillsSection.content.items : []), ...profileSkills])];
     }
-    const score = scoreResume(sections, input.targetJdText);
+    const score = await scoreResumeWithEmbeddings(sections, input.targetJdText);
     await Resume.updateMany({ studentId: userId, isCurrent: true }, { isCurrent: false });
     const resume = await Resume.create({
       studentId: userId,
@@ -83,6 +85,7 @@ router.post("/generate", async (request, response) => {
       parentVersionId: previous?._id ?? null,
       isCurrent: true,
     });
+    await markStudentMatchingProfileChanged(userId);
     return { resume };
   });
   return response.status(202).json({ job });
@@ -107,6 +110,7 @@ router.post("/upload", upload.single("resume"), async (request, response) => {
       parentVersionId: previous?._id ?? null,
       isCurrent: true,
     });
+    await markStudentMatchingProfileChanged(userId);
     return { resume, found: { sections: parsed.sections.filter(section => Object.values(section.content).some(value => Array.isArray(value) ? value.length : Boolean(value))).length, characters: parsed.rawTextLength } };
   });
   return response.status(202).json({ job });
@@ -114,12 +118,13 @@ router.post("/upload", upload.single("resume"), async (request, response) => {
 
 router.patch("/current", async (request, response) => {
   const input = saveSchema.parse(request.body);
-  const score = scoreResume(input.sections as ResumeSection[], input.targetJdText);
+  const score = await scoreResumeWithEmbeddings(input.sections as ResumeSection[], input.targetJdText);
   const resume = await Resume.findOneAndUpdate(
     { studentId: request.auth!.userId, isCurrent: true },
     { ...input, atsScore: score.atsScore, atsBreakdown: { keywordOverlap: score.keywordOverlap, semanticSimilarity: score.semanticSimilarity, missingKeywords: score.missingKeywords }, fileUrl: "" },
     { new: true, runValidators: true },
   );
+  if (resume) await markStudentMatchingProfileChanged(request.auth!.userId);
   return resume ? response.json({ resume }) : response.status(404).json({ message: "Generate or upload a resume before editing." });
 });
 
@@ -127,10 +132,36 @@ router.post("/score", async (request, response) => {
   const input = z.object({ sections: z.array(sectionSchema), targetJdText: z.string().max(30000).optional().default("") }).parse(request.body);
   const userId = request.auth!.userId;
   const job = queueResumeJob(userId, "resume:scoreAts", "Comparing your current draft with the target role", async () => {
-    const score = scoreResume(input.sections as ResumeSection[], input.targetJdText);
+    const score = await scoreResumeWithEmbeddings(input.sections as ResumeSection[], input.targetJdText);
     const resume = await Resume.findOneAndUpdate({ studentId: userId, isCurrent: true }, { targetJdText: input.targetJdText, atsScore: score.atsScore, atsBreakdown: { keywordOverlap: score.keywordOverlap, semanticSimilarity: score.semanticSimilarity, missingKeywords: score.missingKeywords } }, { new: true });
     return { score, resumeId: resume?._id };
   });
+  return response.status(202).json({ job });
+});
+
+router.post("/copilot", async (request, response) => {
+  const input = z.object({
+    message: z.string().trim().min(1).max(2400),
+    conversation: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string().max(2400) })).max(20).default([]),
+    resume: z.object({
+      title: z.string().max(140),
+      sections: z.array(sectionSchema).min(1).max(12),
+      targetJdText: z.string().max(30000).optional().default(""),
+    }),
+  }).parse(request.body);
+  const [profile, user] = await Promise.all([
+    StudentProfile.findOne({ userId: request.auth!.userId }).lean(),
+    User.findById(request.auth!.userId).select("name").lean(),
+  ]);
+  if (!user) return response.status(404).json({ message: "Your student account could not be found." });
+  const userId = request.auth!.userId;
+  const job = queueResumeJob(userId, "resume:copilot", "Thinking through your request", () => runResumeCopilot({
+    message: input.message,
+    conversation: input.conversation,
+    resume: { ...input.resume, sections: input.resume.sections as ResumeSection[] },
+    profile,
+    studentName: user.name,
+  }));
   return response.status(202).json({ job });
 });
 
@@ -173,6 +204,7 @@ router.post("/versions/:versionId/restore", async (request, response) => {
     parentVersionId: source._id,
     isCurrent: true,
   });
+  await markStudentMatchingProfileChanged(request.auth!.userId);
   return response.status(201).json({ resume });
 });
 

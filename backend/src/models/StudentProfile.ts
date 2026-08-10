@@ -8,6 +8,11 @@ const studentProfileSchema = new Schema({
   graduationYear: { type: Number },
   skills: [{ type: String }],
   preferredRoles: [{ type: String }],
+  profileVersion: { type: Number, min: 1, default: 1 },
+  embedding: { type: [Number], default: [] },
+  embeddingUpdatedAt: { type: Date },
+  embeddingProfileVersion: { type: Number, min: 0, default: 0 },
+  dismissedJobIds: [{ type: Schema.Types.ObjectId, ref: "Job" }],
   onboardingCompleted: { type: Boolean, default: false },
 }, { timestamps: true });
 

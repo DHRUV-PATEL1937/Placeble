@@ -3,6 +3,7 @@ import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import PDFDocument from "pdfkit";
+import { cosineSimilarity, embedText, EMBEDDING_PIPELINE_VERSION } from "./embedding-service";
 
 export type ResumeSection = {
   type: "summary" | "experience" | "education" | "skills" | "projects" | "certifications";
@@ -56,6 +57,24 @@ export function resumeText(sections: ResumeSection[]) {
   return sections.map(section => Object.values(section.content).flatMap(value => Array.isArray(value) ? value.map(item => typeof item === "object" ? Object.values(item ?? {}).join(" ") : String(item)) : typeof value === "object" ? Object.values(value ?? {}).join(" ") : String(value)).join(" ")).join(" ");
 }
 
+export function buildVerifiedResumeContext(input: {
+  studentName: string;
+  profile: unknown;
+  resume: { title: string; sections: ResumeSection[]; targetJdText?: string };
+  targetJdText?: string;
+}) {
+  return {
+    studentName: input.studentName,
+    verifiedProfile: input.profile,
+    selectedResume: {
+      title: input.resume.title,
+      sections: input.resume.sections,
+      plainText: resumeText(input.resume.sections),
+    },
+    targetJobDescription: input.targetJdText ?? input.resume.targetJdText ?? "",
+  };
+}
+
 export function scoreResume(sections: ResumeSection[], targetJdText = "") {
   const text = resumeText(sections);
   if (!targetJdText.trim()) {
@@ -71,6 +90,21 @@ export function scoreResume(sections: ResumeSection[], targetJdText = "") {
   const union = new Set([...jdTerms, ...resumeTerms]);
   const semanticSimilarity = union.size ? Math.round(matches.length / union.size * 100 * 2.8) : 0;
   return { atsScore: Math.min(98, Math.round(keywordOverlap * .68 + semanticSimilarity * .32)), keywordOverlap, semanticSimilarity: Math.min(100, semanticSimilarity), missingKeywords };
+}
+
+export async function scoreResumeWithEmbeddings(sections: ResumeSection[], targetJdText = "") {
+  const lexical = scoreResume(sections, targetJdText);
+  if (!targetJdText.trim()) return lexical;
+  try {
+    const [resumeEmbedding, jobEmbedding] = await Promise.all([
+      embedText(`[${EMBEDDING_PIPELINE_VERSION}|resume-ats-v1] CANDIDATE RESUME: ${resumeText(sections)}`),
+      embedText(`[${EMBEDDING_PIPELINE_VERSION}|resume-ats-v1] TARGET JOB: ${targetJdText}`),
+    ]);
+    const semanticSimilarity = Math.round(Math.max(0, Math.min(1, cosineSimilarity(resumeEmbedding, jobEmbedding))) * 100);
+    return { ...lexical, semanticSimilarity, atsScore: Math.min(98, Math.round(lexical.keywordOverlap * .62 + semanticSimilarity * .38)) };
+  } catch {
+    return lexical;
+  }
 }
 
 export function generateProfileResume(profile: { degree?: string | null; graduationYear?: number | null; skills?: string[] | null; preferredRoles?: string[] | null }, studentName: string, targetJdText = "") {
@@ -161,6 +195,25 @@ export async function renderResumePdf(name: string, title: string, sections: Res
         document.moveDown(.3);
       }
       document.moveDown(.7);
+    }
+    document.end();
+  });
+}
+
+export async function renderSimpleTextPdf(input: { studentName: string; title: string; bodyText: string }) {
+  return new Promise<Buffer>((resolve, reject) => {
+    const document = new PDFDocument({ size: "A4", margins: { top: 62, right: 64, bottom: 62, left: 64 } });
+    const chunks: Buffer[] = [];
+    document.on("data", chunk => chunks.push(Buffer.from(chunk)));
+    document.on("end", () => resolve(Buffer.concat(chunks)));
+    document.on("error", reject);
+    document.fillColor("#0B1224").font("Helvetica-Bold").fontSize(19).text(input.studentName);
+    document.moveDown(.3);
+    document.fillColor("#667085").font("Helvetica").fontSize(9.5).text(input.title);
+    document.moveDown(2.1);
+    for (const paragraph of input.bodyText.split(/\n\s*\n/).map(value => value.trim()).filter(Boolean)) {
+      document.fillColor("#273043").font("Helvetica").fontSize(10.5).text(paragraph, { lineGap: 4, align: "left" });
+      document.moveDown(1.15);
     }
     document.end();
   });

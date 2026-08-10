@@ -6,6 +6,7 @@ import { Institution } from "./models/Institution";
 import { RecruiterProfile } from "./models/RecruiterProfile";
 import { StudentProfile } from "./models/StudentProfile";
 import { User, type UserDocument } from "./models/User";
+import { ensureAptitudeQuestionBank } from "./services/aptitude-question-bank";
 
 async function seed() {
   await connectDatabase();
@@ -50,7 +51,9 @@ async function seed() {
     { upsert: true, new: true },
   );
 
-  console.log(`Seeded ${env.MONGODB_DB_NAME} with student, TPO, recruiter, and faculty accounts.`);
+  await ensureAptitudeQuestionBank();
+
+  console.log(`Seeded ${env.MONGODB_DB_NAME} with demo accounts and the aptitude question bank.`);
   await disconnectDatabase();
 }
 

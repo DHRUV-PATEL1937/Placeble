@@ -30,6 +30,7 @@ work/
 *.tsbuildinfo
 .DS_Store
 *.pem
+backend/uploads/
 
 # Package-manager local state
 .pnp

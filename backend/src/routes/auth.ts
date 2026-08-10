@@ -17,6 +17,7 @@ import {
   readRefreshToken,
   verifyRefreshToken,
 } from "../services/token-service";
+import { queueMatchingRecompute } from "../services/matching-service";
 
 const router = Router();
 const passwordSchema = z.string().min(8).regex(/[A-Z]/).regex(/[a-z]/).regex(/[0-9]/);
@@ -151,7 +152,8 @@ router.post("/onboarding", requireAuth, requireRole("student"), async (request, 
     skills: z.array(z.string().min(1)).min(1),
     preferredRoles: z.array(z.string().min(1)).min(1),
   }).parse(request.body);
-  await StudentProfile.findOneAndUpdate({ userId: request.auth!.userId }, { ...input, onboardingCompleted: true }, { upsert: true, new: true });
+  await StudentProfile.findOneAndUpdate({ userId: request.auth!.userId }, { $set: { ...input, onboardingCompleted: true, embedding: [], embeddingProfileVersion: 0 }, $inc: { profileVersion: 1 } }, { upsert: true, new: true, setDefaultsOnInsert: true });
+  queueMatchingRecompute(request.auth!.userId, { studentId: request.auth!.userId });
   const user = await User.findById(request.auth!.userId) as UserDocument;
   return response.json({ user: await publicUser(user) });
 });
