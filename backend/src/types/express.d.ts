@@ -7,11 +7,12 @@ declare global {
         userId: string;
         role: UserRole;
         institutionId?: string;
+        recruiterOrgId?: string;
       };
       institutionScope?: string;
+      driveAccess?: { driveId: string; institutionId: string; recruiterOrgId: string };
     }
   }
 }
 
 export {};
-

@@ -39,5 +39,6 @@ const interviewSchema = new Schema({
 }, { timestamps: true });
 
 interviewSchema.index({ studentId: 1, createdAt: -1 });
+interviewSchema.post("save", document => { if (document.status === "completed") void import("../services/readiness-service").then(({ recomputeReadiness }) => recomputeReadiness(String(document.studentId), "interview_completed")).catch(console.error); });
 type InterviewShape = InferSchemaType<typeof interviewSchema>;
 export const Interview = (models.Interview as Model<InterviewShape> | undefined) ?? model<InterviewShape>("Interview", interviewSchema);

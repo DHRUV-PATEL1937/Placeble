@@ -43,6 +43,16 @@ type Job = { id: string; kind: string; status: "queued" | "processing" | "comple
 type Screen = "home" | "setup" | "room" | "debrief";
 type Permission = "idle" | "checking" | "ready" | "denied" | "unavailable";
 
+async function requestUserMedia(constraints: MediaStreamConstraints, timeoutMs = 8000) {
+  let timedOut = false;
+  const request = navigator.mediaDevices.getUserMedia(constraints).then(stream => {
+    if (timedOut) { stream.getTracks().forEach(track => track.stop()); throw new Error("Device check timed out."); }
+    return stream;
+  });
+  const timeout = new Promise<never>((_, reject) => window.setTimeout(() => { timedOut = true; reject(new Error("Device check timed out.")); }, timeoutMs));
+  return Promise.race([request, timeout]);
+}
+
 const typeMeta: Record<InterviewType, { label: string; copy: string }> = {
   hr: { label: "HR", copy: "Motivation, self-awareness and role fit" },
   technical: { label: "Technical", copy: "Projects, decisions and problem solving" },
@@ -143,7 +153,7 @@ export function MockInterview({ accessToken, onBack }: { accessToken: string; on
     setPermission("checking"); setError("");
     try {
       streamRef.current?.getTracks().forEach(track => track.stop());
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" } });
+      const stream = await requestUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" } });
       streamRef.current = stream; setPermission("ready"); setTypedMode(false);
       window.setTimeout(() => { if (videoRef.current) { videoRef.current.srcObject = stream; void videoRef.current.play().catch(() => undefined); } }, 0);
     } catch { setPermission("denied"); }

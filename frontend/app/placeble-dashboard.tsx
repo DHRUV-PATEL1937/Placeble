@@ -31,16 +31,16 @@ import {
   WandSparkles,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ReadinessScoreRing as ReadinessRing } from "./readiness-score-ring";
 import { ResumeMaker } from "./resume-maker";
 import { AptitudeTest } from "./aptitude-test";
 import { MockInterview } from "./mock-interview";
-import { JobMatching } from "./job-matching";
+import { JobMatching, preloadJobMatching } from "./job-matching";
 import { CoverLetter } from "./cover-letter";
 import { GroupDiscussion } from "./group-discussion";
 
-type View = "Overview" | "Progress" | "Agents" | "Resume Maker" | "Aptitude Test" | "Mock Interview" | "Job Matching" | "Cover Letter" | "Group Discussion" | "Opportunities" | "Applications";
+type View = "Overview" | "Progress" | "Agents" | "Resume Maker" | "Aptitude Test" | "Mock Interview" | "Job Matching" | "Cover Letter" | "Group Discussion" | "Opportunities" | "Applications" | "Profile" | "Settings";
 
 const navItems: { label: View; icon: typeof LayoutDashboard }[] = [
   { label: "Overview", icon: LayoutDashboard },
@@ -50,92 +50,67 @@ const navItems: { label: View; icon: typeof LayoutDashboard }[] = [
   { label: "Applications", icon: ClipboardCheck },
 ];
 
-const agents = [
+type ReadinessPayload = { current: { score: number; evidenceCount?: number; components: { resume: number; aptitude: number; interview: number; groupDiscussion: number; careerActivity: number } } | null; history: Array<{ score: number; calculatedAt: string; reason?: string }> };
+
+function buildAgents(readiness: ReadinessPayload | null) {
+  const components = readiness?.current?.components;
+  return [
   {
     name: "Resume Maker",
     description: "Shape a focused, ATS-ready resume from your profile.",
     icon: FileText,
-    status: "Resume at 78%",
+    status: components?.resume ? `Latest ATS evidence: ${components.resume}` : "No resume evidence yet",
     action: "Improve resume",
-    metric: "ATS 78",
+    metric: components?.resume ? `ATS ${components.resume}` : "Not started",
     tone: "navy",
   },
   {
     name: "Aptitude Practice",
     description: "Strengthen the topics that are holding your score back.",
     icon: BookOpenCheck,
-    status: "12 questions due",
+    status: components?.aptitude ? "Completed assessment available" : "No completed assessment",
     action: "Start practice",
-    metric: "64% avg.",
+    metric: components?.aptitude ? `${components.aptitude}% latest` : "Not started",
     tone: "amber",
   },
   {
     name: "Mock Interview",
     description: "Practise role-specific answers with measured feedback.",
     icon: Mic2,
-    status: "Last session 4d ago",
+    status: components?.interview ? "Completed interview evidence available" : "No completed interview",
     action: "Start interview",
-    metric: "3 sessions",
+    metric: components?.interview ? `${components.interview}% score` : "Not started",
     tone: "blue",
   },
   {
     name: "Job Matching",
     description: "Find roles where your skills and intent line up.",
     icon: UserRoundSearch,
-    status: "8 new matches",
+    status: components?.careerActivity ? "Application activity recorded" : "No application activity",
     action: "See matches",
-    metric: "86% best",
+    metric: components?.careerActivity ? `${components.careerActivity}% activity` : "Explore roles",
     tone: "green",
   },
   {
     name: "Cover Letter",
     description: "Turn a job description into a clear, personal letter.",
     icon: MessageSquareText,
-    status: "Ready when you are",
+    status: "Create from a real job description",
     action: "Create letter",
-    metric: "2 drafts",
+    metric: "Open tool",
     tone: "violet",
   },
   {
     name: "Group Discussion",
     description: "Build clarity, confidence, and leadership in a live room.",
     icon: UsersRound,
-    status: "Observer scorecard ready",
+    status: components?.groupDiscussion ? "Completed discussion evidence available" : "No completed discussion",
     action: "Start discussion",
-    metric: "1 session",
+    metric: components?.groupDiscussion ? `${components.groupDiscussion}% score` : "Not started",
     tone: "slate",
   },
-];
-
-const jobs = [
-  {
-    company: "Razorpay",
-    initials: "RZ",
-    role: "Associate Product Analyst",
-    meta: "Bengaluru · Full-time · ₹8–10 LPA",
-    match: 86,
-    skills: ["SQL", "Product thinking"],
-    missing: "Tableau",
-  },
-  {
-    company: "Freshworks",
-    initials: "FW",
-    role: "Graduate Software Engineer",
-    meta: "Chennai · Hybrid · ₹7–9 LPA",
-    match: 82,
-    skills: ["React", "JavaScript"],
-    missing: "System design",
-  },
-  {
-    company: "Meesho",
-    initials: "ME",
-    role: "Business Analyst — Campus",
-    meta: "Bengaluru · Full-time · ₹9–12 LPA",
-    match: 79,
-    skills: ["Analytics", "Communication"],
-    missing: "Advanced Excel",
-  },
-];
+  ];
+}
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
@@ -150,12 +125,15 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function Sidebar({ current, setCurrent, open, setOpen, user }: {
+function Sidebar({ current, setCurrent, open, setOpen, user, readiness, onProfile, onSettings }: {
   current: View;
   setCurrent: (view: View) => void;
   open: boolean;
   setOpen: (open: boolean) => void;
   user: { name: string; email: string };
+  readiness: ReadinessPayload | null;
+  onProfile: () => void;
+  onSettings: () => void;
 }) {
   const initials = user.name.split(" ").map(part => part[0]).slice(0, 2).join("").toUpperCase();
   return (
@@ -176,20 +154,19 @@ function Sidebar({ current, setCurrent, open, setOpen, user }: {
             >
               <Icon size={19} strokeWidth={1.8} />
               <span>{label}</span>
-              {label === "Opportunities" && <span className="nav-count">8</span>}
             </button>
           ))}
         </nav>
         <div className="sidebar-divider" />
         <nav className="secondary-nav" aria-label="Secondary navigation">
-          <button className="nav-item"><CircleUserRound size={19} /><span>My profile</span><span className="profile-completion">84%</span></button>
-          <button className="nav-item"><Settings size={19} /><span>Settings</span></button>
+          <button className={`nav-item ${current === "Profile" ? "is-active" : ""}`} onClick={onProfile}><CircleUserRound size={19} /><span>My profile</span></button>
+          <button className={`nav-item ${current === "Settings" ? "is-active" : ""}`} onClick={onSettings}><Settings size={19} /><span>Settings</span></button>
         </nav>
         <div className="sidebar-coach">
           <div className="coach-icon"><Sparkles size={17} /></div>
-          <p>Your profile is <strong>84% complete</strong></p>
-          <span>Add one project to improve your matches.</span>
-          <button onClick={() => setCurrent("Agents")}>Complete profile <ArrowRight size={15} /></button>
+          <p>Your verified readiness is <strong>{readiness?.current?.score ?? 0}</strong></p>
+          <span>{readiness?.current ? "Built only from recorded preparation evidence." : "Complete a coach activity to establish your baseline."}</span>
+          <button onClick={() => setCurrent("Agents")}>Open coaches <ArrowRight size={15} /></button>
         </div>
         <div className="sidebar-user">
           <div className="avatar">{initials}</div>
@@ -201,16 +178,38 @@ function Sidebar({ current, setCurrent, open, setOpen, user }: {
   );
 }
 
-function Header({ current, dark, setDark, setMenuOpen, user, onLogout }: {
+function Header({ current, dark, setDark, setMenuOpen, setCurrent, user, onLogout, onProfile, onSettings }: {
   current: View;
   dark: boolean;
   setDark: (dark: boolean) => void;
   setMenuOpen: (open: boolean) => void;
+  setCurrent: (view: View) => void;
   user: { name: string };
   onLogout: () => void;
+  onProfile: () => void;
+  onSettings: () => void;
 }) {
   const [noticesOpen, setNoticesOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [shortcutLabel, setShortcutLabel] = useState("⌘ K");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const destinations: Array<{ label: string; view: View }> = [...navItems.map(item => ({ label: item.label, view: item.label })), { label: "My profile", view: "Profile" }, { label: "Settings", view: "Settings" }, ...buildAgents(null).map(agent => ({ label: agent.name, view: agent.name === "Aptitude Practice" ? "Aptitude Test" as View : agent.name as View }))];
+  const matches = query.trim() ? destinations.filter(item => item.label.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 6) : [];
+  const openDestination = (view: View) => { setCurrent(view); setQuery(""); };
   const initials = user.name.split(" ").map(part => part[0]).slice(0, 2).join("").toUpperCase();
+  useEffect(() => {
+    const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
+    const labelTimer = window.setTimeout(() => setShortcutLabel(isMac ? "⌘ K" : "Ctrl K"), 0);
+    const focusSearch = (event: KeyboardEvent) => {
+      if ((isMac ? event.metaKey : event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", focusSearch);
+    return () => { window.clearTimeout(labelTimer); window.removeEventListener("keydown", focusSearch); };
+  }, []);
   return (
     <header className="topbar">
       <div className="topbar-title">
@@ -221,88 +220,80 @@ function Header({ current, dark, setDark, setMenuOpen, user, onLogout }: {
         </div>
       </div>
       <div className="topbar-actions">
-        <div className="search-box"><Search size={18} /><input aria-label="Search" placeholder="Search Placeble" /><kbd>⌘ K</kbd></div>
+        <div className="search-box"><Search size={18} /><input ref={searchInputRef} aria-label="Search" placeholder="Search Placeble" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && matches[0]) openDestination(matches[0].view); }} /><kbd>{shortcutLabel}</kbd>{matches.length > 0 && <div className="student-search-results">{matches.map(item => <button key={`${item.label}-${item.view}`} onClick={() => openDestination(item.view)}><Search size={14} />{item.label}<ArrowRight size={14} /></button>)}</div>}</div>
         <button className="icon-button" onClick={() => setDark(!dark)} aria-label={dark ? "Use light mode" : "Use dark mode"}>
           {dark ? <Sun size={19} /> : <Moon size={19} />}
         </button>
         <div className="notification-wrap">
-          <button className="icon-button" onClick={() => setNoticesOpen(!noticesOpen)} aria-label="Notifications"><Bell size={19} /><span className="notification-dot" /></button>
+          <button className="icon-button" onClick={() => setNoticesOpen(!noticesOpen)} aria-label="Notifications"><Bell size={19} /></button>
           {noticesOpen && (
             <div className="notification-popover">
               <div><strong>Notifications</strong><button onClick={() => setNoticesOpen(false)}>Mark all read</button></div>
-              <article><span className="notice-icon"><TrendingUp size={16} /></span><p><strong>Your readiness moved up 4 points</strong><span>Resume improvements made the difference.</span><time>2h ago</time></p></article>
-              <article><span className="notice-icon neutral"><BriefcaseBusiness size={16} /></span><p><strong>8 new roles match your profile</strong><span>Three have an 80%+ match.</span><time>Yesterday</time></p></article>
+              <article><span className="notice-icon neutral"><Bell size={16} /></span><p><strong>No new notifications</strong><span>Verified updates will appear here when they are available.</span></p></article>
             </div>
           )}
         </div>
-        <button className="header-profile" onClick={onLogout} title="Sign out"><div className="avatar small">{initials}</div><span className="header-signout">Sign out</span></button>
+        <div className="student-account-wrap"><button className="header-profile" onClick={() => setAccountOpen(!accountOpen)} aria-expanded={accountOpen} aria-label="Open account menu"><div className="avatar small">{initials}</div><span className="header-signout">Account</span><ChevronDown size={14} /></button>{accountOpen && <div className="student-account-menu"><button onClick={() => { setAccountOpen(false); onProfile(); }}><CircleUserRound size={16} /> My profile</button><button onClick={() => { setAccountOpen(false); onSettings(); }}><Settings size={16} /> Settings</button><button onClick={onLogout}><ArrowRight size={16} /> Sign out</button></div>}</div>
       </div>
     </header>
   );
 }
 
-function Overview({ setCurrent }: { setCurrent: (view: View) => void }) {
-  const [tasks, setTasks] = useState([false, false, false]);
-  const completed = tasks.filter(Boolean).length;
-  const toggleTask = (index: number) => setTasks(tasks.map((task, i) => i === index ? !task : task));
+function Overview({ setCurrent, readiness, user }: { setCurrent: (view: View) => void; readiness: ReadinessPayload | null; user: { name: string } }) {
+  const components = readiness?.current?.components;
+  const recommendations: Array<{ title: string; detail: string; view: View; icon: typeof FileText; tone: string }> = [
+    components?.resume
+      ? { title: "Review your resume evidence", detail: `Your latest recorded ATS score is ${components.resume}.`, view: "Resume Maker", icon: FileText, tone: "amber" }
+      : { title: "Create your first resume", detail: "Add real education, skills, and project evidence.", view: "Resume Maker", icon: FileText, tone: "amber" },
+    components?.aptitude
+      ? { title: "Continue aptitude practice", detail: `Your latest recorded aptitude score is ${components.aptitude}.`, view: "Aptitude Test", icon: BookOpenCheck, tone: "navy" }
+      : { title: "Establish an aptitude baseline", detail: "Complete a scored assessment to add aptitude evidence.", view: "Aptitude Test", icon: BookOpenCheck, tone: "navy" },
+    components?.interview
+      ? { title: "Build on interview feedback", detail: `Your recent interview evidence scores ${components.interview}.`, view: "Mock Interview", icon: Mic2, tone: "blue" }
+      : { title: "Complete a mock interview", detail: "Record a completed session to add interview evidence.", view: "Mock Interview", icon: Mic2, tone: "blue" },
+  ];
+  const coachRows = buildAgents(readiness).slice(0, 4);
+  const evidenceHistory = readiness?.history.filter(entry => entry.reason !== "dashboard_refresh") ?? [];
   return (
     <div className="view-content overview-view">
       <section className="welcome-row">
-        <div><p className="eyebrow">Wednesday, 5 August</p><h2>Good morning, Arjun.</h2><p>Here’s what will move your preparation forward today.</p></div>
+        <div><p className="eyebrow">{new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</p><h2>Good morning, {user.name.split(" ")[0]}.</h2><p>Here’s what will move your preparation forward today.</p></div>
         <button className="button button-secondary" onClick={() => setCurrent("Agents")}><Target size={17} /> View full plan</button>
       </section>
 
       <section className="readiness-card">
         <div className="readiness-main">
-          <div className="score-halo"><ReadinessRing score={72 + completed} /></div>
+          <div className="score-halo"><ReadinessRing score={readiness?.current?.score ?? 0} /></div>
           <div className="readiness-copy">
             <span className="section-label">Your readiness score</span>
-            <h3>You’re building strong momentum.</h3>
-            <p>Complete today’s plan to reach <strong>{75 + completed}</strong> and move into the interview-ready band.</p>
-            <div className="score-change"><TrendingUp size={16} /><strong>+4 points</strong><span>in the last 14 days</span></div>
+            <h3>{readiness?.current?.evidenceCount ? "Your evidence-based readiness." : "Your baseline starts here."}</h3>
+            <p>Your score is calculated from verified preparation activity across every coach.</p>
+            <div className="score-change"><TrendingUp size={16} /><strong>{readiness && readiness.history.length > 1 ? `${readiness.current!.score - readiness.history[readiness.history.length - 2].score} points` : "Baseline"}</strong><span>from recorded evidence</span></div>
           </div>
         </div>
         <div className="score-breakdown">
           <div className="breakdown-heading"><span>Score breakdown</span><button onClick={() => setCurrent("Agents")}>How it works <ChevronRight size={15} /></button></div>
-          <div className="breakdown-row"><div><span>Resume strength</span><strong>78</strong></div><div className="progress-track"><span style={{ width: "78%" }} /></div></div>
-          <div className="breakdown-row"><div><span>Aptitude</span><strong>64</strong></div><div className="progress-track"><span style={{ width: "64%" }} /></div></div>
-          <div className="breakdown-row"><div><span>Interview skills</span><strong>71</strong></div><div className="progress-track"><span style={{ width: "71%" }} /></div></div>
-          <div className="breakdown-row"><div><span>Career activity</span><strong>75</strong></div><div className="progress-track"><span style={{ width: "75%" }} /></div></div>
+          {[["Resume strength",readiness?.current?.components.resume ?? 0],["Aptitude",readiness?.current?.components.aptitude ?? 0],["Interview skills",readiness?.current?.components.interview ?? 0],["Career activity",readiness?.current?.components.careerActivity ?? 0]].map(([label,value]) => <div className="breakdown-row" key={label}><div><span>{label}</span><strong>{value}</strong></div><div className="progress-track"><span style={{ width: `${value}%` }} /></div></div>)}
         </div>
       </section>
 
       <section className="dashboard-grid">
         <div className="panel today-panel">
-          <div className="panel-heading"><div><span className="section-label">Focus for today</span><h3>Your next three steps</h3></div><span className="task-count">{completed}/3 complete</span></div>
+          <div className="panel-heading"><div><span className="section-label">Recommended next</span><h3>Actions based on your evidence</h3></div></div>
           <div className="task-list">
-            <button className={`task-item ${tasks[0] ? "is-complete" : ""}`} onClick={() => toggleTask(0)}>
-              <span className="task-check">{tasks[0] && <Check size={15} />}</span>
-              <span className="task-icon amber"><FileText size={18} /></span>
-              <span className="task-copy"><strong>Sharpen your project impact</strong><span>Add measurable outcomes to your second project.</span></span>
-              <span className="task-time"><Clock3 size={14} /> 8 min</span><ChevronRight className="task-arrow" size={18} />
-            </button>
-            <button className={`task-item ${tasks[1] ? "is-complete" : ""}`} onClick={() => toggleTask(1)}>
-              <span className="task-check">{tasks[1] && <Check size={15} />}</span>
-              <span className="task-icon navy"><BookOpenCheck size={18} /></span>
-              <span className="task-copy"><strong>Practise data interpretation</strong><span>12 questions selected from your weak areas.</span></span>
-              <span className="task-time"><Clock3 size={14} /> 15 min</span><ChevronRight className="task-arrow" size={18} />
-            </button>
-            <button className={`task-item ${tasks[2] ? "is-complete" : ""}`} onClick={() => toggleTask(2)}>
-              <span className="task-check">{tasks[2] && <Check size={15} />}</span>
-              <span className="task-icon blue"><Mic2 size={18} /></span>
-              <span className="task-copy"><strong>Answer one interview prompt</strong><span>Tell me about a challenging team project.</span></span>
-              <span className="task-time"><Clock3 size={14} /> 10 min</span><ChevronRight className="task-arrow" size={18} />
-            </button>
+            {recommendations.map(({ title, detail, view, icon: Icon, tone }) => <button className="task-item" key={view} onClick={() => setCurrent(view)}>
+              <span className="task-check" />
+              <span className={`task-icon ${tone}`}><Icon size={18} /></span>
+              <span className="task-copy"><strong>{title}</strong><span>{detail}</span></span>
+              <ChevronRight className="task-arrow" size={18} />
+            </button>)}
           </div>
           <div className="plan-note"><Sparkles size={16} /><span>This plan adapts as your readiness changes.</span></div>
         </div>
 
         <aside className="panel next-event">
-          <div className="panel-heading"><div><span className="section-label">Coming up</span><h3>Next event</h3></div><button className="text-button">View calendar</button></div>
-          <div className="event-date"><span>12</span><small>AUG</small></div>
-          <div className="event-details"><span className="event-type">Campus drive</span><h4>Infosys hiring briefing</h4><p><CalendarDays size={15} /> Tuesday · 3:00 PM</p><p><UsersRound size={15} /> Main seminar hall</p></div>
-          <div className="event-readiness"><div><span>Your drive readiness</span><strong>68%</strong></div><div className="progress-track"><span style={{ width: "68%" }} /></div><p>Finish two recommendations before the drive.</p></div>
-          <button className="button button-primary full">Prepare for this drive <ArrowRight size={17} /></button>
+          <div className="panel-heading"><div><span className="section-label">Coming up</span><h3>Next event</h3></div></div>
+          <div className="student-empty-state"><span className="student-empty-icon"><CalendarDays size={23} /></span><strong>No scheduled event</strong><span>Your institution has not published an upcoming drive to this account.</span><button onClick={() => setCurrent("Opportunities")}>Explore opportunities <ArrowRight size={15} /></button></div>
         </aside>
       </section>
 
@@ -310,30 +301,28 @@ function Overview({ setCurrent }: { setCurrent: (view: View) => void }) {
         <div className="panel agent-glance">
           <div className="panel-heading"><div><span className="section-label">Your coaches</span><h3>Agents at a glance</h3></div><button className="text-button" onClick={() => setCurrent("Agents")}>View all <ArrowRight size={15} /></button></div>
           <div className="mini-agent-grid">
-            {agents.slice(0, 4).map(({ name, icon: Icon, status, tone }) => <button key={name} onClick={() => setCurrent("Agents")}><span className={`mini-agent-icon ${tone}`}><Icon size={19} /></span><span><strong>{name}</strong><small>{status}</small></span><ChevronRight size={17} /></button>)}
+            {coachRows.map(({ name, icon: Icon, status, tone }) => <button key={name} onClick={() => setCurrent("Agents")}><span className={`mini-agent-icon ${tone}`}><Icon size={19} /></span><span><strong>{name}</strong><small>{status}</small></span><ChevronRight size={17} /></button>)}
           </div>
         </div>
         <div className="panel activity-panel">
           <div className="panel-heading"><div><span className="section-label">Progress</span><h3>Recent activity</h3></div></div>
-          <div className="activity-list">
-            <div><span className="activity-dot success"><Check size={13} /></span><p><strong>Resume score improved to 78</strong><span>Today · Resume Maker</span></p><b>+3</b></div>
-            <div><span className="activity-dot"><BookOpenCheck size={14} /></span><p><strong>Quantitative practice completed</strong><span>Yesterday · Aptitude</span></p><b>+1</b></div>
-            <div><span className="activity-dot muted"><BriefcaseBusiness size={14} /></span><p><strong>Applied to Product Analyst</strong><span>2 days ago · Razorpay</span></p></div>
-          </div>
+          {evidenceHistory.length ? <div className="activity-list">{evidenceHistory.slice(-3).reverse().map((entry, index) => <div key={`${entry.calculatedAt}-${index}`}><span className="activity-dot success"><Check size={13} /></span><p><strong>Readiness evidence recalculated to {entry.score}</strong><span>{new Date(entry.calculatedAt).toLocaleString("en-IN")}{entry.reason ? ` · ${entry.reason.replaceAll("_", " ")}` : ""}</span></p></div>)}</div> : <div className="student-empty-state compact"><span className="student-empty-icon"><TrendingUp size={22} /></span><strong>No recorded activity yet</strong><span>Completed coach sessions and applications will appear here.</span></div>}
         </div>
       </section>
     </div>
   );
 }
 
-function AgentsView({ onOpenResume, onOpenAptitude, onOpenInterview, onOpenMatching, onOpenCoverLetter, onOpenGroupDiscussion }: { onOpenResume: () => void; onOpenAptitude: () => void; onOpenInterview: () => void; onOpenMatching: () => void; onOpenCoverLetter: () => void; onOpenGroupDiscussion: () => void }) {
+function AgentsView({ readiness, onOpenResume, onOpenAptitude, onOpenInterview, onOpenMatching, onOpenCoverLetter, onOpenGroupDiscussion }: { readiness: ReadinessPayload | null; onOpenResume: () => void; onOpenAptitude: () => void; onOpenInterview: () => void; onOpenMatching: () => void; onOpenCoverLetter: () => void; onOpenGroupDiscussion: () => void }) {
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
+  const agentRows = buildAgents(readiness);
+  const hasAptitude = Boolean(readiness?.current?.components.aptitude);
   return (
     <div className="view-content inner-view">
-      <section className="view-intro"><div><p className="eyebrow">Your preparation toolkit</p><h2>Six coaches. One clear path.</h2><p>Every session contributes to the same readiness score, so your effort stays connected.</p></div><div className="compact-score-card"><ReadinessRing score={72} compact /><span><strong>72 readiness</strong><small>4 points this fortnight</small></span></div></section>
-      <section className="recommended-strip"><span className="recommend-icon"><Sparkles size={18} /></span><div><strong>Recommended next: Aptitude Practice</strong><p>Data interpretation is your clearest opportunity to improve this week.</p></div><button className="button button-progress" onClick={onOpenAptitude}>Start 15-min practice <ArrowRight size={16} /></button></section>
+      <section className="view-intro"><div><p className="eyebrow">Your preparation toolkit</p><h2>Six coaches. One clear path.</h2><p>Every session contributes to the same readiness score, so your effort stays connected.</p></div><div className="compact-score-card"><ReadinessRing score={readiness?.current?.score ?? 0} compact /><span><strong>{readiness?.current?.score ?? 0} readiness</strong><small>Based on verified activity</small></span></div></section>
+      <section className="recommended-strip"><span className="recommend-icon"><Sparkles size={18} /></span><div><strong>{hasAptitude ? "Continue aptitude practice" : "Recommended next: establish an aptitude baseline"}</strong><p>{hasAptitude ? `Your latest recorded aptitude score is ${readiness?.current?.components.aptitude}.` : "No completed aptitude assessment is recorded for this account."}</p></div><button className="button button-progress" onClick={onOpenAptitude}>{hasAptitude ? "Continue practice" : "Start assessment"} <ArrowRight size={16} /></button></section>
       <section className="agent-library">
-        {agents.map(({ name, description, icon: Icon, status, action, metric, tone }) => (
+        {agentRows.map(({ name, description, icon: Icon, status, action, metric, tone }) => (
           <article className="agent-card" key={name}>
             <div className="agent-card-top"><span className={`agent-icon ${tone}`}><Icon size={24} /></span><span className="agent-metric">{metric}</span></div>
             <div><h3>{name}</h3><p>{description}</p></div>
@@ -347,104 +336,124 @@ function AgentsView({ onOpenResume, onOpenAptitude, onOpenInterview, onOpenMatch
   );
 }
 
-function OpportunitiesView({ setCurrent }: { setCurrent: (view: View) => void }) {
-  const [saved, setSaved] = useState<string[]>([]);
-  return (
-    <div className="view-content inner-view">
-      <section className="view-intro"><div><p className="eyebrow">Matched to your profile</p><h2>Roles worth your attention.</h2><p>Clear matches, honest gaps, and no black-box recommendations.</p></div><div className="opportunity-summary"><strong>21</strong><span>active matches<br/><small>8 added this week</small></span></div></section>
-      <div className="filter-bar"><div className="search-box wide"><Search size={18} /><input placeholder="Search roles or companies" /></div><button className="filter-chip">Location <ChevronDown size={15} /></button><button className="filter-chip">Role type <ChevronDown size={15} /></button><button className="filter-chip">Match: 70%+ <ChevronDown size={15} /></button></div>
-      <section className="jobs-list">
-        {jobs.map(job => (
-          <article className="job-card" key={job.company}>
-            <div className="job-brand">{job.initials}</div>
-            <div className="job-main"><span className="job-company">{job.company}</span><h3>{job.role}</h3><p>{job.meta}</p><div className="skill-row">{job.skills.map(skill => <span key={skill} className="skill matched"><Check size={13} /> {skill}</span>)}<span className="skill missing">Build: {job.missing}</span></div></div>
-            <div className="job-match"><ReadinessRing score={job.match} compact /><span><strong>{job.match}% match</strong><small>Strong fit</small></span></div>
-            <div className="job-actions"><button className={`save-button ${saved.includes(job.company) ? "is-saved" : ""}`} onClick={() => setSaved(saved.includes(job.company) ? saved.filter(item => item !== job.company) : [...saved, job.company])}>{saved.includes(job.company) ? "Saved" : "Save"}</button><button className="button button-primary" onClick={() => setCurrent("Applications")}>View role <ArrowRight size={16} /></button></div>
-          </article>
-        ))}
-      </section>
-    </div>
-  );
-}
-
-function ProgressView({ setCurrent }: { setCurrent: (view: View) => void }) {
+function ProgressView({ setCurrent, readiness }: { setCurrent: (view: View) => void; readiness: ReadinessPayload | null }) {
   const [range, setRange] = useState<"8 weeks" | "6 months">("8 weeks");
-  const [completedActions, setCompletedActions] = useState<string[]>([]);
+  const history = readiness?.history.filter(entry => entry.reason !== "dashboard_refresh") ?? [];
+  const visibleHistory = history.slice(range === "8 weeks" ? -8 : -12);
+  const trendDelta = visibleHistory.length > 1 ? visibleHistory[visibleHistory.length - 1].score - visibleHistory[0].score : 0;
+  const readinessComponents = readiness?.current?.components;
   const categories = [
-    { label: "Resume strength", value: 78, change: 8, icon: FileText, note: "Impact statements improved" },
-    { label: "Aptitude", value: 64, change: 5, icon: BookOpenCheck, note: "Quant accuracy is rising" },
-    { label: "Interview skills", value: 71, change: 11, icon: Mic2, note: "Stronger answer structure" },
-    { label: "Career activity", value: 75, change: 6, icon: BriefcaseBusiness, note: "Four focused applications" },
+    { label: "Resume strength", value: readinessComponents?.resume ?? 0, change: 0, icon: FileText, note: "Latest ATS evidence" },
+    { label: "Aptitude", value: readinessComponents?.aptitude ?? 0, change: 0, icon: BookOpenCheck, note: "Latest completed assessment" },
+    { label: "Interview skills", value: readinessComponents?.interview ?? 0, change: 0, icon: Mic2, note: "Average recent interviews" },
+    { label: "Career activity", value: readinessComponents?.careerActivity ?? 0, change: 0, icon: BriefcaseBusiness, note: "Application pipeline activity" },
   ];
-  const toggleAction = (action: string) => setCompletedActions(completedActions.includes(action) ? completedActions.filter(item => item !== action) : [...completedActions, action]);
+  const nextActions: Array<[string, string, View]> = [
+    [readinessComponents?.resume ? "Review resume evidence" : "Create your first resume", "Resume Maker", "Resume Maker"],
+    [readinessComponents?.aptitude ? "Continue aptitude practice" : "Take a baseline assessment", "Aptitude", "Aptitude Test"],
+    [readinessComponents?.interview ? "Practise another interview" : "Complete a first mock interview", "Interview", "Mock Interview"],
+  ];
   return <div className="view-content inner-view student-progress-view">
     <section className="student-progress-head"><div><p className="eyebrow">Your development over time</p><h2>Progress you can explain—and build on.</h2><p>See what changed your readiness, where momentum is strongest, and what to work on next.</p></div><button className="filter-chip" onClick={() => setRange(range === "8 weeks" ? "6 months" : "8 weeks")}>{range} <ChevronDown size={15} /></button></section>
     <section className="student-progress-hero">
-      <div className="student-progress-score"><ReadinessRing score={72 + completedActions.length} /><div><span>Overall readiness</span><h3>Interview-ready momentum</h3><p>You’ve gained <strong>9 points</strong> since your baseline assessment. Keep this pace and you’re on track to reach 80 before the September drive window.</p><div className="student-progress-delta"><TrendingUp size={15} /><strong>+4</strong><span>this fortnight</span></div></div></div>
-      <div className="student-progress-goal"><div><Target size={19} /><span><small>Next milestone</small><strong>80 · Placement ready</strong></span><em>8 points to go</em></div><div className="goal-track"><span style={{ width: `${(72 + completedActions.length) / 80 * 100}%` }} /></div><p>At your recent pace, you’ll reach this milestone in approximately four weeks.</p></div>
+      <div className="student-progress-score"><ReadinessRing score={readiness?.current?.score ?? 0} /><div><span>Overall readiness</span><h3>{(readiness?.current?.score ?? 0) >= 75 ? "Placement-ready momentum" : "Your evidence-based baseline"}</h3><p>This score uses your latest verified resume, aptitude, interview, discussion, and application activity.</p><div className="student-progress-delta"><TrendingUp size={15} /><strong>{readiness?.history.length ?? 0}</strong><span>recorded score updates</span></div></div></div>
+      <div className="student-progress-goal"><div><Target size={19} /><span><small>Next milestone</small><strong>80 · Placement ready</strong></span><em>{Math.max(0, 80 - (readiness?.current?.score ?? 0))} points to go</em></div><div className="goal-track"><span style={{ width: `${Math.min(100, (readiness?.current?.score ?? 0) / 80 * 100)}%` }} /></div><p>Complete focused preparation activities to move this score with real evidence.</p></div>
     </section>
     <section className="student-progress-grid">
-      <article className="panel progress-trend-card"><header className="panel-heading"><div><span className="section-label">Readiness trend</span><h3>{range} of steady improvement</h3></div><span className="trend-summary"><TrendingUp size={14} /> +14.3%</span></header><div className="student-line-chart"><div className="chart-axis"><span>80</span><span>70</span><span>60</span><span>50</span></div><div className="chart-plot"><div className="chart-grid-lines" /><div className="chart-growth-area" /><span style={{ left: "3%", bottom: "20%" }} data-label="58" /><span style={{ left: "18%", bottom: "27%" }} data-label="61" /><span style={{ left: "34%", bottom: "34%" }} data-label="64" /><span style={{ left: "50%", bottom: "43%" }} data-label="67" /><span style={{ left: "66%", bottom: "47%" }} data-label="68" /><span style={{ left: "82%", bottom: "55%" }} data-label="70" /><span style={{ left: "96%", bottom: "63%" }} data-label="72" /></div></div><div className="chart-foot"><span>Baseline</span><span>Resume v2</span><span>Aptitude test</span><span>Interview #3</span><span>Today</span></div></article>
-      <aside className="panel weekly-consistency"><header className="panel-heading"><div><span className="section-label">Consistency</span><h3>Weekly activity</h3></div><strong>5-day run</strong></header><div className="activity-calendar">{[2,3,1,4,3,0,2,4,3,5,4,2,0,3,4,5,3,4,2,1,4,5,4,3,2,4,5,3].map((level,index) => <span key={index} className={`level-${level}`} title={`${level} preparation activities`} />)}</div><div className="consistency-stats"><div><strong>14</strong><span>active days</span></div><div><strong>9.4h</strong><span>focused work</span></div><div><strong>23</strong><span>tasks finished</span></div></div><p><Sparkles size={14} /> Your strongest preparation window is Tuesday–Thursday.</p></aside>
+      <article className="panel progress-trend-card"><header className="panel-heading"><div><span className="section-label">Readiness trend</span><h3>{visibleHistory.length ? `${visibleHistory.length} recorded evidence updates` : "No evidence updates yet"}</h3></div><span className="trend-summary"><TrendingUp size={14} /> {trendDelta >= 0 ? "+" : ""}{trendDelta} pts</span></header>{visibleHistory.length ? <div className="student-line-chart"><div className="chart-axis"><span>100</span><span>75</span><span>50</span><span>0</span></div><div className="chart-plot"><div className="chart-grid-lines" />{visibleHistory.map((entry, index) => <span key={entry.calculatedAt} style={{ left: `${visibleHistory.length === 1 ? 50 : 3 + index * 93 / (visibleHistory.length - 1)}%`, bottom: `${Math.max(4, entry.score)}%` }} data-label={entry.score} title={new Date(entry.calculatedAt).toLocaleString("en-IN")} />)}</div></div> : <div className="student-empty-state"><span className="student-empty-icon"><TrendingUp size={22} /></span><strong>No readiness trend yet</strong><span>Complete a scored coach activity to create your first evidence point.</span></div>}</article>
+      <aside className="panel weekly-consistency"><header className="panel-heading"><div><span className="section-label">Evidence</span><h3>Recorded updates</h3></div><strong>{history.length}</strong></header><div className="student-empty-state"><span className="student-empty-icon"><ClipboardCheck size={22} /></span><strong>{history.length ? `${history.length} readiness recalculations` : "No preparation evidence"}</strong><span>Placeble shows only activity saved by this account; it does not estimate streaks or hours.</span></div></aside>
     </section>
     <section className="progress-category-section"><div className="progress-section-title"><div><span className="section-label">Score composition</span><h3>What is moving your readiness</h3></div><button className="text-button" onClick={() => setCurrent("Agents")}>Open your coaches <ArrowRight size={15} /></button></div><div className="progress-category-grid">{categories.map(({ label, value, change, icon: Icon, note }) => <article key={label}><span className="category-icon"><Icon size={19} /></span><div className="category-title"><span>{label}</span><strong>{value}</strong></div><div className="category-track"><span style={{ width: `${value}%` }} /></div><p>{note}</p><em><TrendingUp size={12} /> +{change} pts</em></article>)}</div></section>
     <section className="progress-bottom-grid">
-      <article className="panel progress-milestones"><header className="panel-heading"><div><span className="section-label">Milestones</span><h3>Evidence of growth</h3></div><span>3 of 5 this term</span></header><div className="milestone-list"><div className="complete"><i><Check size={14} /></i><p><strong>Resume crossed ATS 75</strong><span>Completed 2 Aug · +3 readiness points</span></p><Trophy size={18} /></div><div className="complete"><i><Check size={14} /></i><p><strong>Three mock interviews completed</strong><span>Completed 29 Jul · Stronger specificity</span></p><Trophy size={18} /></div><div className="complete"><i><Check size={14} /></i><p><strong>Quant accuracy above 70%</strong><span>Completed 24 Jul · 120 questions practised</span></p><Trophy size={18} /></div><div><i>4</i><p><strong>Reach readiness 80</strong><span>8 points remaining</span></p><Target size={18} /></div></div></article>
-      <article className="panel progress-next-actions"><header className="panel-heading"><div><span className="section-label">Next best actions</span><h3>Turn insight into progress</h3></div><span>{completedActions.length}/3 done</span></header>{[["Complete a timed data set","Aptitude · 15 min","+1 readiness"],["Refine your second project","Resume · 10 min","+1 readiness"],["Practise a product case","Interview · 20 min","Build confidence"]].map(([action,meta,impact]) => <button key={action} className={completedActions.includes(action) ? "done" : ""} onClick={() => toggleAction(action)}><i>{completedActions.includes(action) ? <Check size={14} /> : <Clock3 size={14} />}</i><p><strong>{action}</strong><span>{meta}</span></p><em>{completedActions.includes(action) ? "Completed" : impact}</em></button>)}</article>
+      <article className="panel progress-milestones"><header className="panel-heading"><div><span className="section-label">Milestones</span><h3>Evidence of growth</h3></div></header><div className="milestone-list">{readinessComponents?.resume && readinessComponents.resume >= 75 ? <div className="complete"><i><Check size={14} /></i><p><strong>Resume ATS evidence reached 75</strong><span>Current recorded value: {readinessComponents.resume}</span></p><Trophy size={18} /></div> : null}{readinessComponents?.aptitude && readinessComponents.aptitude >= 70 ? <div className="complete"><i><Check size={14} /></i><p><strong>Aptitude evidence reached 70</strong><span>Current recorded value: {readinessComponents.aptitude}</span></p><Trophy size={18} /></div> : null}<div><i><Target size={14} /></i><p><strong>Reach readiness 80</strong><span>{Math.max(0, 80 - (readiness?.current?.score ?? 0))} points remaining</span></p><Target size={18} /></div></div></article>
+      <article className="panel progress-next-actions"><header className="panel-heading"><div><span className="section-label">Next best actions</span><h3>Turn insight into progress</h3></div></header>{nextActions.map(([action, meta, view]) => <button key={action} onClick={() => setCurrent(view)}><i><Clock3 size={14} /></i><p><strong>{action}</strong><span>{meta}</span></p><em>Open coach</em></button>)}</article>
     </section>
   </div>;
 }
 
-function ApplicationsView() {
-  const columns = [
-    { name: "Saved", count: 4, cards: [{ company: "Atlassian", role: "Associate Engineer", meta: "84% match" }, { company: "Zoho", role: "Product Support Engineer", meta: "76% match" }] },
-    { name: "Applied", count: 3, cards: [{ company: "Razorpay", role: "Product Analyst", meta: "Applied 2 days ago" }, { company: "Freshworks", role: "Graduate Engineer", meta: "Applied 5 days ago" }] },
-    { name: "Interview", count: 1, cards: [{ company: "CRED", role: "Business Analyst", meta: "Interview · 14 Aug" }] },
-    { name: "Decision", count: 0, cards: [] as { company: string; role: string; meta: string }[] },
-  ];
-  return (
-    <div className="view-content inner-view applications-view">
-      <section className="view-intro"><div><p className="eyebrow">Application tracker</p><h2>Every opportunity, in one place.</h2><p>Stay prepared for what’s next without losing sight of where you stand.</p></div><button className="button button-primary"><BriefcaseBusiness size={17} /> Add application</button></section>
-      <section className="pipeline-summary"><div><span>Active applications</span><strong>4</strong><small>Across 3 companies</small></div><div><span>Next interview</span><strong>14 Aug</strong><small>CRED · Business Analyst</small></div><div><span>Response rate</span><strong>33%</strong><small>1 response from 3 applications</small></div><div className="pipeline-tip"><Sparkles size={18} /><span><strong>Preparation tip</strong><small>Practise one product case before your CRED interview.</small></span></div></section>
-      <section className="kanban" aria-label="Application pipeline">
-        {columns.map(column => <div className="kanban-column" key={column.name}><div className="kanban-heading"><span>{column.name}</span><b>{column.count}</b><MoreHorizontal size={17} /></div><div className="kanban-cards">{column.cards.map(card => <article key={card.company}><div className="company-mini">{card.company.slice(0, 2).toUpperCase()}</div><div><span>{card.company}</span><h3>{card.role}</h3><small>{card.meta}</small></div><button aria-label={`Open ${card.company} application`}><ChevronRight size={17} /></button></article>)}{!column.cards.length && <div className="empty-column"><Trophy size={23} /><strong>Nothing here yet</strong><span>Keep preparing—the right decision will land here.</span></div>}</div></div>)}
-      </section>
-    </div>
-  );
+type StudentProfileForm = { name: string; email: string; degree: string; graduationYear: number; skills: string[]; preferredRoles: string[] };
+
+function StudentProfilePage({ accessToken, onSaved }: { accessToken: string; onSaved: (message: string) => void }) {
+  const [profile, setProfile] = useState<StudentProfileForm | null>(null);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1"}/auth/profile`, { credentials: "include", headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(async response => { const payload = await response.json(); if (!response.ok) throw new Error(payload.message ?? "Could not load your profile."); return payload.profile; })
+      .then(setProfile).catch(cause => setError(cause instanceof Error ? cause.message : "Could not load your profile."));
+  }, [accessToken]);
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!profile) return;
+    setSaving(true); setError("");
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1"}/auth/profile`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ ...profile, email: undefined }) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message ?? "Could not save your profile.");
+      setProfile(payload.profile ?? profile);
+      onSaved("Profile changes saved.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save your profile."); }
+    finally { setSaving(false); }
+  };
+  const completion = profile ? Math.round(([profile.name, profile.degree, profile.graduationYear, profile.skills.length, profile.preferredRoles.length].filter(Boolean).length / 5) * 100) : 0;
+  const initials = profile?.name.split(" ").map(part => part[0]).slice(0, 2).join("").toUpperCase() ?? "";
+  return <div className="view-content inner-view student-account-page">
+    <section className="view-intro"><div><p className="eyebrow">Student profile</p><h2>Your placement identity.</h2><p>Keep the details used by your coaches and opportunity matching accurate.</p></div></section>
+    <section className="student-account-grid">
+      <form className="panel student-profile-page" onSubmit={save}>
+        <header className="student-profile-header"><span className="student-profile-avatar">{initials || <CircleUserRound size={24} />}</span><div><h3>{profile?.name || "Your profile"}</h3><p>{profile?.email || "Loading your account…"}</p></div><span className="student-profile-badge"><Check size={14} /> Verified account</span></header>
+        {error && <div className="auth-error">{error}</div>}
+        {!profile ? !error && <div className="student-empty-state"><span className="button-spinner" /><strong>Loading profile…</strong><span>Retrieving your verified account details.</span></div> : <div className="student-profile-fields">
+          <label><span>Full name</span><input value={profile.name} onChange={event => setProfile({ ...profile, name: event.target.value })} required /></label>
+          <label><span>Email address</span><input value={profile.email} disabled /><small>Your sign-in email is managed by your institution.</small></label>
+          <div className="student-profile-row"><label><span>Degree or programme</span><input value={profile.degree} onChange={event => setProfile({ ...profile, degree: event.target.value })} required /></label><label><span>Graduation year</span><input type="number" min="2020" max="2100" value={profile.graduationYear} onChange={event => setProfile({ ...profile, graduationYear: Number(event.target.value) })} required /></label></div>
+          <label><span>Skills</span><input value={profile.skills.join(", ")} onChange={event => setProfile({ ...profile, skills: event.target.value.split(",").map(value => value.trim()).filter(Boolean) })} required /><small>Separate skills with commas so matching can recognise them.</small></label>
+          <label><span>Preferred roles</span><input value={profile.preferredRoles.join(", ")} onChange={event => setProfile({ ...profile, preferredRoles: event.target.value.split(",").map(value => value.trim()).filter(Boolean) })} required /><small>Add the roles you would genuinely consider applying for.</small></label>
+          <footer><span><Check size={15} /> Changes update your matching profile.</span><button className="button button-primary" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button></footer>
+        </div>}
+      </form>
+      <aside className="student-account-aside">
+        <article className="panel profile-completion-card"><div className="profile-completion-ring" style={{ background: `conic-gradient(var(--pb-amber-500) ${completion * 3.6}deg, var(--pb-navy-100) 0deg)` }}><strong>{completion}%</strong></div><div><span className="section-label">Profile strength</span><h3>{completion === 100 ? "Ready for matching" : "Complete your profile"}</h3><p>Accurate skills and role preferences make recommendations more useful.</p></div></article>
+        <article className="panel profile-guidance"><span className="student-empty-icon"><Sparkles size={20} /></span><h3>Make your evidence count</h3><p>Use specific skill names, keep your target roles focused, and update this page whenever your direction changes.</p><div><Check size={15} /> Used for job matching</div><div><Check size={15} /> Shared only inside your institution scope</div></article>
+      </aside>
+    </section>
+  </div>;
+}
+
+function StudentSettingsPage({ dark, setDark }: { dark: boolean; setDark: (dark: boolean) => void }) {
+  const [reducedMotion, setReducedMotion] = useState(() => window.localStorage.getItem("placeble-reduced-motion") === "true");
+  const updateMotion = (value: boolean) => { setReducedMotion(value); window.localStorage.setItem("placeble-reduced-motion", String(value)); document.documentElement.dataset.reducedMotion = String(value); };
+  return <div className="view-content inner-view student-account-page">
+    <section className="view-intro"><div><p className="eyebrow">Preferences</p><h2>Make Placeble feel right.</h2><p>Personalise appearance and accessibility without changing your academic data.</p></div></section>
+    <section className="settings-page-grid">
+      <article className="panel settings-section"><header><span className="settings-section-icon"><Sun size={20} /></span><div><h3>Appearance</h3><p>Choose the theme that is easiest for you to use.</p></div></header><div className="theme-choice-grid"><button className={!dark ? "active" : ""} onClick={() => setDark(false)}><span className="theme-preview light"><i /><i /><i /></span><strong>Light</strong><small>Bright and focused</small>{!dark && <Check size={17} />}</button><button className={dark ? "active" : ""} onClick={() => setDark(true)}><span className="theme-preview dark"><i /><i /><i /></span><strong>Dark</strong><small>Comfortable in low light</small>{dark && <Check size={17} />}</button></div></article>
+      <article className="panel settings-section"><header><span className="settings-section-icon"><Settings size={20} /></span><div><h3>Accessibility</h3><p>Adjust motion while keeping every feature available.</p></div></header><button className="settings-toggle-row" onClick={() => updateMotion(!reducedMotion)} aria-pressed={reducedMotion}><span><strong>Reduce motion</strong><small>Minimises decorative transitions and animated entrances.</small></span><i className={reducedMotion ? "on" : ""}><b /></i></button></article>
+      <article className="panel settings-section settings-security"><header><span className="settings-section-icon"><CircleUserRound size={20} /></span><div><h3>Account & privacy</h3><p>Your account stays scoped to your verified institution.</p></div></header><div className="settings-info-row"><span>Profile visibility</span><strong>Institution only</strong></div><div className="settings-info-row"><span>Readiness evidence</span><strong>Verified activity only</strong></div><div className="settings-info-row"><span>Preference storage</span><strong>This device</strong></div></article>
+    </section>
+  </div>;
 }
 
 function BottomNav({ current, setCurrent }: { current: View; setCurrent: (view: View) => void }) {
   return <nav className="bottom-nav" aria-label="Mobile navigation">{navItems.map(({ label, icon: Icon }) => <button key={label} className={current === label || (["Resume Maker", "Aptitude Test", "Mock Interview", "Job Matching", "Cover Letter", "Group Discussion"].includes(current) && label === "Agents") ? "is-active" : ""} onClick={() => setCurrent(label)}><Icon size={20} /><span>{label === "Opportunities" ? "Jobs" : label}</span></button>)}</nav>;
 }
 
-export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "student@placeble.local" }, accessToken = "", onLogout = () => undefined }: { user?: { name: string; email: string }; accessToken?: string; onLogout?: () => void }) {
+export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "student@placeble.local" }, accessToken = "", onLogout = () => undefined }: { user?: { name: string; email: string; studentVerificationStatus?: "pending_tpo_approval" | "approved" | "rejected" | "roster_matched" | "pending_domain_approval" | null }; accessToken?: string; onLogout?: () => void }) {
   const [current, setCurrent] = useState<View>("Overview");
   const [dark, setDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [actionNotice, setActionNotice] = useState("");
+  const [readiness, setReadiness] = useState<ReadinessPayload | null>(null);
   useEffect(() => {
-    const handleStudentAction = (event: Event) => {
-      const button = (event.target as HTMLElement).closest("button");
-      if (!button) return;
-      const label = (button.textContent ?? "").replace(/\s+/g, " ").trim();
-      const ariaLabel = button.getAttribute("aria-label") ?? "";
-      const messages: Record<string, string> = {
-        "My profile": "Your profile workspace is ready—84% complete with one project recommended.",
-        "Settings": "Settings opened. Theme and notification preferences are saved on this device.",
-        "View calendar": "Calendar opened with the Infosys briefing on 12 August.",
-        "Prepare for this drive": "A focused Infosys preparation plan has been added to today’s tasks.",
-        "Add application": "A new application draft is ready in the Saved column.",
-        "Mark all read": "All notifications marked as read.",
-      };
-      const message = messages[label] ?? (ariaLabel.startsWith("Open ") ? `${ariaLabel.replace("Open ", "")} details opened.` : "");
-      if (message) {
-        setActionNotice(message);
-        window.setTimeout(() => setActionNotice(""), 2600);
-      }
-    };
-    document.addEventListener("click", handleStudentAction);
-    return () => document.removeEventListener("click", handleStudentAction);
-  }, []);
+    if (!accessToken) return;
+    const timer = window.setTimeout(() => void preloadJobMatching(accessToken), 350);
+    return () => window.clearTimeout(timer);
+  }, [accessToken]);
+  useEffect(() => {
+    if (!accessToken) return;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1"}/readiness/me`, { headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" })
+      .then(response => response.ok ? response.json() : Promise.reject(new Error("Readiness unavailable")))
+      .then(setReadiness).catch(() => setReadiness(null));
+  }, [accessToken, current]);
   useEffect(() => {
     const preferred = window.localStorage.getItem("placeble-theme");
     const shouldUseDark = preferred === "dark" || (!preferred && window.matchMedia("(prefers-color-scheme: dark)").matches);
@@ -455,24 +464,33 @@ export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "studen
     document.documentElement.dataset.theme = dark ? "dark" : "light";
     window.localStorage.setItem("placeble-theme", dark ? "dark" : "light");
   }, [dark]);
+  useEffect(() => {
+    document.documentElement.dataset.reducedMotion = window.localStorage.getItem("placeble-reduced-motion") === "true" ? "true" : "false";
+  }, []);
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [current]);
   const view = useMemo(() => {
-    if (current === "Overview") return <Overview setCurrent={setCurrent} />;
-    if (current === "Progress") return <ProgressView setCurrent={setCurrent} />;
-    if (current === "Agents") return <AgentsView onOpenResume={() => setCurrent("Resume Maker")} onOpenAptitude={() => setCurrent("Aptitude Test")} onOpenInterview={() => setCurrent("Mock Interview")} onOpenMatching={() => setCurrent("Job Matching")} onOpenCoverLetter={() => setCurrent("Cover Letter")} onOpenGroupDiscussion={() => setCurrent("Group Discussion")} />;
+    if (current === "Overview") return <Overview setCurrent={setCurrent} readiness={readiness} user={user} />;
+    if (current === "Progress") return <ProgressView setCurrent={setCurrent} readiness={readiness} />;
+    if (current === "Agents") return <AgentsView readiness={readiness} onOpenResume={() => setCurrent("Resume Maker")} onOpenAptitude={() => setCurrent("Aptitude Test")} onOpenInterview={() => setCurrent("Mock Interview")} onOpenMatching={() => setCurrent("Job Matching")} onOpenCoverLetter={() => setCurrent("Cover Letter")} onOpenGroupDiscussion={() => setCurrent("Group Discussion")} />;
     if (current === "Resume Maker") return <ResumeMaker user={user} accessToken={accessToken} onBack={() => setCurrent("Agents")} />;
     if (current === "Aptitude Test") return <AptitudeTest accessToken={accessToken} onBack={() => setCurrent("Agents")} />;
     if (current === "Mock Interview") return <MockInterview accessToken={accessToken} onBack={() => setCurrent("Agents")} />;
     if (current === "Job Matching") return <JobMatching accessToken={accessToken} onBack={() => setCurrent("Agents")} />;
     if (current === "Cover Letter") return <CoverLetter accessToken={accessToken} onBack={() => setCurrent("Agents")} onOpenResume={() => setCurrent("Resume Maker")} />;
     if (current === "Group Discussion") return <GroupDiscussion accessToken={accessToken} onBack={() => setCurrent("Agents")} />;
-    if (current === "Opportunities") return <OpportunitiesView setCurrent={setCurrent} />;
-    return <ApplicationsView />;
-  }, [current, accessToken, user]);
+    if (current === "Opportunities") return <JobMatching accessToken={accessToken} initialSurface="feed" onBack={() => setCurrent("Overview")} />;
+    if (current === "Applications") return <JobMatching accessToken={accessToken} initialSurface="tracker" onBack={() => setCurrent("Overview")} />;
+    if (current === "Profile") return <StudentProfilePage accessToken={accessToken} onSaved={message => { setActionNotice(message); window.setTimeout(() => setActionNotice(""), 2600); }} />;
+    if (current === "Settings") return <StudentSettingsPage dark={dark} setDark={setDark} />;
+    return <Overview setCurrent={setCurrent} readiness={readiness} user={user} />;
+  }, [current, accessToken, user, readiness, dark]);
   return (
     <div className="app-shell">
-      <Sidebar current={current} setCurrent={setCurrent} open={menuOpen} setOpen={setMenuOpen} user={user} />
+      <Sidebar current={current} setCurrent={setCurrent} open={menuOpen} setOpen={setMenuOpen} user={user} readiness={readiness} onProfile={() => { setCurrent("Profile"); setMenuOpen(false); }} onSettings={() => { setCurrent("Settings"); setMenuOpen(false); }} />
       <main className="main-shell">
-        <Header current={current} dark={dark} setDark={setDark} setMenuOpen={setMenuOpen} user={user} onLogout={onLogout} />
+        <Header current={current} dark={dark} setDark={setDark} setMenuOpen={setMenuOpen} setCurrent={setCurrent} user={user} onLogout={onLogout} onProfile={() => setCurrent("Profile")} onSettings={() => setCurrent("Settings")} />
         {view}
       </main>
       <BottomNav current={current} setCurrent={setCurrent} />

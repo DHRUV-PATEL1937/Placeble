@@ -1,0 +1,4 @@
+email,fullName,rollNumber,branch,batchYear
+qa.roster@techend.edu.in,QA Roster Student,QA-001,CSE,2027
+outside@gmail.com,Outside Domain Student,QA-002,IT,2027
+not-an-email,Invalid Email Student,QA-003,CSE,2027

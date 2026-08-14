@@ -31,6 +31,7 @@ const aptitudeAttemptSchema = new Schema({
 }, { timestamps: true });
 
 aptitudeAttemptSchema.index({ studentId: 1, createdAt: -1 });
+aptitudeAttemptSchema.post("save", document => { if (document.status === "completed") void import("../services/readiness-service").then(({ recomputeReadiness }) => recomputeReadiness(String(document.studentId), "aptitude_completed")).catch(console.error); });
 
 type AptitudeAttemptShape = InferSchemaType<typeof aptitudeAttemptSchema>;
 export const AptitudeAttempt = (models.AptitudeAttempt as Model<AptitudeAttemptShape> | undefined) ?? model<AptitudeAttemptShape>("AptitudeAttempt", aptitudeAttemptSchema);

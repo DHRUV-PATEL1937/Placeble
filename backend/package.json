@@ -11,6 +11,7 @@
     "build": "tsup src/server.ts src/seed.ts --format esm --platform node --target node22 --clean",
     "start": "node dist/server.js",
     "seed": "tsx src/seed.ts",
+    "seed:platform-admin": "tsx src/seed-platform-admin.ts",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"
   },
@@ -27,6 +28,7 @@
     "multer": "^2.2.0",
     "pdf-parse": "^1.1.1",
     "pdfkit": "^0.19.1",
+    "read-excel-file": "^9.3.10",
     "zod": "^4.4.3"
   },
   "devDependencies": {

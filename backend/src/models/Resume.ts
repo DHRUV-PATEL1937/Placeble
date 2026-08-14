@@ -29,6 +29,7 @@ const resumeSchema = new Schema({
 }, { timestamps: true });
 
 resumeSchema.index({ studentId: 1, versionNumber: -1 });
+resumeSchema.post("save", document => { void import("../services/readiness-service").then(({ recomputeReadiness }) => recomputeReadiness(String(document.studentId), "resume_saved")).catch(console.error); });
 
 type ResumeShape = InferSchemaType<typeof resumeSchema>;
 export const Resume = (models.Resume as Model<ResumeShape> | undefined) ?? model<ResumeShape>("Resume", resumeSchema);

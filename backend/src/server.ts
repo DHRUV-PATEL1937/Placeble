@@ -13,6 +13,11 @@ import { interviewRouter } from "./routes/interview";
 import { matchingRouter } from "./routes/matching";
 import { coverLetterRouter } from "./routes/cover-letters";
 import { gdRouter } from "./routes/gd";
+import { readinessRouter } from "./routes/readiness";
+import { recruiterRouter } from "./routes/recruiter";
+import { platformRouter } from "./routes/platform";
+import { tenancyRouter } from "./routes/tenancy";
+import { ensureInviteRetentionIndex } from "./models/Invite";
 import { interviewUploadDirectory } from "./services/interview-storage-service";
 import { bootstrapJobMatching } from "./services/matching-service";
 
@@ -43,6 +48,10 @@ app.use("/api/v1/interview", interviewRouter);
 app.use("/api/v1/matching", matchingRouter);
 app.use("/api/v1/cover-letters", coverLetterRouter);
 app.use("/api/v1/gd", gdRouter);
+app.use("/api/v1/readiness", readinessRouter);
+app.use("/api/v1/recruiter", recruiterRouter);
+app.use("/api/v1/platform-admin", platformRouter);
+app.use("/api/v1/tenancy", tenancyRouter);
 
 app.use((_request, response) => response.status(404).json({ message: "Route not found." }));
 
@@ -56,7 +65,10 @@ const errorHandler: ErrorRequestHandler = (error, _request, response, _next) => 
 app.use(errorHandler);
 
 connectDatabase()
-  .then(() => app.listen(env.API_PORT, () => { console.log(`Placeble API ready on http://localhost:${env.API_PORT}`); void bootstrapJobMatching().catch(error => console.error("Job matching bootstrap failed", error)); }))
+  .then(async () => {
+    await ensureInviteRetentionIndex();
+    app.listen(env.API_PORT, () => { console.log(`Placeble API ready on http://localhost:${env.API_PORT}`); void bootstrapJobMatching().catch(error => console.error("Job matching bootstrap failed", error)); });
+  })
   .catch((error) => {
     console.error("Unable to connect to MongoDB", error);
     process.exit(1);

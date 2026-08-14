@@ -17,11 +17,13 @@ const envSchema = z.object({
   EMBEDDING_PROVIDER: z.enum(["gemini", "openai"]).default("gemini"),
   GEMINI_EMBEDDING_MODEL: z.string().min(1).default("gemini-embedding-001"),
   OPENAI_API_KEY: optionalSecret,
-  OPENAI_MODEL: z.string().min(1).default("gpt-5.6-terra"),
+  OPENAI_MODEL: z.string().min(1).default("gpt-4.1-mini"),
   OPENAI_EMBEDDING_MODEL: z.string().min(1).default("text-embedding-3-small"),
   JUDGE0_ENDPOINT: optionalUrl,
   JUDGE0_API_KEY: optionalSecret,
   SEED_DEMO_PASSWORD: z.string().min(8).optional(),
+  PLATFORM_ADMIN_EMAIL: z.string().email().optional(),
+  PLATFORM_ADMIN_PASSWORD: z.string().min(12).optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 

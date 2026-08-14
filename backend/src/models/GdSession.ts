@@ -57,5 +57,6 @@ const gdSessionSchema = new Schema({
 }, { timestamps: true });
 
 gdSessionSchema.index({ studentId: 1, createdAt: -1 });
+gdSessionSchema.post("save", document => { if (document.status === "completed") void import("../services/readiness-service").then(({ recomputeReadiness }) => recomputeReadiness(String(document.studentId), "gd_completed")).catch(console.error); });
 type GdSessionShape = InferSchemaType<typeof gdSessionSchema>;
 export const GdSession = (models.GdSession as Model<GdSessionShape> | undefined) ?? model<GdSessionShape>("GdSession", gdSessionSchema);

@@ -18,6 +18,7 @@ function userPayload(user: UserDocument) {
     userId: user._id.toString(),
     role: user.role,
     ...(user.institutionId ? { institutionId: user.institutionId.toString() } : {}),
+    ...(user.recruiterOrgId ? { recruiterOrgId: user.recruiterOrgId.toString() } : {}),
   };
 }
 
@@ -71,4 +72,3 @@ export function readRefreshToken(request: Request) {
 export function verifyRefreshToken(token: string) {
   return jwt.verify(token, env.JWT_REFRESH_SECRET) as JwtPayload & { userId: string };
 }
-

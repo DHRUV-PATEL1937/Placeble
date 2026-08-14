@@ -180,7 +180,11 @@ export function ResumeMaker({ user, accessToken, onBack }: { user: { name: strin
   const saveVersion = async () => {
     if (!resume) return;
     setOperation("saving-version"); setError("");
-    try { const payload = await api<{ resume: Resume }>("/resume/versions", accessToken, { method: "POST", body: "{}" }); setResume(payload.resume); setSaveState("saved"); setNotice(`Version ${payload.resume.versionNumber} saved.`); await loadVersions(); setVersionsOpen(true); }
+    try {
+      if (saveState !== "saved") await api<{ resume: Resume }>("/resume/current", accessToken, { method: "PATCH", body: JSON.stringify({ title: resume.title, sections: resume.sections, targetJdText: resume.targetJdText, template: resume.template }) });
+      const payload = await api<{ resume: Resume }>("/resume/versions", accessToken, { method: "POST", body: "{}" });
+      setResume(payload.resume); setSaveState("saved"); setNotice(`Version ${payload.resume.versionNumber} saved.`); await loadVersions(); setVersionsOpen(true);
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save this version."); }
     finally { setOperation(null); }
   };

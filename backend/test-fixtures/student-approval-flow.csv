@@ -1,0 +1,5 @@
+email,fullName,rollNumber,branch,batchYear
+qa.approval.flow@techend.edu.in,QA Approval Student,QA-APPROVAL-01,CSE,2027
+qa.approval.dashboard@techend.edu.in,QA Dashboard Student,QA-APPROVAL-02,Information Technology,2028
+qa.approval.browser@techend.edu.in,QA Browser Student,QA-APPROVAL-03,Computer Engineering,2029
+qa.approval.rejected@techend.edu.in,QA Rejected Student,QA-APPROVAL-04,Electronics,2028
