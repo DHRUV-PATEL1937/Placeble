@@ -57,6 +57,15 @@ export function resumeText(sections: ResumeSection[]) {
   return sections.map(section => Object.values(section.content).flatMap(value => Array.isArray(value) ? value.map(item => typeof item === "object" ? Object.values(item ?? {}).join(" ") : String(item)) : typeof value === "object" ? Object.values(value ?? {}).join(" ") : String(value)).join(" ")).join(" ");
 }
 
+function withoutEmbeddingFields(profile: unknown) {
+  if (!profile || typeof profile !== "object") return profile;
+  const sanitized = { ...(profile as Record<string, unknown>) };
+  delete sanitized.embedding;
+  delete sanitized.embeddingUpdatedAt;
+  delete sanitized.embeddingProfileVersion;
+  return sanitized;
+}
+
 export function buildVerifiedResumeContext(input: {
   studentName: string;
   profile: unknown;
@@ -65,7 +74,7 @@ export function buildVerifiedResumeContext(input: {
 }) {
   return {
     studentName: input.studentName,
-    verifiedProfile: input.profile,
+    verifiedProfile: withoutEmbeddingFields(input.profile),
     selectedResume: {
       title: input.resume.title,
       sections: input.resume.sections,

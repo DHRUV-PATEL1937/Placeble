@@ -27,7 +27,7 @@ router.get("/jobs/:jobId", (request, response) => {
 });
 
 router.post("/question-bank/refresh", (request, response) => {
-  const job = queueAptitudeJob(request.auth!.userId, "Refreshing placement-style questions with Gemini", forceRefreshDynamicQuestionBank, "aptitude:refreshQuestionBank");
+  const job = queueAptitudeJob(request.auth!.userId, "Refreshing placement-style questions with AI", forceRefreshDynamicQuestionBank, "aptitude:refreshQuestionBank");
   return response.status(202).json({ job });
 });
 

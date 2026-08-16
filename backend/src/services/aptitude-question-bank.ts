@@ -100,8 +100,6 @@ function parseGeneratedJson(value: string) {
 }
 
 async function generateQuestionBatch() {
-  if (!env.GEMINI_API_KEY) throw new Error("Dynamic aptitude questions require the configured Gemini key.");
-  const model = env.GEMINI_MODEL;
   const prompt = `Create exactly 12 original placement-style multiple-choice aptitude questions for a 2026 Indian campus hiring practice platform.
 
 Distribution requirements:
@@ -139,6 +137,66 @@ Return only JSON with this shape:
       },
     },
   };
+  if (env.AI_PROVIDER === "sarvam") {
+    if (!env.SARVAM_API_KEY) throw new Error("Dynamic aptitude questions require the configured Sarvam key.");
+    // Sarvam's starter tier hard-caps completion tokens at 4096 with no separate reasoning budget,
+    // and a 12-question batch reliably overflows that. Ask for a smaller batch (still >= the 9-question
+    // floor generatedBatchSchema requires) and keep explanations short so the full JSON fits.
+    const sarvamPrompt = `Create exactly 9 original placement-style multiple-choice aptitude questions for a 2026 Indian campus hiring practice platform.
+
+Distribution requirements:
+- 3 quantitative aptitude, 3 logical reasoning, 3 verbal ability.
+- Within each category include a mix of easy, medium, and hard questions.
+- Use diverse current recruitment-style contexts: business data, operations, workplace communication, analytical decisions, charts described in text, and practical problem solving.
+- Questions must be original and must not claim to be recalled or copied from any company's proprietary test.
+- Avoid current-affairs facts, news, politics, changing statistics, brand trivia, or facts that could become stale. "Latest" means current hiring style and framing, not unverified news.
+- Every question must have exactly four unambiguous options, one correctOptionIndex from 0 to 3, and a worked explanation of one or two short sentences. Escape all line breaks and control characters inside JSON strings.
+- Quant calculations must be internally consistent. Logical questions must have one necessary answer. Verbal questions must follow standard professional English.
+- Use concise kebab-case topic names such as data-interpretation, percentages, syllogisms, critical-reasoning, grammar, or reading-comprehension.
+- Keep every field concise so the full response fits in a small token budget.
+
+Return only JSON with this shape:
+{"questions":[{"category":"quant|logical|verbal","topic":"topic-name","difficulty":"easy|medium|hard","prompt":"...","options":["...","...","...","..."],"correctOptionIndex":0,"explanation":"...","tags":["..."]}]}`;
+    const standardSchema = {
+      type: "object",
+      required: ["questions"],
+      properties: {
+        questions: {
+          type: "array", minItems: 9, maxItems: 9,
+          items: {
+            type: "object",
+            required: ["category", "topic", "difficulty", "prompt", "options", "correctOptionIndex", "explanation", "tags"],
+            properties: {
+              category: { type: "string", enum: ["quant", "logical", "verbal"] },
+              topic: { type: "string" },
+              difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
+              prompt: { type: "string" },
+              options: { type: "array", minItems: 4, maxItems: 4, items: { type: "string" } },
+              correctOptionIndex: { type: "integer", minimum: 0, maximum: 3 },
+              explanation: { type: "string" },
+              tags: { type: "array", minItems: 1, maxItems: 3, items: { type: "string" } },
+            },
+          },
+        },
+      },
+    };
+    const response = await fetch("https://api.sarvam.ai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.SARVAM_API_KEY}` },
+      body: JSON.stringify({ model: env.SARVAM_MODEL, messages: [{ role: "user", content: sarvamPrompt }], max_tokens: 4096, reasoning_effort: null, response_format: { type: "json_schema", json_schema: { name: "aptitude_question_batch", schema: standardSchema, strict: true } } }),
+      signal: AbortSignal.timeout(110_000),
+    });
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null) as { error?: { message?: string } } | null;
+      throw new Error(detail?.error?.message?.slice(0, 260) ?? `Sarvam question refresh failed (${response.status}).`);
+    }
+    const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const text = payload.choices?.[0]?.message?.content?.trim();
+    if (!text) throw new Error("Sarvam returned an empty aptitude question batch.");
+    return generatedBatchSchema.parse(parseGeneratedJson(text)).questions;
+  }
+  if (!env.GEMINI_API_KEY) throw new Error("Dynamic aptitude questions require the configured Gemini key.");
+  const model = env.GEMINI_MODEL;
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
@@ -156,7 +214,8 @@ Return only JSON with this shape:
 }
 
 export async function refreshDynamicAptitudeQuestionBank(force = false) {
-  if (!env.GEMINI_API_KEY) return { generated: 0, refreshedAt: null };
+  const hasConfiguredKey = env.AI_PROVIDER === "sarvam" ? Boolean(env.SARVAM_API_KEY) : Boolean(env.GEMINI_API_KEY);
+  if (!hasConfiguredKey) return { generated: 0, refreshedAt: null };
   const latest = await AptitudeQuestion.findOne({ source: "gemini", isActive: true }).sort({ generatedAt: -1 }).select("generatedAt generationBatchId").lean();
   const isFresh = latest?.generatedAt && Date.now() - new Date(latest.generatedAt).getTime() < 7 * 24 * 60 * 60 * 1000;
   if (!force && isFresh) return { generated: await AptitudeQuestion.countDocuments({ source: "gemini", isActive: true }), refreshedAt: new Date(latest.generatedAt!) };

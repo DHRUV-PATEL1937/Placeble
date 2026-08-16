@@ -51,6 +51,19 @@ async function fetchWithRetry(url: string, init: RequestInit, attempts = 3) {
 }
 
 export async function callStructuredAi(prompt: string, schema: object, schemaName = "interview_result") {
+  if (env.AI_PROVIDER === "sarvam") {
+    if (!env.SARVAM_API_KEY) throw new Error("Sarvam is selected, but SARVAM_API_KEY is not configured.");
+    const response = await fetchWithRetry("https://api.sarvam.ai/v1/chat/completions", {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.SARVAM_API_KEY}` },
+      body: JSON.stringify({ model: env.SARVAM_MODEL, messages: [{ role: "user", content: prompt }], max_tokens: 4096, reasoning_effort: null, response_format: { type: "json_schema", json_schema: { name: schemaName, schema, strict: true } } }),
+      signal: AbortSignal.timeout(90_000),
+    });
+    if (!response.ok) throw new Error(await providerError(response));
+    const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const text = payload.choices?.[0]?.message?.content?.trim();
+    if (!text) throw new Error("Sarvam returned an empty interview response.");
+    return text;
+  }
   if (env.AI_PROVIDER === "openai") {
     if (!env.OPENAI_API_KEY) throw new Error("OpenAI is selected, but OPENAI_API_KEY is not configured.");
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -78,6 +91,19 @@ export async function callStructuredAi(prompt: string, schema: object, schemaNam
 }
 
 export async function callTextAi(prompt: string, maxOutputTokens = 360) {
+  if (env.AI_PROVIDER === "sarvam") {
+    if (!env.SARVAM_API_KEY) throw new Error("Sarvam is selected, but SARVAM_API_KEY is not configured.");
+    const response = await fetchWithRetry("https://api.sarvam.ai/v1/chat/completions", {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.SARVAM_API_KEY}` },
+      body: JSON.stringify({ model: env.SARVAM_MODEL, messages: [{ role: "user", content: prompt }], max_tokens: maxOutputTokens, temperature: .72, reasoning_effort: null }),
+      signal: AbortSignal.timeout(45_000),
+    });
+    if (!response.ok) throw new Error(await providerError(response));
+    const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const text = payload.choices?.[0]?.message?.content?.trim();
+    if (!text) throw new Error("Sarvam returned an empty response.");
+    return text;
+  }
   if (env.AI_PROVIDER === "openai") {
     if (!env.OPENAI_API_KEY) throw new Error("OpenAI is selected, but OPENAI_API_KEY is not configured.");
     const response = await fetch("https://api.openai.com/v1/responses", {

@@ -78,6 +78,28 @@ async function providerError(response: Response) {
   return payload?.error?.message?.slice(0, 280) ?? `AI provider request failed (${response.status}).`;
 }
 
+async function generateWithSarvam(prompt: string) {
+  if (!env.SARVAM_API_KEY) throw new Error("Sarvam is selected, but SARVAM_API_KEY is not configured on the backend.");
+  const response = await fetch("https://api.sarvam.ai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.SARVAM_API_KEY}` },
+    body: JSON.stringify({
+      model: env.SARVAM_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 4096,
+      temperature: 0.2,
+      reasoning_effort: null,
+      response_format: { type: "json_schema", json_schema: { name: "cover_letter", schema: responseJsonSchema, strict: true } },
+    }),
+    signal: AbortSignal.timeout(45_000),
+  });
+  if (!response.ok) throw new Error(await providerError(response));
+  const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+  const output = payload.choices?.[0]?.message?.content?.trim();
+  if (!output) throw new Error("Sarvam returned an empty cover letter. Please try again.");
+  return { output, provider: "sarvam" as const, model: env.SARVAM_MODEL };
+}
+
 async function generateWithGemini(prompt: string) {
   if (!env.GEMINI_API_KEY) throw new Error("Gemini is selected, but GEMINI_API_KEY is not configured on the backend.");
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.GEMINI_MODEL)}:generateContent`, {
@@ -116,7 +138,7 @@ async function generateWithOpenAI(prompt: string) {
 }
 
 export async function generateCoverLetter(input: GenerateCoverLetterInput) {
-  const providerResult = env.AI_PROVIDER === "openai" ? await generateWithOpenAI(buildCoverLetterPrompt(input)) : await generateWithGemini(buildCoverLetterPrompt(input));
+  const providerResult = env.AI_PROVIDER === "openai" ? await generateWithOpenAI(buildCoverLetterPrompt(input)) : env.AI_PROVIDER === "sarvam" ? await generateWithSarvam(buildCoverLetterPrompt(input)) : await generateWithGemini(buildCoverLetterPrompt(input));
   let decoded: unknown;
   try { decoded = JSON.parse(providerResult.output); }
   catch { throw new Error("The AI provider returned an incomplete draft. Please try again."); }

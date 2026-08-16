@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { env } from "../config/env";
 import { Interview, type InterviewType } from "../models/Interview";
 import { createInterviewDebrief, fillerWordRate, scoreTurnAndGenerateNext, transcribeInterviewRecording } from "./interview-ai-service";
 
@@ -45,7 +46,7 @@ export async function getInterviewSummary(userId: string) {
     Interview.findOne({ studentId: userId, status: "in_progress" }).sort({ updatedAt: -1 }).lean(),
     Interview.find({ studentId: userId, status: "completed" }).sort({ completedAt: -1 }).limit(8).lean(),
   ]);
-  return { active, completed, aiProvider: "gemini_or_openai", transcriptionMode: "server", questionVoiceMode: "browser" };
+  return { active, completed, aiProvider: env.AI_PROVIDER, transcriptionMode: "server", questionVoiceMode: "browser" };
 }
 
 export async function getInterviewSession(id: string, userId: string) {

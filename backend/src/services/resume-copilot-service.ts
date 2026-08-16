@@ -79,7 +79,7 @@ type CopilotInput = {
   studentName: string;
 };
 
-type ProviderResult = { text: string; provider: "gemini" | "openai"; model: string };
+type ProviderResult = { text: string; provider: "sarvam" | "gemini" | "openai"; model: string };
 
 function buildPrompt(input: CopilotInput) {
   const context = {
@@ -112,6 +112,55 @@ async function providerError(response: Response) {
   const payload = await response.json().catch(() => null) as { error?: { message?: string } } | null;
   const detail = payload?.error?.message?.slice(0, 280);
   return detail ? `AI provider error: ${detail}` : `AI provider request failed (${response.status}).`;
+}
+
+function extractJsonObject(value: string) {
+  const withoutFence = value.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  try { return JSON.parse(withoutFence); }
+  catch { /* Sarvam occasionally adds a short preface around an otherwise valid JSON object. */ }
+  const start = withoutFence.indexOf("{");
+  if (start < 0) throw new Error("No JSON object was returned.");
+  let depth = 0; let quoted = false; let escaped = false;
+  for (let index = start; index < withoutFence.length; index += 1) {
+    const character = withoutFence[index];
+    if (quoted) { if (escaped) escaped = false; else if (character === "\\") escaped = true; else if (character === '"') quoted = false; continue; }
+    if (character === '"') { quoted = true; continue; }
+    if (character === "{") depth += 1;
+    if (character === "}") { depth -= 1; if (depth === 0) return JSON.parse(withoutFence.slice(start, index + 1)); }
+  }
+  throw new Error("The JSON object was incomplete.");
+}
+
+async function requestSarvamCompletion(prompt: string, retry = false) {
+  const suffix = retry ? "\n\nYour previous response was not valid against the required JSON schema. Return the complete answer again as compact, valid JSON only—no markdown, prose before or after the JSON, or unescaped quotes/newlines inside string values." : "";
+  const response = await fetch("https://api.sarvam.ai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.SARVAM_API_KEY}` },
+    body: JSON.stringify({
+      model: env.SARVAM_MODEL,
+      messages: [{ role: "user", content: `${prompt}${suffix}` }],
+      max_tokens: 4096,
+      reasoning_effort: null,
+      response_format: { type: "json_schema", json_schema: { name: "resume_copilot_response", schema: responseJsonSchema, strict: true } },
+    }),
+    signal: AbortSignal.timeout(45_000),
+  });
+  if (!response.ok) throw new Error(await providerError(response));
+  const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+  const text = payload.choices?.[0]?.message?.content?.trim();
+  if (!text) throw new Error("Sarvam returned an empty response. Please try again.");
+  return text;
+}
+
+async function callSarvam(prompt: string): Promise<ProviderResult> {
+  if (!env.SARVAM_API_KEY) throw new Error("Sarvam is selected, but SARVAM_API_KEY is not configured on the backend.");
+  const model = env.SARVAM_MODEL;
+  for (const retry of [false, true]) {
+    const text = await requestSarvamCompletion(prompt, retry);
+    const parsed = (() => { try { return copilotOutputSchema.safeParse(extractJsonObject(text)); } catch { return null; } })();
+    if (parsed?.success) return { text: JSON.stringify(parsed.data), provider: "sarvam", model };
+  }
+  throw new Error("Sarvam returned an incomplete response. Please try again.");
 }
 
 async function callGemini(prompt: string): Promise<ProviderResult> {
@@ -172,8 +221,10 @@ function applyChanges(sections: ResumeSection[], changes: z.infer<typeof copilot
 }
 
 export async function runResumeCopilot(input: CopilotInput) {
-  const providerResult = env.AI_PROVIDER === "openai" ? await callOpenAI(buildPrompt(input)) : await callGemini(buildPrompt(input));
-  const output = copilotOutputSchema.parse(JSON.parse(providerResult.text));
+  const providerResult = env.AI_PROVIDER === "openai" ? await callOpenAI(buildPrompt(input)) : env.AI_PROVIDER === "sarvam" ? await callSarvam(buildPrompt(input)) : await callGemini(buildPrompt(input));
+  let output: z.infer<typeof copilotOutputSchema>;
+  try { output = copilotOutputSchema.parse(extractJsonObject(providerResult.text)); }
+  catch { throw new Error("The AI response could not be prepared safely. Please try again."); }
   const changes = output.intent === "proposal" ? output.changes : [];
   return {
     reply: output.reply,

@@ -92,7 +92,8 @@ export function CoverLetter({ accessToken, onBack, onOpenResume }: { accessToken
       if (!complete.result?.letter) throw new Error("The draft finished without a cover letter.");
       openLetter(complete.result.letter);
       await loadContext();
-      setNotice(`Draft ready${complete.result.provider ? ` · written with ${complete.result.provider === "gemini" ? "Gemini" : "OpenAI"}` : ""}.`);
+      const providerLabels: Record<string, string> = { sarvam: "Sarvam", gemini: "Gemini", openai: "OpenAI" };
+      setNotice(`Draft ready${complete.result.provider ? ` · written with ${providerLabels[complete.result.provider] ?? complete.result.provider}` : ""}.`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "The draft could not be written."); }
     finally { setGenerating(false); }
   };

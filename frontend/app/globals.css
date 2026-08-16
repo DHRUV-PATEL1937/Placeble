@@ -2001,11 +2001,6 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
 .auth-submit:hover:not(:disabled) { transform: translateY(-1px); background: var(--pb-navy-700); box-shadow: 0 9px 22px rgba(51,68,140,.22); }
 .auth-submit:disabled { cursor: wait; opacity: .7; }
 .button-spinner { width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: spin .75s linear infinite; }
-.auth-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--text-secondary); font-size: 8px; }
-.auth-divider::before, .auth-divider::after { height: 1px; flex: 1; content: ""; background: var(--border); }
-.google-button { position: relative; display: flex; width: 100%; min-height: 47px; align-items: center; justify-content: center; gap: 9px; border: 1px solid var(--border); border-radius: 9px; color: var(--text-secondary); background: var(--surface); font-size: 10px; font-weight: 600; cursor: pointer; }
-.google-button > span { display: grid; width: 22px; height: 22px; place-items: center; border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); background: var(--surface-soft); font-weight: 700; }
-.google-button small { position: absolute; right: 10px; padding: 3px 6px; border-radius: 999px; color: var(--text-secondary); background: var(--surface-soft); font-size: 7px; font-weight: 500; }
 .portal-toggle { display: grid; width: 100%; min-height: 44px; grid-template-columns: 20px 1fr auto; align-items: center; gap: 7px; margin-top: 18px; padding: 0 11px; border: 0; border-radius: 8px; color: var(--pb-navy-500); background: var(--pb-navy-50); font-size: 9px; font-weight: 600; cursor: pointer; text-align: left; }
 .auth-switch { margin-top: 18px; color: var(--text-secondary); font-size: 9px; text-align: center; }
 .auth-switch button { padding: 0; border: 0; color: var(--pb-navy-500); background: none; font-weight: 600; cursor: pointer; }
@@ -2200,16 +2195,16 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
 .role-action h3 { font-size: 18px; }
 
 .activation-story > p, .activation-security small, .activation-context span, .activation-expiry,
-.password-strength small, .auth-divider, .auth-story-footer, .demo-access > div:first-child span,
+.password-strength small, .auth-story-footer, .demo-access > div:first-child span,
 .onboarding-progress > span { font-size: 11px; }
 .activation-security strong, .activation-context strong, .activation-loading > p:last-child,
 .activation-state > p:not(.auth-form-kicker), .auth-kicker, .auth-back, .auth-form-kicker,
 .auth-form > label > span, .onboarding-fields label > span, .remember, .auth-link,
-.auth-message, .auth-submit, .google-button, .portal-toggle, .auth-switch, .demo-access strong,
+.auth-message, .auth-submit, .portal-toggle, .auth-switch, .demo-access strong,
 .auth-loading > p, .onboarding-page > header > button, .onboarding-copy > p,
 .onboarding-fields input, .onboarding-fields textarea { font-size: 12px; }
 .auth-heading p, .auth-input input { font-size: 13px; }
-.google-button small, .activation-context em { font-size: 10px; }
+.activation-context em { font-size: 10px; }
 .demo-grid button, .demo-grid button span, .auth-terms { font-size: 11px; }
 
 :is(.aptitude-view, .mock-interview-view, .job-matching-view, .cover-letter-view, .gd-view, .resume-maker) .eyebrow,
@@ -2275,7 +2270,7 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   .auth-mobile-head .auth-brand { color: var(--pb-navy-900); }
   .auth-form-wrap { margin: 0 auto; }
   .auth-heading h2 { font-size: 29px; }
-  .auth-input, .auth-submit, .google-button { min-height: 51px; }
+  .auth-input, .auth-submit { min-height: 51px; }
   .auth-terms { position: static; margin: 35px auto 0; }
   .role-sidebar { display: none; }
   .role-main { margin-left: 0; }

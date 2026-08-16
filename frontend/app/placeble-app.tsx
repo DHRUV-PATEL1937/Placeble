@@ -245,11 +245,6 @@ function AuthScreen({ onAuthenticated, onCompanyPending, onStudentPending }: { o
           <button className="auth-submit" disabled={loading}>{loading ? <><span className="button-spinner" /> Please wait</> : <>{view === "signup" ? "Create student account" : view === "forgot" ? "Send recovery email" : "Sign in securely"}<ArrowRight size={17} /></>}</button>
         </form>
 
-        {view !== "forgot" && <>
-          <div className="auth-divider"><span>or</span></div>
-          <button type="button" className="google-button" disabled title="Google OAuth credentials and callback routes are not configured"><span>G</span> Continue with Google <small>Setup needed</small></button>
-        </>}
-
         {view === "login" && <button className="portal-toggle" onClick={() => { setPortal(portal === "student" ? "institution" : "student"); setError(""); }}>
           {portal === "student" ? <><Building2 size={16} /> Sign in as institution, recruiter, or faculty</> : <><GraduationCap size={16} /> Return to student sign in</>}<ChevronRight size={15} />
         </button>}

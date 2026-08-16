@@ -37,7 +37,8 @@ type ResumeSection = { _id?: string; type: SectionType; order: number; content: 
 type Resume = { _id: string; title: string; sections: ResumeSection[]; sourceType: "generated" | "uploaded" | "hybrid"; targetJdText: string; atsScore: number; atsBreakdown: { keywordOverlap: number; semanticSimilarity: number; missingKeywords: string[] }; template: "classic" | "modern" | "compact"; versionNumber: number; updatedAt: string };
 type Version = Pick<Resume, "_id" | "title" | "sourceType" | "atsScore" | "template" | "versionNumber" | "updatedAt"> & { isCurrent: boolean };
 type CopilotProposal = { sections: ResumeSection[]; changeSummary: string[] };
-type CopilotResult = { reply: string; intent: "question" | "proposal" | "guidance"; suggestedPrompts: string[]; proposal: CopilotProposal | null; provider: "gemini" | "openai"; model: string };
+type CopilotResult = { reply: string; intent: "question" | "proposal" | "guidance"; suggestedPrompts: string[]; proposal: CopilotProposal | null; provider: "sarvam" | "gemini" | "openai"; model: string };
+const providerLabels: Record<CopilotResult["provider"], string> = { sarvam: "Sarvam", gemini: "Gemini", openai: "OpenAI" };
 type ChatMessage = { id: string; role: "user" | "assistant"; text: string };
 type Job = { id: string; status: "queued" | "processing" | "complete" | "failed"; progress: number; message: string; result?: { resume?: Resume; score?: Resume["atsBreakdown"] & { atsScore: number }; fileUrl?: string; filename?: string; found?: { sections: number; characters: number } } & Partial<CopilotResult>; error?: string };
 
@@ -91,7 +92,7 @@ export function ResumeMaker({ user, accessToken, onBack }: { user: { name: strin
   const [copilotLoading, setCopilotLoading] = useState(false);
   const [copilotProposal, setCopilotProposal] = useState<CopilotProposal | null>(null);
   const [copilotPrompts, setCopilotPrompts] = useState(starterPrompts);
-  const [copilotProvider, setCopilotProvider] = useState("Gemini");
+  const [copilotProvider, setCopilotProvider] = useState("Sarvam");
   const [undoResume, setUndoResume] = useState<Resume | null>(null);
   const loaded = useRef(false);
   const latestResume = useRef<Resume | null>(null);
@@ -241,7 +242,7 @@ export function ResumeMaker({ user, accessToken, onBack }: { user: { name: strin
       setChatMessages(current => [...current, { id: crypto.randomUUID(), role: "assistant", text: result.reply! }]);
       setCopilotProposal(result.proposal ?? null);
       setCopilotPrompts(result.suggestedPrompts?.length ? result.suggestedPrompts : starterPrompts);
-      setCopilotProvider(result.provider === "openai" ? "OpenAI" : "Gemini");
+      setCopilotProvider((result.provider && providerLabels[result.provider]) ?? "Sarvam");
       if (result.proposal && window.innerWidth <= 760) setMobileTab("preview");
     } catch (cause) {
       const messageText = cause instanceof Error ? cause.message : "The copilot could not respond.";
