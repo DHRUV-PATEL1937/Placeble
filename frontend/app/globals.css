@@ -787,6 +787,87 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 
+/* Theme consistency and small-screen safety across public and authenticated surfaces. */
+textarea, select { color: var(--text-primary); background-color: var(--surface); }
+textarea::placeholder, input::placeholder { opacity: 1; }
+.auth-theme-toggle { position: fixed; z-index: 110; top: 20px; right: 22px; display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid var(--border); border-radius: 10px; color: var(--text-primary); background: var(--surface-raised); box-shadow: var(--shadow-card); cursor: pointer; }
+.auth-theme-toggle:hover { background: var(--surface-soft); }
+[data-theme="dark"] .auth-mobile-head .auth-brand,
+[data-theme="dark"] .activation-mobile-brand,
+[data-theme="dark"] .auth-loading .auth-brand,
+[data-theme="dark"] .session-state > .auth-brand,
+[data-theme="dark"] .onboarding-page > header .auth-brand { color: var(--text-primary); }
+[data-theme="dark"] .portal-toggle { color: #bdc8ff; background: #1c2948; }
+[data-theme="dark"] .demo-grid button:hover,
+[data-theme="dark"] .demo-grid button.selected { color: #c4cffd; border-color: #6577bd; background: #1c2948; }
+[data-theme="dark"] .marketplace-building,
+[data-theme="dark"] .marketplace-queue article > span,
+[data-theme="dark"] .marketplace-my-requests article > span { color: #bdc8ff; background: #202f54; }
+[data-theme="dark"] .marketplace-queue article > em,
+[data-theme="dark"] .marketplace-card-status { color: #f5cf92; background: #3a2b12; }
+[data-theme="dark"] .marketplace-queue article > em.approved,
+[data-theme="dark"] .marketplace-card-status.approved { color: #8ee0b4; background: #143c2c; }
+[data-theme="dark"] .marketplace-queue article > em.rejected,
+[data-theme="dark"] .marketplace-card-status.rejected { color: #ffb7ad; background: #48201d; }
+[data-theme="dark"] .marketplace-levels > button.selected { border-color: #7186d0; background: #1d2a4b; box-shadow: inset 0 0 0 1px #7186d0; }
+[data-theme="dark"] .marketplace-grid article > div:nth-child(2) small,
+[data-theme="dark"] .marketplace-levels > button svg { color: #bdc8ff; }
+
+/* Aptitude practice: never reuse light-mode brand ink as dark-mode text. */
+[data-theme="dark"] .aptitude-view {
+  --apt-navy: #dce4ff;
+  --apt-navy-mid: #aebdff;
+  --apt-amber: #ffd08a;
+}
+[data-theme="dark"] .apt-category-picker button.selected,
+[data-theme="dark"] .apt-options button.selected,
+[data-theme="dark"] .apt-review-options > div.selected:not(.correct) {
+  border-color: #8799ec;
+  background: #1b294a;
+  box-shadow: inset 0 0 0 1px #8799ec;
+}
+[data-theme="dark"] .apt-category-picker button > span,
+[data-theme="dark"] .apt-options button > span,
+[data-theme="dark"] .apt-question-nav button.answered,
+[data-theme="dark"] .apt-question-card .difficulty,
+[data-theme="dark"] .apt-section-heading > span {
+  color: #b8c6ff;
+  background: #202e54;
+}
+[data-theme="dark"] .apt-category-picker button > i,
+[data-theme="dark"] .apt-options button > i { color: #aebdff; }
+[data-theme="dark"] .apt-category-picker button:disabled { opacity: 1; color: #9ba6bc; background: #101a2d; }
+[data-theme="dark"] .apt-category-picker button:disabled > span { color: #8390ad; background: #0d1628; }
+[data-theme="dark"] .apt-category-picker button:disabled small,
+[data-theme="dark"] .apt-category-picker button:disabled em { color: #9ba6bc; }
+[data-theme="dark"] .apt-segmented button.active,
+[data-theme="dark"] .apt-number-options button.active { border-color: #52658f; color: #c4d0ff; background: #17233c; }
+[data-theme="dark"] .apt-timer { color: #b9c8ff; }
+[data-theme="dark"] .apt-question-nav button.current { border-color: #8193e7; color: #fff; background: #5369b7; }
+[data-theme="dark"] .apt-question-card > footer button:disabled,
+[data-theme="dark"] .apt-review-card > footer button:disabled { opacity: .62; color: #aeb7c9; }
+[data-theme="dark"] .apt-submit-dialog > div button { color: var(--text-primary); }
+[data-theme="dark"] .apt-submit-dialog > div .button-primary { color: #fff; }
+[data-theme="dark"] .apt-review-options > div.correct,
+[data-theme="dark"] .apt-explanation { border-color: #805b21; background: #372713; }
+[data-theme="dark"] .apt-explanation p { color: #d5d9e4; }
+
+@media (max-width: 767px) {
+  .auth-theme-toggle { top: 14px; right: 16px; width: 40px; height: 40px; }
+  .auth-mobile-head, .activation-mobile-brand { padding-right: 52px; }
+  .auth-row { align-items: flex-start; gap: 14px; }
+  .auth-row .auth-link { text-align: right; }
+  .activation-context { min-width: 0; }
+  .activation-context span { white-space: nowrap; }
+}
+
+@media (max-width: 380px) {
+  .auth-form-side, .activation-form-side { padding-inline: 14px; }
+  .auth-heading h2 { font-size: 26px; }
+  .auth-row { flex-direction: column; }
+  .auth-row .auth-link { text-align: left; }
+}
+
 /* Cover Letter */
 .cover-letter-view { max-width: 1500px; padding-bottom: 58px; }
 .cl-loading { display: grid; min-height: 70vh; place-content: center; justify-items: center; gap: 9px; text-align: center; }

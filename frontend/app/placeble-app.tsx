@@ -16,8 +16,10 @@ import {
   GraduationCap,
   LockKeyhole,
   Mail,
+  Moon,
   ShieldCheck,
   Sparkles,
+  Sun,
 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { PlacebleDashboard } from "./placeble-dashboard";
@@ -50,6 +52,23 @@ const demoAccounts: { role: Role; label: string; email: string; icon: typeof Gra
 
 function Brand() {
   return <div className="auth-brand"><span className="auth-brand-mark"><i /><i /><i /></span><strong>placeble</strong></div>;
+}
+
+function ThemeToggle() {
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const saved = window.localStorage.getItem("placeble-theme");
+    const next = saved === "dark" || (!saved && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    setDark(next);
+    document.documentElement.dataset.theme = next ? "dark" : "light";
+  }, []);
+  const toggle = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.dataset.theme = next ? "dark" : "light";
+    window.localStorage.setItem("placeble-theme", next ? "dark" : "light");
+  };
+  return <button className="auth-theme-toggle" type="button" onClick={toggle} aria-label={dark ? "Use light mode" : "Use dark mode"} title={dark ? "Use light mode" : "Use dark mode"}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button>;
 }
 
 async function apiRequest(path: string, options: RequestInit = {}) {
@@ -136,7 +155,7 @@ function ActivationScreen({ token, onAuthenticated, onReturnToSignIn }: { token:
     body: "The activation token is missing, malformed, or revoked. Check that you opened the complete link, or request a new invite.",
   };
 
-  return <main className="activation-page">
+  return <main className="activation-page"><ThemeToggle />
     <section className="activation-story">
       <Brand />
       <div><span className="auth-kicker"><ShieldCheck size={14} /> Secure institution access</span><h1>Join the right workspace with the right permissions.</h1><p>Your role and institution are taken directly from the invitation. They cannot be changed from this screen.</p><div className="activation-security"><ShieldCheck size={20} /><span><strong>Role-aware from the first session</strong><small>Placeble verifies the token before collecting account details.</small></span></div></div>
@@ -215,6 +234,7 @@ function AuthScreen({ onAuthenticated, onCompanyPending, onStudentPending }: { o
 
   if (accessMode) return <AccessRequestScreen mode={accessMode} onBack={() => setAccessMode(null)} onAuthenticated={onAuthenticated} onPending={onCompanyPending} />;
   return <main className="auth-page">
+    <ThemeToggle />
     <section className="auth-story">
       <Brand />
       <div className="auth-story-copy">
@@ -290,6 +310,12 @@ export function PlacebleApp() {
   const [sessionState, setSessionState] = useState<"pending" | "suspended" | null>(null);
   const [pendingReason, setPendingReason] = useState<"institution" | "company">("institution");
   const [activationRoute, setActivationRoute] = useState<{ active: boolean; token: string }>({ active: false, token: "" });
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("placeble-theme");
+    const dark = saved === "dark" || (!saved && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+  }, []);
 
   useEffect(() => {
     if (window.location.pathname === "/activate") {
