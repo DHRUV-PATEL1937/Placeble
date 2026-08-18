@@ -31,7 +31,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReadinessScoreRing } from "@/src/components/ui/readiness-score-ring";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.placeble.in/api/v1";
 type Category = "quant" | "logical" | "verbal" | "coding";
 type Difficulty = "easy" | "medium" | "hard";
 type Screen = "home" | "setup" | "test" | "results" | "review";

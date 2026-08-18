@@ -52,7 +52,7 @@ type Student = {
   skills: string[];
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.placeble.in/api/v1";
 
 type InvitationRow = { email: string; role: string; sent: string; status: string; activationUrl?: string };
 const initialInvites: InvitationRow[] = [];

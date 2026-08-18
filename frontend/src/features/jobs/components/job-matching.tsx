@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.placeble.in/api/v1";
 type Status = "saved" | "applied" | "interviewing" | "offer" | "rejected" | "withdrawn";
 type Job = { _id: string; title: string; companyName: string; description: string; requiredSkills: string[]; location: string; workMode: "remote" | "hybrid" | "onsite"; employmentType: "full_time" | "internship"; salaryLabel: string; createdAt: string };
 type Match = { _id: string; jobId: string; matchPercent: number; missingSkills: string[]; matchedSkills: string[]; computedAt: string; job: Job };

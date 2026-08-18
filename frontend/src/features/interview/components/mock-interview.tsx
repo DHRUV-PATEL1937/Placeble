@@ -34,7 +34,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ReadinessScoreRing } from "@/src/components/ui/readiness-score-ring";
 import { speakBrowserText, stopBrowserSpeech } from "@/src/services/speech-service";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.placeble.in/api/v1";
 type InterviewType = "hr" | "technical" | "behavioral" | "mixed";
 type Turn = { turnNumber: number; question: string; answerTranscript: string; answerVideoUrl: string; timeSpentSeconds: number; scores: { structure: number; relevance: number; specificity: number; fillerWordRate: number }; feedback: string };
 type Interview = { _id: string; type: InterviewType; targetRole: string; turns: Turn[]; totalTurns: number; currentQuestion: string; overallScore?: number; overallFeedback: string; strengths: string[]; improvements: string[]; status: "setup" | "in_progress" | "completed" | "abandoned"; startedAt: string; completedAt?: string };
