@@ -1,11 +1,9 @@
-"use client";
-
 import { AlertCircle, ArrowLeft, ArrowRight, BarChart3, Check, CheckCircle2, Clock3, FileText, Flag, Hand, Headphones, LoaderCircle, MessageSquareText, Mic, Pause, Play, RefreshCw, Send, ShieldCheck, Sparkles, Square, Target, TrendingUp, Trophy, UsersRound, Volume2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ReadinessScoreRing } from "@/src/components/ui/readiness-score-ring";
 import { speakBrowserText, stopBrowserSpeech } from "@/src/services/speech-service";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.placeble.in/api/v1";
+const API_URL = import.meta.env.VITE_API_URL ?? "https://api.placeble.in/api/v1";
 type PersonaKey = "persona_a" | "persona_b" | "persona_c";
 type Persona = { key: PersonaKey; name: string; stance: "assertive" | "analytical" | "agreeable"; avatarKey: string; description: string; topicPosition: string };
 type Turn = { turnNumber: number; speaker: "student" | PersonaKey; text: string; audioUrl?: string; timestampStart: number; timestampEnd: number; generationLatencyMs?: number };

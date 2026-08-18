@@ -1,5 +1,3 @@
-"use client";
-
 import {
   AlertCircle,
   ArrowLeft,
@@ -41,7 +39,7 @@ type AuthUser = {
   destination: string;
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.placeble.in/api/v1";
+const API_URL = import.meta.env.VITE_API_URL ?? "https://api.placeble.in/api/v1";
 const DEMO_PASSWORD = "Placeble@2026";
 const demoAccounts: { role: Role; label: string; email: string; icon: typeof GraduationCap }[] = [
   { role: "student", label: "Student", email: "student@placeble.local", icon: GraduationCap },

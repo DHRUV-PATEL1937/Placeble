@@ -1,5 +1,3 @@
-"use client";
-
 import {
   ArrowRight,
   Bell,
@@ -378,7 +376,7 @@ function StudentProfilePage({ accessToken, onSaved }: { accessToken: string; onS
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "https://api.placeble.in/api/v1"}/auth/profile`, { credentials: "include", headers: { Authorization: `Bearer ${accessToken}` } })
+    fetch(`${import.meta.env.VITE_API_URL ?? "https://api.placeble.in/api/v1"}/auth/profile`, { credentials: "include", headers: { Authorization: `Bearer ${accessToken}` } })
       .then(async response => { const payload = await response.json(); if (!response.ok) throw new Error(payload.message ?? "Could not load your profile."); return payload.profile; })
       .then(setProfile).catch(cause => setError(cause instanceof Error ? cause.message : "Could not load your profile."));
   }, [accessToken]);
@@ -387,7 +385,7 @@ function StudentProfilePage({ accessToken, onSaved }: { accessToken: string; onS
     if (!profile) return;
     setSaving(true); setError("");
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "https://api.placeble.in/api/v1"}/auth/profile`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ ...profile, email: undefined }) });
+      const response = await fetch(`${import.meta.env.VITE_API_URL ?? "https://api.placeble.in/api/v1"}/auth/profile`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ ...profile, email: undefined }) });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message ?? "Could not save your profile.");
       setProfile(payload.profile ?? profile);
@@ -450,7 +448,7 @@ export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "studen
   }, [accessToken]);
   useEffect(() => {
     if (!accessToken) return;
-    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "https://api.placeble.in/api/v1"}/readiness/me`, { headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" })
+    fetch(`${import.meta.env.VITE_API_URL ?? "https://api.placeble.in/api/v1"}/readiness/me`, { headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" })
       .then(response => response.ok ? response.json() : Promise.reject(new Error("Readiness unavailable")))
       .then(setReadiness).catch(() => setReadiness(null));
   }, [accessToken, current]);

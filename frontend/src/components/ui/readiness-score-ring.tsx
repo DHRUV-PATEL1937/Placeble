@@ -1,4 +1,3 @@
-"use client";
 import { useEffect, useRef, useState } from "react";
 
 export function ReadinessScoreRing({ score, compact = false, label = "Readiness" }: { score: number; compact?: boolean; label?: string }) {

@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Activity, AlertTriangle, ArrowDownUp, BarChart3, Building2, Check, ChevronLeft, ChevronRight,
   ClipboardList, Clock3, Copy, FileSpreadsheet, KeyRound, LogOut, Plus, RefreshCw, Search,
@@ -7,7 +5,7 @@ import {
 } from "lucide-react";
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.placeble.in/api/v1";
+const API_URL = import.meta.env.VITE_API_URL ?? "https://api.placeble.in/api/v1";
 type Nav = "Overview" | "Institutions" | "Recruiter organizations" | "Audit log";
 type InstitutionRow = { _id: string; name: string; slug: string; approvedEmailDomains: string[]; officialDomains: string[]; status: "active" | "suspended" | "pending"; studentCount: number; tpoCount: number; rosterTotal: number; rosterMatched: number; rosterMatchRate: number; averageReadiness: number; createdAt: string };
 type OrganizationRow = { _id: string; companyName: string; companyDomain: string; verificationStatus: "pending" | "verified" | "rejected"; suspendedAt?: string | null; createdAt: string; approvedGrantCount: number; totalGrantCount: number; marketplaceApprovedCount: number; marketplaceAggregateCount: number; marketplaceCandidateCount: number; marketplaceRequestCount: number };

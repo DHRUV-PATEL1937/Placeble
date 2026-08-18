@@ -1,9 +1,7 @@
-"use client";
-
 import { AlertCircle, ArrowLeft, BriefcaseBusiness, Check, ChevronDown, Clipboard, Download, FileText, Link2, LoaderCircle, Mail, PenLine, Plus, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.placeble.in/api/v1";
+const API_URL = import.meta.env.VITE_API_URL ?? "https://api.placeble.in/api/v1";
 type ResumeOption = { _id: string; title: string; versionNumber: number; sourceType: string; isCurrent: boolean; targetJdText: string; updatedAt: string };
 type ApplicationOption = { _id: string; status: string; job: { _id: string; title: string; companyName: string; description: string; location: string } };
 type Letter = { _id: string; applicationId?: string | null; resumeId: string; targetJdText: string; companyName: string; hiringManagerName: string; bodyText: string; status: "draft" | "final"; createdAt: string; updatedAt: string };

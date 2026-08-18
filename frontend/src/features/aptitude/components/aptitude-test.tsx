@@ -1,5 +1,3 @@
-"use client";
-
 import {
   AlertCircle,
   ArrowLeft,
@@ -31,7 +29,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReadinessScoreRing } from "@/src/components/ui/readiness-score-ring";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.placeble.in/api/v1";
+const API_URL = import.meta.env.VITE_API_URL ?? "https://api.placeble.in/api/v1";
 type Category = "quant" | "logical" | "verbal" | "coding";
 type Difficulty = "easy" | "medium" | "hard";
 type Screen = "home" | "setup" | "test" | "results" | "review";

@@ -1,5 +1,3 @@
-"use client";
-
 export type BrowserSpeechOptions = { rate?: number; pitch?: number; voiceHint?: string; onStart?: () => void; onEnd?: () => void; onError?: () => void };
 
 export function stopBrowserSpeech() {
