@@ -28,7 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { ChangeEvent, DragEvent, useCallback, useEffect, useRef, useState } from "react";
-import { ReadinessScoreRing } from "./readiness-score-ring";
+import { ReadinessScoreRing } from "@/src/components/ui/readiness-score-ring";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 type SectionType = "summary" | "experience" | "education" | "skills" | "projects" | "certifications";

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PlacebleApp } from "../placeble-app";
+import { PlacebleApp } from "@/src/features/auth/components/placeble-app";
 
 export const metadata: Metadata = {
   title: "Activate account | Placeble",

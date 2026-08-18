@@ -29,7 +29,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ReadinessScoreRing } from "./readiness-score-ring";
+import { ReadinessScoreRing } from "@/src/components/ui/readiness-score-ring";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 type Category = "quant" | "logical" | "verbal" | "coding";

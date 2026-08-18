@@ -32,13 +32,13 @@ import {
   X,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { ReadinessScoreRing as ReadinessRing } from "./readiness-score-ring";
-import { ResumeMaker } from "./resume-maker";
-import { AptitudeTest } from "./aptitude-test";
-import { MockInterview } from "./mock-interview";
-import { JobMatching, preloadJobMatching } from "./job-matching";
-import { CoverLetter } from "./cover-letter";
-import { GroupDiscussion } from "./group-discussion";
+import { ReadinessScoreRing as ReadinessRing } from "@/src/components/ui/readiness-score-ring";
+import { ResumeMaker } from "@/src/features/resume/components/resume-maker";
+import { AptitudeTest } from "@/src/features/aptitude/components/aptitude-test";
+import { MockInterview } from "@/src/features/interview/components/mock-interview";
+import { JobMatching, preloadJobMatching } from "@/src/features/jobs/components/job-matching";
+import { CoverLetter } from "@/src/features/cover-letter/components/cover-letter";
+import { GroupDiscussion } from "@/src/features/discussion/components/group-discussion";
 
 type View = "Overview" | "Progress" | "Agents" | "Resume Maker" | "Aptitude Test" | "Mock Interview" | "Job Matching" | "Cover Letter" | "Group Discussion" | "Opportunities" | "Applications" | "Profile" | "Settings";
 

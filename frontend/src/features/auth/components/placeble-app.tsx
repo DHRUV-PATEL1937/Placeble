@@ -22,9 +22,9 @@ import {
   Sun,
 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
-import { PlacebleDashboard } from "./placeble-dashboard";
-import { ProfessionalRoleDashboard } from "./professional-role-dashboard";
-import { PlatformAdminConsole } from "./platform-admin-console";
+import { PlacebleDashboard } from "@/src/features/dashboard/components/placeble-dashboard";
+import { ProfessionalRoleDashboard } from "@/src/features/professional/components/professional-role-dashboard";
+import { PlatformAdminConsole } from "@/src/features/admin/components/platform-admin-console";
 
 type Role = "student" | "tpo" | "recruiter" | "faculty" | "platform_admin";
 type AuthUser = {

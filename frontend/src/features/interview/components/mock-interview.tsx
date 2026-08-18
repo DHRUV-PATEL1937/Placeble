@@ -31,8 +31,8 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ReadinessScoreRing } from "./readiness-score-ring";
-import { speakBrowserText, stopBrowserSpeech } from "./speech-service";
+import { ReadinessScoreRing } from "@/src/components/ui/readiness-score-ring";
+import { speakBrowserText, stopBrowserSpeech } from "@/src/services/speech-service";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 type InterviewType = "hr" | "technical" | "behavioral" | "mixed";
