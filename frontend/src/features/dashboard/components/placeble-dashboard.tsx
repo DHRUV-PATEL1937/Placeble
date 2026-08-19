@@ -12,6 +12,7 @@ import {
   Clock3,
   FileText,
   LayoutDashboard,
+  LogOut,
   Menu,
   MessageSquareText,
   Mic2,
@@ -123,7 +124,7 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function Sidebar({ current, setCurrent, open, setOpen, user, readiness, onProfile, onSettings }: {
+function Sidebar({ current, setCurrent, open, setOpen, user, readiness, onProfile, onSettings, onLogout }: {
   current: View;
   setCurrent: (view: View) => void;
   open: boolean;
@@ -132,11 +133,12 @@ function Sidebar({ current, setCurrent, open, setOpen, user, readiness, onProfil
   readiness: ReadinessPayload | null;
   onProfile: () => void;
   onSettings: () => void;
+  onLogout: () => void;
 }) {
   const initials = user.name.split(" ").map(part => part[0]).slice(0, 2).join("").toUpperCase();
   return (
     <>
-      <button className={`sidebar-scrim ${open ? "is-visible" : ""}`} onClick={() => setOpen(false)} aria-label="Close menu" />
+      <button className={`sidebar-scrim ${open ? "is-visible" : ""}`} onClick={() => setOpen(false)} aria-label="Close navigation" />
       <aside className={`sidebar ${open ? "is-open" : ""}`}>
         <div className="sidebar-top">
           <BrandMark />
@@ -159,6 +161,7 @@ function Sidebar({ current, setCurrent, open, setOpen, user, readiness, onProfil
         <nav className="secondary-nav" aria-label="Secondary navigation">
           <button className={`nav-item ${current === "Profile" ? "is-active" : ""}`} onClick={onProfile}><CircleUserRound size={19} /><span>My profile</span></button>
           <button className={`nav-item ${current === "Settings" ? "is-active" : ""}`} onClick={onSettings}><Settings size={19} /><span>Settings</span></button>
+          <button className="nav-item nav-logout" onClick={() => { setOpen(false); onLogout(); }}><LogOut size={19} /><span>Sign out</span></button>
         </nav>
         <div className="sidebar-coach">
           <div className="coach-icon"><Sparkles size={17} /></div>
@@ -166,11 +169,11 @@ function Sidebar({ current, setCurrent, open, setOpen, user, readiness, onProfil
           <span>{readiness?.current ? "Built only from recorded preparation evidence." : "Complete a coach activity to establish your baseline."}</span>
           <button onClick={() => setCurrent("Agents")}>Open coaches <ArrowRight size={15} /></button>
         </div>
-        <div className="sidebar-user">
+        <button className="sidebar-user" onClick={() => { setOpen(false); onLogout(); }} aria-label="Sign out">
           <div className="avatar">{initials}</div>
           <div><strong>{user.name}</strong><span>{user.email}</span></div>
-          <MoreHorizontal size={18} />
-        </div>
+          <LogOut size={18} />
+        </button>
       </aside>
     </>
   );
@@ -486,7 +489,7 @@ export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "studen
   }, [current, accessToken, user, readiness, dark]);
   return (
     <div className="app-shell">
-      <Sidebar current={current} setCurrent={setCurrent} open={menuOpen} setOpen={setMenuOpen} user={user} readiness={readiness} onProfile={() => { setCurrent("Profile"); setMenuOpen(false); }} onSettings={() => { setCurrent("Settings"); setMenuOpen(false); }} />
+      <Sidebar current={current} setCurrent={setCurrent} open={menuOpen} setOpen={setMenuOpen} user={user} readiness={readiness} onProfile={() => { setCurrent("Profile"); setMenuOpen(false); }} onSettings={() => { setCurrent("Settings"); setMenuOpen(false); }} onLogout={onLogout} />
       <main className="main-shell">
         <Header current={current} dark={dark} setDark={setDark} setMenuOpen={setMenuOpen} setCurrent={setCurrent} user={user} onLogout={onLogout} onProfile={() => setCurrent("Profile")} onSettings={() => setCurrent("Settings")} />
         {view}
