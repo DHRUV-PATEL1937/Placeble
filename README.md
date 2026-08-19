@@ -5,7 +5,7 @@ Placeble is organized as two independent applications so the frontend and backen
 ```text
 placeble/
 ├── frontend/   # Vite/React web application on port 3000
-├── backend/    # Express/MongoDB API on port 4000
+├── backend/    # Express/MongoDB API on port 5000
 └── package.json
 ```
 

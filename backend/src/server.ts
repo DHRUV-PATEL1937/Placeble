@@ -24,22 +24,53 @@ import { bootstrapJobMatching } from "./services/matching-service";
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
+
+// Configure CORS for local & production origins
+const configuredOrigins = env.APP_ORIGIN.split(",").map(url => url.trim()).filter(Boolean);
+
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || origin === env.APP_ORIGIN) return callback(null, true);
+    if (!origin) return callback(null, true);
+    if (configuredOrigins.includes("*") || configuredOrigins.includes(origin)) return callback(null, true);
+
     try {
       const url = new URL(origin);
-      return callback(null, url.protocol === "https:" && (url.hostname === "ngrok-free.dev" || url.hostname.endsWith(".ngrok-free.dev")));
-    } catch { return callback(null, false); }
+      const isAllowedDomain =
+        url.protocol === "https:" &&
+        (url.hostname.endsWith(".vercel.app") ||
+         url.hostname === "ngrok-free.dev" ||
+         url.hostname.endsWith(".ngrok-free.dev") ||
+         url.hostname === "placeble.in" ||
+         url.hostname.endsWith(".placeble.in"));
+
+      return callback(null, isAllowedDomain);
+    } catch {
+      return callback(null, false);
+    }
   },
   credentials: true,
   methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
 }));
+
 app.use(express.json({ limit: "100kb" }));
 app.use(cookieParser());
 app.use("/uploads/interviews", express.static(resolve(interviewUploadDirectory())));
 
-app.get("/api/v1/health", (_request, response) => response.json({ status: "ok", database: env.MONGODB_DB_NAME }));
+// Health check endpoints for Coolify / Traefik / Docker / Load Balancers
+const healthHandler = (_request: express.Request, response: express.Response) => {
+  response.json({
+    status: "ok",
+    service: "Placeble API",
+    database: env.MONGODB_DB_NAME,
+    timestamp: new Date().toISOString(),
+  });
+};
+
+app.get("/", healthHandler);
+app.get("/health", healthHandler);
+app.get("/api/v1/health", healthHandler);
+
+// API routes
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/institution", institutionRouter);
 app.use("/api/v1/resume", resumeRouter);
@@ -67,7 +98,24 @@ app.use(errorHandler);
 connectDatabase()
   .then(async () => {
     await ensureInviteRetentionIndex();
-    app.listen(env.API_PORT, () => { console.log(`Placeble API ready on http://localhost:${env.API_PORT}`); void bootstrapJobMatching().catch(error => console.error("Job matching bootstrap failed", error)); });
+    const port = env.API_PORT;
+    const host = env.HOST;
+
+    const server = app.listen(port, host, () => {
+      console.log(`🚀 Placeble API listening on http://${host}:${port}`);
+      void bootstrapJobMatching().catch(error => console.error("Job matching bootstrap failed", error));
+    });
+
+    const shutdown = (signal: string) => {
+      console.log(`Received ${signal}. Shutting down gracefully...`);
+      server.close(() => {
+        console.log("HTTP server closed.");
+        process.exit(0);
+      });
+    };
+
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
+    process.on("SIGINT", () => shutdown("SIGINT"));
   })
   .catch((error) => {
     console.error("Unable to connect to MongoDB", error);
