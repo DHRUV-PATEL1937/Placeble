@@ -2423,6 +2423,38 @@ button.prd-logout-mobile:hover {
   background: rgba(196, 67, 46, 0.1);
 }
 
+/* Shared sign-out confirmation for faculty, recruiter, and TPO workspaces. */
+.prd-signout-dialog {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: min(430px, 100%);
+  justify-items: center;
+  padding: 32px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--text-primary);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-raised);
+  text-align: center;
+}
+.prd-signout-dialog > p { color: var(--pb-navy-500); font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+.prd-signout-dialog h2 { margin: 8px 0; font-size: 24px; letter-spacing: -.5px; }
+.prd-signout-dialog > small { max-width: 300px; color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
+.prd-signout-dialog > div { display: grid; width: 100%; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 24px; }
+.prd-signout-dialog > div button { min-height: 42px; border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); background: var(--surface-soft); font-weight: 700; cursor: pointer; }
+.prd-signout-dialog > div button.danger { border-color: var(--pb-danger); color: #fff; background: var(--pb-danger); }
+.prd-signout-dialog > div button:hover { filter: brightness(1.06); }
+
+@media (max-width: 590px) {
+  .prd-topbar { gap: 8px; }
+  .prd-icon-button { margin-left: 0; }
+  .prd-search { min-width: 0; }
+  .prd-signout-dialog { padding: 26px 20px; }
+  .prd-signout-dialog > div { grid-template-columns: 1fr; }
+  .prd-signout-dialog > div button { width: 100%; }
+}
+
 button.pa-logout-mobile {
   display: inline-flex;
   align-items: center;
