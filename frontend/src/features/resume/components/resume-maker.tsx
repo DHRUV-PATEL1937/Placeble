@@ -28,7 +28,7 @@ import {
 import { ChangeEvent, DragEvent, useCallback, useEffect, useRef, useState } from "react";
 import { ReadinessScoreRing } from "@/src/components/ui/readiness-score-ring";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "https://api.placeble.in/api/v1";
+const API_URL = import.meta.env.VITE_API_URL ?? "/api/v1";
 type SectionType = "summary" | "experience" | "education" | "skills" | "projects" | "certifications";
 type ResumeEntry = { title?: string; subtitle?: string; date?: string; institution?: string; degree?: string; graduationYear?: number | string; detail?: string; bullets?: string[] };
 type ResumeSection = { _id?: string; type: SectionType; order: number; content: { text?: string; items?: string[]; entries?: ResumeEntry[] } };

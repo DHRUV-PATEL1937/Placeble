@@ -39,7 +39,7 @@ type AuthUser = {
   destination: string;
 };
 
-const API_URL = import.meta.env.VITE_API_URL ?? "https://api.placeble.in/api/v1";
+const API_URL = import.meta.env.VITE_API_URL ?? "/api/v1";
 const DEMO_PASSWORD = "Placeble@2026";
 const demoAccounts: { role: Role; label: string; email: string; icon: typeof GraduationCap }[] = [
   { role: "student", label: "Student", email: "student@placeble.local", icon: GraduationCap },
@@ -330,6 +330,28 @@ export function PlacebleApp() {
       .finally(() => { if (active) setChecking(false); });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!accessToken) return;
+
+    const refreshSession = () => {
+      void apiRequest("/auth/refresh", { method: "POST", body: "{}" })
+        .then(({ payload }) => {
+          setUser(payload.user);
+          setAccessToken(payload.accessToken);
+        })
+        .catch(() => undefined);
+    };
+
+    // Renew the existing httpOnly session before the access token expires and
+    // whenever the user returns to a backgrounded workspace.
+    const interval = window.setInterval(refreshSession, 10 * 60 * 1000);
+    window.addEventListener("focus", refreshSession);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshSession);
+    };
+  }, [accessToken]);
 
   const logout = () => {
     setUser(null); setAccessToken(""); setSessionState(null);

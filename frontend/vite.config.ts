@@ -14,6 +14,14 @@ export default defineConfig({
   server: {
     port: 3000,
     strictPort: true,
+    // Keep local browser requests same-origin while forwarding API calls to the
+    // hosted backend. This avoids production CORS restrictions during testing.
+    proxy: {
+      "/api": {
+        target: "https://api.placeble.in",
+        changeOrigin: true,
+      },
+    },
     // Allow current and future ngrok free-domain tunnels
     allowedHosts: [".ngrok-free.dev"],
   },

@@ -51,7 +51,7 @@ type Student = {
   skills: string[];
 };
 
-const API_URL = import.meta.env.VITE_API_URL ?? "https://api.placeble.in/api/v1";
+const API_URL = import.meta.env.VITE_API_URL ?? "/api/v1";
 
 type InvitationRow = { email: string; role: string; sent: string; status: string; activationUrl?: string };
 const initialInvites: InvitationRow[] = [];

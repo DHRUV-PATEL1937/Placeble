@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ReadinessScoreRing } from "@/src/components/ui/readiness-score-ring";
 import { speakBrowserText, stopBrowserSpeech } from "@/src/services/speech-service";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "https://api.placeble.in/api/v1";
+const API_URL = import.meta.env.VITE_API_URL ?? "/api/v1";
 type PersonaKey = "persona_a" | "persona_b" | "persona_c";
 type Persona = { key: PersonaKey; name: string; stance: "assertive" | "analytical" | "agreeable"; avatarKey: string; description: string; topicPosition: string };
 type Turn = { turnNumber: number; speaker: "student" | PersonaKey; text: string; audioUrl?: string; timestampStart: number; timestampEnd: number; generationLatencyMs?: number };
