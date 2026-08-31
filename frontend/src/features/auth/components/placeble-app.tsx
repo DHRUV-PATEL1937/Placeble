@@ -19,7 +19,7 @@ import {
   Sparkles,
   Sun,
 } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { PlacebleDashboard } from "@/src/features/dashboard/components/placeble-dashboard";
 import { ProfessionalRoleDashboard } from "@/src/features/professional/components/professional-role-dashboard";
 import { PlatformAdminConsole } from "@/src/features/admin/components/platform-admin-console";
@@ -309,6 +309,30 @@ export function PlacebleApp() {
   const [pendingReason, setPendingReason] = useState<"institution" | "company">("institution");
   const [activationRoute, setActivationRoute] = useState<{ active: boolean; token: string }>({ active: false, token: "" });
 
+  const accessTokenRef = useRef("");
+  const refreshInFlight = useRef<Promise<string | null> | null>(null);
+
+  useEffect(() => {
+    accessTokenRef.current = accessToken;
+  }, [accessToken]);
+
+  const renewAccessToken = useCallback(async () => {
+    if (!refreshInFlight.current) {
+      refreshInFlight.current = apiRequest("/auth/refresh", { method: "POST", body: "{}" })
+        .then(({ payload }) => {
+          const nextToken = typeof payload?.accessToken === "string" ? payload.accessToken : null;
+          if (!nextToken) return null;
+          accessTokenRef.current = nextToken;
+          setUser(payload.user);
+          setAccessToken(nextToken);
+          return nextToken;
+        })
+        .catch(() => null)
+        .finally(() => { refreshInFlight.current = null; });
+    }
+    return refreshInFlight.current;
+  }, []);
+
   useEffect(() => {
     const saved = window.localStorage.getItem("placeble-theme");
     const dark = saved === "dark" || (!saved && window.matchMedia("(prefers-color-scheme: dark)").matches);
@@ -334,14 +358,7 @@ export function PlacebleApp() {
   useEffect(() => {
     if (!accessToken) return;
 
-    const refreshSession = () => {
-      void apiRequest("/auth/refresh", { method: "POST", body: "{}" })
-        .then(({ payload }) => {
-          setUser(payload.user);
-          setAccessToken(payload.accessToken);
-        })
-        .catch(() => undefined);
-    };
+    const refreshSession = () => { void renewAccessToken(); };
 
     // Renew the existing httpOnly session before the access token expires and
     // whenever the user returns to a backgrounded workspace.
@@ -351,8 +368,31 @@ export function PlacebleApp() {
       window.clearInterval(interval);
       window.removeEventListener("focus", refreshSession);
     };
-  }, [accessToken]);
+  }, [accessToken, renewAccessToken]);
 
+  useEffect(() => {
+    const nativeFetch = window.fetch.bind(window);
+    const isApiRequest = (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      return url.startsWith("/api/") || url.startsWith(API_URL);
+    };
+
+    window.fetch = async (input, init) => {
+      const response = await nativeFetch(input, init);
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (!isApiRequest(input) || url.includes("/auth/refresh") || response.status !== 401) return response;
+      const payload = await response.clone().json().catch(() => null);
+      if (payload?.code !== "ACCESS_EXPIRED") return response;
+
+      const nextToken = await renewAccessToken();
+      if (!nextToken) return response;
+      const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+      headers.set("Authorization", `Bearer ${nextToken}`);
+      return nativeFetch(input, { ...init, headers });
+    };
+
+    return () => { window.fetch = nativeFetch; };
+  }, [renewAccessToken]);
   const logout = () => {
     setUser(null); setAccessToken(""); setSessionState(null);
     void apiRequest("/auth/logout", { method: "POST", body: "{}" }).catch(() => undefined);
