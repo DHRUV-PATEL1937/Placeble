@@ -103,6 +103,17 @@ export function CoverLetter({ accessToken, onBack, onOpenResume }: { accessToken
     return `Subject: Application for ${role} at ${company}\n\n${bodyText.trim()}`;
   }, [activeLetter?.companyName, attachedApplication?.job.title, bodyText, companyName]);
 
+  const openInGmail = () => {
+    const role = attachedApplication?.job.title || "the role";
+    const company = companyName || activeLetter?.companyName || "the company";
+    const gmailUrl = new URL("https://mail.google.com/mail/");
+    gmailUrl.searchParams.set("view", "cm");
+    gmailUrl.searchParams.set("fs", "1");
+    gmailUrl.searchParams.set("su", `Application for ${role} at ${company}`);
+    gmailUrl.searchParams.set("body", bodyText.trim());
+    window.open(gmailUrl.toString(), "_blank", "noopener,noreferrer");
+    setNotice("Gmail compose opened. Add the recipient, review the message, and send when ready.");
+  };
   const copyEmailFormat = async () => {
     try { await navigator.clipboard.writeText(emailFormat); setNotice("Email-format cover letter copied to your clipboard."); setEmailOpen(false); }
     catch { setError("Clipboard access was blocked. Select the email text and copy it manually."); }
@@ -170,6 +181,6 @@ export function CoverLetter({ accessToken, onBack, onOpenResume }: { accessToken
         </> : <section className="cl-empty"><span><Mail size={28} /></span><p className="eyebrow">Ready when you are</p><h2>One draft. Four clear paragraphs.</h2><p>Select a resume and optionally a target application. Your editable letter will appear here in a few seconds.</p><div><span><b>1</b> Specific opening</span><span><b>2</b> Relevant evidence</span><span><b>3</b> Second point of fit</span><span><b>4</b> Confident close</span></div></section>}
       </main>
     </div>
-    {emailOpen && activeLetter && <div className="cl-email-modal" role="dialog" aria-modal="true" aria-labelledby="email-format-title"><button className="cl-email-scrim" onClick={() => setEmailOpen(false)} aria-label="Close email format" /><section><button className="cl-email-close" onClick={() => setEmailOpen(false)} aria-label="Close email format"><X size={18} /></button><span><Mail size={20} /></span><p>Email-ready format</p><h2 id="email-format-title">Send your cover letter by email</h2><small>Review the subject line and replace any placeholders before sending.</small><textarea value={emailFormat} readOnly aria-label="Email-format cover letter" /><div><button type="button" onClick={() => setEmailOpen(false)}>Back to letter</button><button type="button" className="primary" onClick={() => void copyEmailFormat()}><Clipboard size={15} /> Copy email</button></div></section></div>}    {generating && <div className="cl-generating" role="status"><section><span><LoaderCircle size={24} /></span><h2>Writing your draft…</h2><p>Using your selected resume and target role. This usually takes a few seconds.</p></section></div>}
+    {emailOpen && activeLetter && <div className="cl-email-modal" role="dialog" aria-modal="true" aria-labelledby="email-format-title"><button className="cl-email-scrim" onClick={() => setEmailOpen(false)} aria-label="Close email format" /><section><button className="cl-email-close" onClick={() => setEmailOpen(false)} aria-label="Close email format"><X size={18} /></button><span><Mail size={20} /></span><p>Email-ready format</p><h2 id="email-format-title">Send your cover letter by email</h2><small>Review the subject line and replace any placeholders before sending.</small><textarea value={emailFormat} readOnly aria-label="Email-format cover letter" /><div><button type="button" onClick={() => setEmailOpen(false)}>Back to letter</button><button type="button" onClick={openInGmail}><Mail size={15} /> Open in Gmail</button><button type="button" className="primary" onClick={() => void copyEmailFormat()}><Clipboard size={15} /> Copy email</button></div></section></div>}    {generating && <div className="cl-generating" role="status"><section><span><LoaderCircle size={24} /></span><h2>Writing your draft…</h2><p>Using your selected resume and target role. This usually takes a few seconds.</p></section></div>}
   </div>;
 }
