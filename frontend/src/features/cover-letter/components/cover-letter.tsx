@@ -30,6 +30,7 @@ export function CoverLetter({ accessToken, onBack, onOpenResume }: { accessToken
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [downloadOpen, setDownloadOpen] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
   const lastSavedBody = useRef("");
 
   const loadContext = useCallback(async () => {
@@ -96,6 +97,16 @@ export function CoverLetter({ accessToken, onBack, onOpenResume }: { accessToken
     finally { setGenerating(false); }
   };
 
+  const emailFormat = useMemo(() => {
+    const role = attachedApplication?.job.title || "the role";
+    const company = companyName || activeLetter?.companyName || "the company";
+    return `Subject: Application for ${role} at ${company}\n\n${bodyText.trim()}`;
+  }, [activeLetter?.companyName, attachedApplication?.job.title, bodyText, companyName]);
+
+  const copyEmailFormat = async () => {
+    try { await navigator.clipboard.writeText(emailFormat); setNotice("Email-format cover letter copied to your clipboard."); setEmailOpen(false); }
+    catch { setError("Clipboard access was blocked. Select the email text and copy it manually."); }
+  };
   const copyLetter = async () => {
     try { await navigator.clipboard.writeText(bodyText); setNotice("Cover letter copied to your clipboard."); }
     catch { setError("Clipboard access was blocked. Select the text and copy it manually."); }
@@ -153,12 +164,12 @@ export function CoverLetter({ accessToken, onBack, onOpenResume }: { accessToken
       </aside>
       <main className="cl-editor-shell">
         {activeLetter ? <>
-          <header className="cl-editor-top"><div><span className={`cl-status ${activeLetter.status}`}>{activeLetter.status}</span><span className={`cl-save-state ${saveState}`}><i />{saveState === "saved" ? "All changes saved" : saveState === "saving" ? "Saving…" : "Unsaved changes"}</span>{attachedApplication && <span className="cl-attached"><Link2 size={13} /> {attachedApplication.job.companyName}</span>}</div><div><button onClick={() => void copyLetter()}><Clipboard size={15} /> Copy</button><div className="cl-download"><button onClick={() => setDownloadOpen(current => !current)}><Download size={15} /> Download <ChevronDown size={13} /></button>{downloadOpen && <div><button onClick={() => void download("pdf")}><FileText size={14} /> PDF document</button><button onClick={() => void download("txt")}><PenLine size={14} /> Plain text</button></div>}</div><button className="cl-final" onClick={() => void markFinal()}>{activeLetter.status === "final" ? <PenLine size={15} /> : <Check size={15} />}{activeLetter.status === "final" ? "Reopen draft" : "Mark final"}</button></div></header>
+          <header className="cl-editor-top"><div><span className={`cl-status ${activeLetter.status}`}>{activeLetter.status}</span><span className={`cl-save-state ${saveState}`}><i />{saveState === "saved" ? "All changes saved" : saveState === "saving" ? "Saving…" : "Unsaved changes"}</span>{attachedApplication && <span className="cl-attached"><Link2 size={13} /> {attachedApplication.job.companyName}</span>}</div><div><button onClick={() => void copyLetter()}><Clipboard size={15} /> Copy</button><div className="cl-download"><button onClick={() => setDownloadOpen(current => !current)}><Download size={15} /> Download <ChevronDown size={13} /></button>{downloadOpen && <div><button onClick={() => void download("pdf")}><FileText size={14} /> PDF document</button><button onClick={() => void download("txt")}><PenLine size={14} /> Plain text</button></div>}</div><button className="cl-email" onClick={() => setEmailOpen(true)}><Mail size={15} /> Email format</button><button className="cl-final" onClick={() => void markFinal()}>{activeLetter.status === "final" ? <PenLine size={15} /> : <Check size={15} />}{activeLetter.status === "final" ? "Reopen draft" : "Mark final"}</button></div></header>
           <section className="cl-paper"><header><div><strong>{companyName || activeLetter.companyName || "Target company"}</strong><span>{hiringManagerName || activeLetter.hiringManagerName ? `For ${hiringManagerName || activeLetter.hiringManagerName}` : "Cover letter"}</span></div><small>{wordCount} words · four-paragraph format</small></header><textarea aria-label="Cover letter body" value={bodyText} onChange={event => setBodyText(event.target.value)} spellCheck /></section>
           <footer className="cl-editor-footer"><div><BriefcaseBusiness size={16} /><span>{attachedApplication ? <><strong>Attached to {attachedApplication.job.title}</strong><small>{attachedApplication.job.companyName} · {attachedApplication.status}</small></> : <><strong>Not attached yet</strong><small>Select an application in Draft setup, then attach this letter.</small></>}</span></div><button disabled={!applicationId || activeLetter.applicationId === applicationId} onClick={() => void attach()}><Link2 size={15} />{activeLetter.applicationId === applicationId && applicationId ? "Attached" : "Attach to application"}</button></footer>
         </> : <section className="cl-empty"><span><Mail size={28} /></span><p className="eyebrow">Ready when you are</p><h2>One draft. Four clear paragraphs.</h2><p>Select a resume and optionally a target application. Your editable letter will appear here in a few seconds.</p><div><span><b>1</b> Specific opening</span><span><b>2</b> Relevant evidence</span><span><b>3</b> Second point of fit</span><span><b>4</b> Confident close</span></div></section>}
       </main>
     </div>
-    {generating && <div className="cl-generating" role="status"><section><span><LoaderCircle size={24} /></span><h2>Writing your draft…</h2><p>Using your selected resume and target role. This usually takes a few seconds.</p></section></div>}
+    {emailOpen && activeLetter && <div className="cl-email-modal" role="dialog" aria-modal="true" aria-labelledby="email-format-title"><button className="cl-email-scrim" onClick={() => setEmailOpen(false)} aria-label="Close email format" /><section><button className="cl-email-close" onClick={() => setEmailOpen(false)} aria-label="Close email format"><X size={18} /></button><span><Mail size={20} /></span><p>Email-ready format</p><h2 id="email-format-title">Send your cover letter by email</h2><small>Review the subject line and replace any placeholders before sending.</small><textarea value={emailFormat} readOnly aria-label="Email-format cover letter" /><div><button type="button" onClick={() => setEmailOpen(false)}>Back to letter</button><button type="button" className="primary" onClick={() => void copyEmailFormat()}><Clipboard size={15} /> Copy email</button></div></section></div>}    {generating && <div className="cl-generating" role="status"><section><span><LoaderCircle size={24} /></span><h2>Writing your draft…</h2><p>Using your selected resume and target role. This usually takes a few seconds.</p></section></div>}
   </div>;
 }
