@@ -49,11 +49,15 @@ const navItems: { label: View; icon: typeof LayoutDashboard }[] = [
   { label: "Applications", icon: ClipboardCheck },
 ];
 
+// Temporary product switch: retain the feature and its history, but do not
+// expose Group Discussion to students until it is explicitly re-enabled.
+const SHOW_GROUP_DISCUSSION = false;
+
 type ReadinessPayload = { current: { score: number; evidenceCount?: number; components: { resume: number; aptitude: number; interview: number; groupDiscussion: number; careerActivity: number } } | null; history: Array<{ score: number; calculatedAt: string; reason?: string }> };
 
 function buildAgents(readiness: ReadinessPayload | null) {
   const components = readiness?.current?.components;
-  return [
+  const agents = [
   {
     name: "Resume Maker",
     description: "Shape a focused, ATS-ready resume from your profile.",
@@ -109,6 +113,7 @@ function buildAgents(readiness: ReadinessPayload | null) {
     tone: "slate",
   },
   ];
+  return SHOW_GROUP_DISCUSSION ? agents : agents.filter(agent => agent.name !== "Group Discussion");
 }
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
@@ -320,7 +325,7 @@ function AgentsView({ readiness, onOpenResume, onOpenAptitude, onOpenInterview, 
   const hasAptitude = Boolean(readiness?.current?.components.aptitude);
   return (
     <div className="view-content inner-view">
-      <section className="view-intro"><div><p className="eyebrow">Your preparation toolkit</p><h2>Six coaches. One clear path.</h2><p>Every session contributes to the same readiness score, so your effort stays connected.</p></div><div className="compact-score-card"><ReadinessRing score={readiness?.current?.score ?? 0} compact /><span><strong>{readiness?.current?.score ?? 0} readiness</strong><small>Based on verified activity</small></span></div></section>
+      <section className="view-intro"><div><p className="eyebrow">Your preparation toolkit</p><h2>Five coaches. One clear path.</h2><p>Every session contributes to the same readiness score, so your effort stays connected.</p></div><div className="compact-score-card"><ReadinessRing score={readiness?.current?.score ?? 0} compact /><span><strong>{readiness?.current?.score ?? 0} readiness</strong><small>Based on verified activity</small></span></div></section>
       <section className="recommended-strip"><span className="recommend-icon"><Sparkles size={18} /></span><div><strong>{hasAptitude ? "Continue aptitude practice" : "Recommended next: establish an aptitude baseline"}</strong><p>{hasAptitude ? `Your latest recorded aptitude score is ${readiness?.current?.components.aptitude}.` : "No completed aptitude assessment is recorded for this account."}</p></div><button className="button button-progress" onClick={onOpenAptitude}>{hasAptitude ? "Continue practice" : "Start assessment"} <ArrowRight size={16} /></button></section>
       <section className="agent-library">
         {agentRows.map(({ name, description, icon: Icon, status, action, metric, tone }) => (
