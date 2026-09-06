@@ -16,6 +16,13 @@ import {
   saveAttemptResponse,
 } from "../services/aptitude-service";
 
+const answerInput = z.object({
+  questionId: z.string().min(12),
+  selectedOptionIndex: z.coerce.number().int().min(0).max(10).optional(),
+  codeSubmission: z.object({ language: z.enum(["javascript", "python", "java", "cpp"]), code: z.string().max(50000) }).optional(),
+  timeSpentSeconds: z.coerce.number().int().min(0).max(3600).default(0),
+}).refine(value => value.selectedOptionIndex !== undefined || value.codeSubmission, { message: "Provide an answer or code submission." });
+
 const router = Router();
 router.use(requireAuth, requireRole("student"));
 
@@ -52,12 +59,8 @@ router.get("/attempts/:attemptId", async (request, response) => {
 });
 
 router.patch("/attempts/:attemptId/response", async (request, response) => {
-  const input = z.object({
-    questionId: z.string().min(12),
-    selectedOptionIndex: z.number().int().min(0).max(10).optional(),
-    codeSubmission: z.object({ language: z.enum(["javascript", "python", "java", "cpp"]), code: z.string().max(50000) }).optional(),
-    timeSpentSeconds: z.number().int().min(0).max(3600).default(0),
-  }).refine(value => value.selectedOptionIndex !== undefined || value.codeSubmission, { message: "Provide an answer or code submission." }).parse(request.body);
+  const input = answerInput.parse(request.body);
+
   return response.json(await saveAttemptResponse({ ...input, attemptId: request.params.attemptId, userId: request.auth!.userId }));
 });
 
@@ -72,8 +75,12 @@ router.post("/attempts/:attemptId/run-code", async (request, response) => {
 });
 
 router.post("/attempts/:attemptId/submit", async (request, response) => {
+  const input = z.object({ responses: z.array(answerInput).max(20).default([]) }).parse(request.body ?? {});
   const attempt = await AptitudeAttempt.findOne({ _id: request.params.attemptId, studentId: request.auth!.userId, status: "in_progress" }).select("questionIds").lean();
   if (!attempt) return response.status(404).json({ message: "This attempt is no longer active." });
+  for (const answer of input.responses) {
+    await saveAttemptResponse({ ...answer, attemptId: request.params.attemptId, userId: request.auth!.userId });
+  }
   const codingCount = await AptitudeQuestion.countDocuments({ _id: { $in: attempt.questionIds }, category: "coding" });
   if (codingCount) {
     const job = queueAptitudeJob(request.auth!.userId, "Running final code submissions against all test cases", () => gradeCodingAndCompleteAttempt(request.params.attemptId, request.auth!.userId));

@@ -52,7 +52,10 @@ const categoryMeta: Record<Category, { label: string; description: string; icon:
 async function api<T>(path: string, accessToken: string, init: RequestInit = {}) {
   const response = await fetch(`${API_URL}${path}`, { ...init, credentials: "include", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, ...init.headers } });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.message ?? "The request could not be completed.");
+  if (!response.ok) {
+    const fieldMessage = payload.fields ? Object.values(payload.fields as Record<string, string[]>).flat().find((messages): messages is string => Array.isArray(messages) && typeof messages[0] === "string")?.[0] : undefined;
+    throw new Error(fieldMessage ?? payload.message ?? "The request could not be completed.");
+  }
   return { payload: payload as T, status: response.status };
 }
 
@@ -154,7 +157,7 @@ export function AptitudeTest({ accessToken, onBack }: { accessToken: string; onB
   const currentQuestion = payload?.questions[questionIndex];
 
   const saveQuestion = useCallback(async (question: Question, draft: AnswerDraft) => {
-    const nextDraft = { ...draft, timeSpentSeconds: Math.max(draft.timeSpentSeconds ?? 0, questionElapsed) };
+    const nextDraft = { ...draft, timeSpentSeconds: Math.min(3600, Math.max(0, Math.floor(Math.max(draft.timeSpentSeconds ?? 0, questionElapsed))) };
     setAnswers(current => ({ ...current, [question._id]: nextDraft }));
     await api(`/aptitude/attempts/${payload!.attempt._id}/response`, accessToken, { method: "PATCH", body: JSON.stringify({ questionId: question._id, ...nextDraft }) });
   }, [accessToken, payload, questionElapsed]);
@@ -215,10 +218,16 @@ export function AptitudeTest({ accessToken, onBack }: { accessToken: string; onB
     if (!payload || submittingRef.current) return;
     submittingRef.current = true; setBusy(true); setSubmitConfirm(false); setError("");
     try {
-      const question = payload.questions[questionIndex];
-      const draft = question ? answers[question._id] : undefined;
-      if (question && draft && (draft.selectedOptionIndex !== undefined || draft.codeSubmission)) await saveQuestion(question, draft);
-      const { payload: response, status } = await api<AttemptPayload & { job?: Job }>(`/aptitude/attempts/${payload.attempt._id}/submit`, accessToken, { method: "POST", body: "{}" });
+      const responses = Object.entries(answers).flatMap(([questionId, draft]) => {
+        if (draft.selectedOptionIndex === undefined && !draft.codeSubmission?.code.trim()) return [];
+        return [{
+          questionId,
+          ...(draft.selectedOptionIndex !== undefined ? { selectedOptionIndex: draft.selectedOptionIndex } : {}),
+          ...(draft.codeSubmission?.code.trim() ? { codeSubmission: draft.codeSubmission } : {}),
+          timeSpentSeconds: Math.min(3600, Math.max(0, Math.floor(draft.timeSpentSeconds ?? 0))),
+        }];
+      });
+      const { payload: response, status } = await api<AttemptPayload & { job?: Job }>(`/aptitude/attempts/${payload.attempt._id}/submit`, accessToken, { method: "POST", body: JSON.stringify({ responses }) });
       let result = response;
       if (status === 202 && response.job) {
         const complete = await pollJob(response.job.id);
@@ -280,7 +289,7 @@ export function AptitudeTest({ accessToken, onBack }: { accessToken: string; onB
       <div className="apt-test-layout"><aside className="apt-question-nav"><header><span>Questions</span><em>{answeredCount}/{payload.questions.length} answered</em></header><div>{payload.questions.map((question, index) => <button key={question._id} className={`${index === questionIndex ? "current" : ""} ${answers[question._id]?.selectedOptionIndex !== undefined || answers[question._id]?.codeSubmission?.code.trim() ? "answered" : ""}`} onClick={() => void goToQuestion(index)}>{index + 1}</button>)}</div><footer><span><i className="answered" />Answered</span><span><i />Not answered</span></footer></aside>
         <main className="apt-question-card"><header><span className={`difficulty ${currentQuestion.difficulty}`}>{currentQuestion.difficulty}</span><span><CurrentIcon size={14} />{categoryMeta[currentQuestion.category].label}</span><span>{topicLabel(currentQuestion.topic)}</span></header><h1>{currentQuestion.prompt}</h1>
           {currentQuestion.category !== "coding" ? <div className="apt-options">{currentQuestion.options.map((option, index) => <button className={currentAnswer.selectedOptionIndex === index ? "selected" : ""} key={option} onClick={() => void chooseOption(index)}><span>{String.fromCharCode(65 + index)}</span><p>{option}</p><i>{currentAnswer.selectedOptionIndex === index ? <CheckCircle2 size={20} /> : <Circle size={20} />}</i></button>)}</div> : <CodingQuestion question={currentQuestion} answer={currentAnswer} onChange={draft => setAnswers(current => ({ ...current, [currentQuestion._id]: draft }))} onRun={() => void runCode()} runState={codeRun?.questionId === currentQuestion._id ? codeRun : null} />}
-          <footer><button disabled={questionIndex === 0} onClick={() => void goToQuestion(questionIndex - 1)}><ChevronLeft size={16} /> Previous</button><span>Answers save as you go</span>{questionIndex === payload.questions.length - 1 ? <button className="primary" onClick={() => setSubmitConfirm(true)}>Review & submit <Send size={15} /></button> : <button className="primary" onClick={() => void goToQuestion(questionIndex + 1)}>Next <ChevronRight size={16} /></button>}</footer></main></div>
+          <footer><button disabled={questionIndex === 0} onClick={() => void goToQuestion(questionIndex - 1)}><ChevronLeft size={16} /> Previous</button><span>Answers save as you go</span>{questionIndex === payload.questions.length - 1 ? <button className="primary" disabled={busy} onClick={() => setSubmitConfirm(true)}>{busy ? <LoaderCircle size={15} /> : <><span>Review & submit</span><Send size={15} /></>}</button> : <button className="primary" onClick={() => void goToQuestion(questionIndex + 1)}>Next <ChevronRight size={16} /></button>}</footer></main></div>
       {submitConfirm && <div className="apt-dialog-layer"><button className="apt-dialog-scrim" aria-label="Close" onClick={() => setSubmitConfirm(false)} /><section className="apt-submit-dialog"><span><Flag size={21} /></span><p className="eyebrow">Before you finish</p><h2>Submit this practice test?</h2><p>You answered <strong>{answeredCount} of {payload.questions.length}</strong> questions. Unanswered questions will receive zero marks.</p><div><button onClick={() => setSubmitConfirm(false)}>Keep working</button><button className="button button-primary" disabled={busy} onClick={() => void finishTest(false)}>{busy ? <LoaderCircle size={16} /> : <Send size={16} />} Submit test</button></div></section></div>}
       {busy && <div className="apt-grading"><LoaderCircle size={25} /><h2>{payload.attempt.sections.includes("coding") ? "Running final test cases" : "Calculating your result"}</h2><p>Your score is being calculated from answer keys and test-case outcomes.</p></div>}
     </div>;
