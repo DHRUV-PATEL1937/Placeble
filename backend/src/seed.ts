@@ -18,7 +18,7 @@ async function seed() {
   const institution = await Institution.findOneAndUpdate(
     { slug: "techend-institute" },
     { name: "TechEnd Institute of Technology", slug: "techend-institute", officialDomains: ["techend.edu.in"], approvedEmailDomains: ["techend.edu.in"], status: "active" },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
 
   const accountSeeds = [
@@ -33,46 +33,46 @@ async function seed() {
     const user = await User.findOneAndUpdate(
       { email: account.email },
       { ...account, passwordHash, authProvider: "password", status: "active", emailVerified: true, studentVerificationStatus: account.role === "student" ? "approved" : null },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
     ) as UserDocument;
     users.set(account.role, user);
   }
   const platformAdmin = await User.findOneAndUpdate(
     { email: "platform@placeble.local" },
     { name: "Placeble Platform Admin", email: "platform@placeble.local", role: "platform_admin", institutionId: null, recruiterOrgId: null, passwordHash, authProvider: "password", status: "active", emailVerified: true },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   ) as UserDocument;
   const recruiterOrganization = await RecruiterOrganization.findOneAndUpdate(
     { companyDomain: "razorpay.com" },
     { companyName: "Razorpay", companyDomain: "razorpay.com", verificationStatus: "verified", verifiedByPlatformAdminId: platformAdmin._id, verifiedAt: new Date(), suspendedAt: null },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
   await User.updateOne({ _id: users.get("recruiter")!._id }, { $set: { institutionId: null, recruiterOrgId: recruiterOrganization._id } });
   const drive = await Drive.findOneAndUpdate(
     { institutionId: institution._id, title: "Graduate Engineering Drive", companyName: "Razorpay" },
     { institutionId: institution._id, title: "Graduate Engineering Drive", companyName: "Razorpay", status: "published", startsAt: new Date("2026-08-18T09:00:00.000Z") },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
   await DriveAccessGrant.findOneAndUpdate(
     { recruiterOrgId: recruiterOrganization._id, driveId: drive._id },
     { institutionId: institution._id, status: "approved", grantedByTpoId: users.get("tpo")!._id, requestedAt: new Date(), decidedAt: new Date() },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
 
   await StudentProfile.findOneAndUpdate(
     { userId: users.get("student")!._id },
     { institutionId: institution._id, degree: "B.Tech Computer Science", graduationYear: 2027, skills: ["React", "JavaScript", "SQL"], preferredRoles: ["Product Analyst", "Software Engineer"], onboardingCompleted: true },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: "after" },
   );
   await RecruiterProfile.findOneAndUpdate(
     { userId: users.get("recruiter")!._id },
     { companyName: "Razorpay", institutionIds: [institution._id], driveIds: ["campus-drive-aug-2026"] },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: "after" },
   );
   await FacultyProfile.findOneAndUpdate(
     { userId: users.get("faculty")!._id },
     { institutionId: institution._id, department: "Computer Science", cohortLabels: ["CSE 2027"] },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: "after" },
   );
 
   await ensureAptitudeQuestionBank();

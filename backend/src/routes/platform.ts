@@ -183,7 +183,7 @@ router.get("/institutions/:institutionId", async (request, response) => {
 router.patch("/institutions/:institutionId/status", async (request, response) => {
   const institutionId = objectId.parse(request.params.institutionId);
   const input = z.object({ status: z.enum(["active", "suspended"]), reason: reasonSchema }).parse(request.body);
-  const institution = await Institution.findByIdAndUpdate(institutionId, { $set: { status: input.status } }, { new: true });
+  const institution = await Institution.findByIdAndUpdate(institutionId, { $set: { status: input.status } }, { returnDocument: "after" });
   if (!institution) return response.status(404).json({ message: "Institution not found." });
   await writeAdminAudit({ platformAdminId: request.auth!.userId, action: input.status === "suspended" ? "institution_suspended" : "institution_reactivated", targetType: "institution", targetId: institution._id, metadata: { reason: input.reason, name: institution.name } });
   return response.json({ institution });
@@ -235,7 +235,7 @@ router.patch("/recruiter-organizations/:organizationId", async (request, respons
   const update = input.action === "suspend"
     ? { $set: { suspendedAt: new Date() } }
     : { $set: { ...(status ? { verificationStatus: status } : {}), suspendedAt: null, ...(input.action === "verify" ? { verifiedByPlatformAdminId: request.auth!.userId, verifiedAt: new Date() } : {}) } };
-  const organization = await RecruiterOrganization.findByIdAndUpdate(organizationId, update, { new: true });
+  const organization = await RecruiterOrganization.findByIdAndUpdate(organizationId, update, { returnDocument: "after" });
   if (!organization) return response.status(404).json({ message: "Recruiter organization not found." });
   if (input.action === "verify" || input.action === "restore") await User.updateMany({ recruiterOrgId: organization._id, role: "recruiter" }, { $set: { status: "active" } });
   if (input.action === "reject" || input.action === "suspend") await User.updateMany({ recruiterOrgId: organization._id, role: "recruiter" }, { $set: { status: "suspended" } });

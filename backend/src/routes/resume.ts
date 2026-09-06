@@ -122,7 +122,7 @@ router.patch("/current", async (request, response) => {
   const resume = await Resume.findOneAndUpdate(
     { studentId: request.auth!.userId, isCurrent: true },
     { ...input, atsScore: score.atsScore, atsBreakdown: { keywordOverlap: score.keywordOverlap, semanticSimilarity: score.semanticSimilarity, missingKeywords: score.missingKeywords }, fileUrl: "" },
-    { new: true, runValidators: true },
+    { returnDocument: "after", runValidators: true },
   );
   if (resume) await markStudentMatchingProfileChanged(request.auth!.userId);
   return resume ? response.json({ resume }) : response.status(404).json({ message: "Generate or upload a resume before editing." });
@@ -133,7 +133,7 @@ router.post("/score", async (request, response) => {
   const userId = request.auth!.userId;
   const job = queueResumeJob(userId, "resume:scoreAts", "Comparing your current draft with the target role", async () => {
     const score = await scoreResumeWithEmbeddings(input.sections as ResumeSection[], input.targetJdText);
-    const resume = await Resume.findOneAndUpdate({ studentId: userId, isCurrent: true }, { targetJdText: input.targetJdText, atsScore: score.atsScore, atsBreakdown: { keywordOverlap: score.keywordOverlap, semanticSimilarity: score.semanticSimilarity, missingKeywords: score.missingKeywords } }, { new: true });
+    const resume = await Resume.findOneAndUpdate({ studentId: userId, isCurrent: true }, { targetJdText: input.targetJdText, atsScore: score.atsScore, atsBreakdown: { keywordOverlap: score.keywordOverlap, semanticSimilarity: score.semanticSimilarity, missingKeywords: score.missingKeywords } }, { returnDocument: "after" });
     return { score, resumeId: resume?._id };
   });
   return response.status(202).json({ job });

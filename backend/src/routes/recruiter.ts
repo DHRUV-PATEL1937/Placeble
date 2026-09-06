@@ -86,7 +86,7 @@ router.post("/marketplace/:institutionId/request", requireAuth, requireRole("rec
   const marketplaceRequest = await MarketplaceRequest.findOneAndUpdate(
     { recruiterOrgId: request.auth!.recruiterOrgId, institutionId },
     { $set: { requestedAccessLevel: input.requestedAccessLevel, message: input.message, status: "pending", grantedAccessLevel: null, respondingTpoId: null, decidedAt: null } },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
   return response.status(201).json({ request: marketplaceRequest });
 });

@@ -31,7 +31,7 @@ export async function markStudentMatchingProfileChanged(studentId: string) {
   const profile = await StudentProfile.findOneAndUpdate(
     { userId: studentId },
     { $inc: { profileVersion: 1 }, $set: { embedding: [], embeddingProfileVersion: 0 }, $unset: { embeddingUpdatedAt: 1 } },
-    { new: true },
+    { returnDocument: "after" },
   ).lean();
   if (!profile) return null;
   return queueMatchingRecompute(studentId, { studentId });
@@ -74,7 +74,7 @@ async function computeOne(studentId: string, job: { _id: unknown; title: string;
   const semantic = Math.max(0, Math.min(1, cosineSimilarity(student.embedding, jobEmbedding)));
   const skillCoverage = job.requiredSkills.length ? breakdown.matchedSkills.length / job.requiredSkills.length : 1;
   const matchPercent = Math.round(Math.min(98, Math.max(18, semantic * 78 + skillCoverage * 22)));
-  await MatchScore.findOneAndUpdate({ studentId: new mongoose.Types.ObjectId(studentId), jobId: job._id as mongoose.Types.ObjectId }, { matchPercent, ...breakdown, computedAt: new Date(), studentProfileVersion: student.profile.profileVersion, embeddingModel: embeddingModelName() }, { upsert: true, new: true });
+  await MatchScore.findOneAndUpdate({ studentId: new mongoose.Types.ObjectId(studentId), jobId: job._id as mongoose.Types.ObjectId }, { matchPercent, ...breakdown, computedAt: new Date(), studentProfileVersion: student.profile.profileVersion, embeddingModel: embeddingModelName() }, { upsert: true, returnDocument: "after" });
   return matchPercent;
 }
 
@@ -153,7 +153,7 @@ export async function getMatchingDashboard(studentId: string) {
 
 export async function saveOrApplyJob(studentId: string, jobId: string, status: "saved" | "applied") {
   const now = new Date();
-  return Application.findOneAndUpdate({ studentId, jobId }, { $set: { status, ...(status === "applied" ? { appliedAt: now } : {}) }, $push: { statusHistory: { status, changedAt: now } } }, { upsert: true, new: true, setDefaultsOnInsert: true });
+  return Application.findOneAndUpdate({ studentId, jobId }, { $set: { status, ...(status === "applied" ? { appliedAt: now } : {}) }, $push: { statusHistory: { status, changedAt: now } } }, { upsert: true, returnDocument: "after", setDefaultsOnInsert: true });
 }
 
 export async function updateApplication(input: { applicationId: string; studentId: string; status?: ApplicationStatus; notes?: string }) {

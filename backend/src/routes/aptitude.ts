@@ -83,7 +83,7 @@ router.post("/attempts/:attemptId/submit", async (request, response) => {
 });
 
 router.post("/attempts/:attemptId/abandon", async (request, response) => {
-  const attempt = await AptitudeAttempt.findOneAndUpdate({ _id: request.params.attemptId, studentId: request.auth!.userId, status: "in_progress" }, { status: "abandoned", completedAt: new Date() }, { new: true });
+  const attempt = await AptitudeAttempt.findOneAndUpdate({ _id: request.params.attemptId, studentId: request.auth!.userId, status: "in_progress" }, { status: "abandoned", completedAt: new Date() }, { returnDocument: "after" });
   return attempt ? response.json({ ok: true }) : response.status(404).json({ message: "This attempt is no longer active." });
 });
 

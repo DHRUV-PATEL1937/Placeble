@@ -52,7 +52,7 @@ router.post("/sessions/:id/complete", async (request, response) => {
 });
 
 router.post("/sessions/:id/abandon", async (request, response) => {
-  const interview = await Interview.findOneAndUpdate({ _id: request.params.id, studentId: request.auth!.userId, status: "in_progress" }, { status: "abandoned", completedAt: new Date(), processingTurn: 0 }, { new: true });
+  const interview = await Interview.findOneAndUpdate({ _id: request.params.id, studentId: request.auth!.userId, status: "in_progress" }, { status: "abandoned", completedAt: new Date(), processingTurn: 0 }, { returnDocument: "after" });
   return interview ? response.json({ interview }) : response.status(404).json({ message: "That active interview was not found." });
 });
 

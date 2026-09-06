@@ -176,7 +176,7 @@ export async function enqueueSessionScore(sessionId: string, userId: string) {
 }
 
 export async function abandonGdSession(sessionId: string, userId: string) {
-  return GdSession.findOneAndUpdate({ _id: sessionId, studentId: userId, status: "in_progress" }, { $set: { status: "abandoned", completedAt: new Date(), "orchestration.processing": false, "orchestration.currentPersonaKey": "" }, $inc: { "orchestration.revision": 1 } }, { new: true });
+  return GdSession.findOneAndUpdate({ _id: sessionId, studentId: userId, status: "in_progress" }, { $set: { status: "abandoned", completedAt: new Date(), "orchestration.processing": false, "orchestration.currentPersonaKey": "" }, $inc: { "orchestration.revision": 1 } }, { returnDocument: "after" });
 }
 
 export async function getGdSummary(userId: string) {

@@ -227,7 +227,7 @@ router.patch("/profile", requireAuth, requireRole("student"), async (request, re
   }).parse(request.body);
   await Promise.all([
     User.updateOne({ _id: request.auth!.userId }, { $set: { name: input.name } }),
-    StudentProfile.findOneAndUpdate({ userId: request.auth!.userId }, { $set: { degree: input.degree, graduationYear: input.graduationYear, skills: input.skills, preferredRoles: input.preferredRoles, onboardingCompleted: true, embedding: [], embeddingProfileVersion: 0 }, $inc: { profileVersion: 1 } }, { upsert: true, new: true, setDefaultsOnInsert: true }),
+    StudentProfile.findOneAndUpdate({ userId: request.auth!.userId }, { $set: { degree: input.degree, graduationYear: input.graduationYear, skills: input.skills, preferredRoles: input.preferredRoles, onboardingCompleted: true, embedding: [], embeddingProfileVersion: 0 }, $inc: { profileVersion: 1 } }, { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }),
   ]);
   queueMatchingRecompute(request.auth!.userId, { studentId: request.auth!.userId });
   const user = await User.findById(request.auth!.userId) as UserDocument;
@@ -246,7 +246,7 @@ router.post("/onboarding", requireAuth, requireRole("student"), async (request, 
     skills: z.array(z.string().min(1)).min(1),
     preferredRoles: z.array(z.string().min(1)).min(1),
   }).parse(request.body);
-  await StudentProfile.findOneAndUpdate({ userId: request.auth!.userId }, { $set: { ...input, onboardingCompleted: true, embedding: [], embeddingProfileVersion: 0 }, $inc: { profileVersion: 1 } }, { upsert: true, new: true, setDefaultsOnInsert: true });
+  await StudentProfile.findOneAndUpdate({ userId: request.auth!.userId }, { $set: { ...input, onboardingCompleted: true, embedding: [], embeddingProfileVersion: 0 }, $inc: { profileVersion: 1 } }, { upsert: true, returnDocument: "after", setDefaultsOnInsert: true });
   queueMatchingRecompute(request.auth!.userId, { studentId: request.auth!.userId });
   const user = await User.findById(request.auth!.userId) as UserDocument;
   return response.json({ user: await publicUser(user) });
@@ -305,7 +305,7 @@ router.post("/activate", async (request, response) => {
   const claimed = await Invite.findOneAndUpdate(
     { _id: invite._id, status: "pending", expiresAt: { $gt: new Date() } },
     { $set: { status: "accepted", acceptedAt: new Date() } },
-    { new: true },
+    { returnDocument: "after" },
   );
   if (!claimed) {
     const latest = await resolveInvite(rawToken);

@@ -109,7 +109,7 @@ router.patch("/marketplace/settings", requireAuth, requireRole("tpo"), requireIn
     "marketplaceListing.headline": input.headline,
     "marketplaceListing.studentCountBand": input.studentCountBand,
     "marketplaceListing.topBranches": [...new Set(input.topBranches.map(item => item.trim()).filter(Boolean))],
-  } }, { new: true }).select("name marketplaceListing");
+  } }, { returnDocument: "after" }).select("name marketplaceListing");
   if (!institution) return response.status(404).json({ message: "Institution not found." });
   return response.json({ institution });
 });
@@ -145,7 +145,7 @@ router.post("/marketplace/requests/:requestId/drives/:driveId/grant", requireAut
   if (!marketplaceRequest) return response.status(403).json({ code: "MARKETPLACE_CANDIDATE_ACCESS_REQUIRED", message: "Approve candidate access for this organization before granting a drive." });
   const drive = await Drive.findOne({ _id: request.params.driveId, institutionId: request.institutionScope, status: { $in: ["published", "draft"] } }).lean();
   if (!drive) return response.status(404).json({ message: "Drive not found in your institution." });
-  const grant = await DriveAccessGrant.findOneAndUpdate({ recruiterOrgId: marketplaceRequest.recruiterOrgId, driveId: drive._id }, { $set: { institutionId: request.institutionScope, status: "approved", accessLevel: "candidate_access", requestedAccessLevel: "candidate_access", relationshipSource: "marketplace", grantedByTpoId: request.auth!.userId, requestedAt: new Date(), decidedAt: new Date() } }, { upsert: true, new: true, setDefaultsOnInsert: true });
+  const grant = await DriveAccessGrant.findOneAndUpdate({ recruiterOrgId: marketplaceRequest.recruiterOrgId, driveId: drive._id }, { $set: { institutionId: request.institutionScope, status: "approved", accessLevel: "candidate_access", requestedAccessLevel: "candidate_access", relationshipSource: "marketplace", grantedByTpoId: request.auth!.userId, requestedAt: new Date(), decidedAt: new Date() } }, { upsert: true, returnDocument: "after", setDefaultsOnInsert: true });
   return response.status(201).json({ grant });
 });
 
@@ -156,7 +156,7 @@ router.get("/drive-access", requireAuth, requireRole("tpo"), requireInstitutionS
 
 router.patch("/drive-access/:grantId", requireAuth, requireRole("tpo"), requireInstitutionScope, async (request, response) => {
   const input = z.object({ action: z.enum(["approve", "reject", "revoke"]) }).parse(request.body);
-  const grant = await DriveAccessGrant.findOneAndUpdate({ _id: request.params.grantId, institutionId: request.institutionScope }, { $set: { status: input.action === "approve" ? "approved" : "revoked", grantedByTpoId: request.auth!.userId, decidedAt: new Date() } }, { new: true });
+  const grant = await DriveAccessGrant.findOneAndUpdate({ _id: request.params.grantId, institutionId: request.institutionScope }, { $set: { status: input.action === "approve" ? "approved" : "revoked", grantedByTpoId: request.auth!.userId, decidedAt: new Date() } }, { returnDocument: "after" });
   if (!grant) return response.status(404).json({ message: "Drive access request not found in your institution." });
   return response.json({ grant });
 });
@@ -179,7 +179,7 @@ router.post("/recruiter/drives/:driveId/request", requireAuth, requireRole("recr
   if (!drive) return response.status(404).json({ message: "Drive not found." });
   const relationship = await MarketplaceRequest.findOne({ recruiterOrgId: request.auth!.recruiterOrgId, institutionId: drive.institutionId, status: "approved", grantedAccessLevel: "candidate_access" }).lean();
   if (!relationship) return response.status(403).json({ code: "MARKETPLACE_CANDIDATE_ACCESS_REQUIRED", message: "The institution must approve candidate access before a drive request can be made." });
-  const grant = await DriveAccessGrant.findOneAndUpdate({ recruiterOrgId: request.auth!.recruiterOrgId, driveId: drive._id }, { $set: { institutionId: drive.institutionId, status: "requested", accessLevel: "candidate_access", requestedAccessLevel: "candidate_access", relationshipSource: "marketplace", requestedAt: new Date(), decidedAt: null, grantedByTpoId: null } }, { upsert: true, new: true, setDefaultsOnInsert: true });
+  const grant = await DriveAccessGrant.findOneAndUpdate({ recruiterOrgId: request.auth!.recruiterOrgId, driveId: drive._id }, { $set: { institutionId: drive.institutionId, status: "requested", accessLevel: "candidate_access", requestedAccessLevel: "candidate_access", relationshipSource: "marketplace", requestedAt: new Date(), decidedAt: null, grantedByTpoId: null } }, { upsert: true, returnDocument: "after", setDefaultsOnInsert: true });
   return response.status(201).json({ grant });
 });
 

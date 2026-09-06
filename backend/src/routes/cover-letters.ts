@@ -86,7 +86,7 @@ router.patch("/:letterId", async (request, response) => {
     companyName: z.string().trim().max(180).optional(),
     hiringManagerName: z.string().trim().max(180).optional(),
   }).refine(value => Object.keys(value).length > 0).parse(request.body);
-  const letter = await CoverLetter.findOneAndUpdate({ _id: request.params.letterId, studentId: request.auth!.userId }, input, { new: true, runValidators: true });
+  const letter = await CoverLetter.findOneAndUpdate({ _id: request.params.letterId, studentId: request.auth!.userId }, input, { returnDocument: "after", runValidators: true });
   return letter ? response.json({ letter }) : response.status(404).json({ message: "That cover letter was not found." });
 });
 
@@ -94,7 +94,7 @@ router.post("/:letterId/attach", async (request, response) => {
   const input = z.object({ applicationId: objectId }).parse(request.body);
   const application = await Application.findOne({ _id: input.applicationId, studentId: request.auth!.userId }).lean();
   if (!application) return response.status(404).json({ message: "That application was not found." });
-  const letter = await CoverLetter.findOneAndUpdate({ _id: request.params.letterId, studentId: request.auth!.userId }, { applicationId: application._id }, { new: true });
+  const letter = await CoverLetter.findOneAndUpdate({ _id: request.params.letterId, studentId: request.auth!.userId }, { applicationId: application._id }, { returnDocument: "after" });
   return letter ? response.json({ letter }) : response.status(404).json({ message: "That cover letter was not found." });
 });
 
