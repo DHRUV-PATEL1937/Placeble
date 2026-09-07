@@ -157,7 +157,7 @@ export function AptitudeTest({ accessToken, onBack }: { accessToken: string; onB
   const currentQuestion = payload?.questions[questionIndex];
 
   const saveQuestion = useCallback(async (question: Question, draft: AnswerDraft) => {
-    const nextDraft = { ...draft, timeSpentSeconds: Math.min(3600, Math.max(0, Math.floor(Math.max(draft.timeSpentSeconds ?? 0, questionElapsed))) };
+    const nextDraft = { ...draft, timeSpentSeconds: Math.min(3600, Math.max(0, Math.floor(Math.max(draft.timeSpentSeconds ?? 0, questionElapsed)))) };
     setAnswers(current => ({ ...current, [question._id]: nextDraft }));
     await api(`/aptitude/attempts/${payload!.attempt._id}/response`, accessToken, { method: "PATCH", body: JSON.stringify({ questionId: question._id, ...nextDraft }) });
   }, [accessToken, payload, questionElapsed]);

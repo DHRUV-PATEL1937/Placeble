@@ -98,6 +98,7 @@ Rules:
 - If enough facts exist, set intent to "proposal" and include only sections that should be replaced. Preserve all factual detail already present.
 - Put the complete replacement section in content.
 - For summary use content.text. For skills use content.items. For all other sections use content.entries. Omit fields that do not apply.
+- For certifications, use title for the certification name, subtitle for the issuing organization, and date for the issuance year or date. If the student explicitly gives a year, preserve it exactly in date (for example, "2025").
 - Bullets should be concise, evidence-led, ATS-readable, and never claim unsupported impact.
 - A proposal is only a preview. Do not imply it has already been saved.
 - Keep the reply brief and explain what you changed or what you need next.

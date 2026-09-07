@@ -1,6 +1,8 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import { Types } from "mongoose";
 import { z } from "zod";
+import { env } from "../config/env";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { AdminAuditLogEntry, adminAuditActions } from "../models/AdminAuditLogEntry";
 import { Application } from "../models/Application";
@@ -35,6 +37,38 @@ async function latestReadinessByInstitution() {
     { $group: { _id: "$institutionId", average: { $avg: "$score" } } },
   ]);
 }
+
+router.get("/health", async (_request, response) => {
+  const startedAt = Date.now();
+  const database = await (async () => {
+    if (mongoose.connection.readyState !== 1 || !mongoose.connection.db) return { key: "database", label: "MongoDB database", status: "down" as const, detail: "The database connection is not ready." };
+    try {
+      await mongoose.connection.db.admin().ping();
+      return { key: "database", label: "MongoDB database", status: "operational" as const, detail: `Connected to ${env.MONGODB_DB_NAME}.` };
+    } catch {
+      return { key: "database", label: "MongoDB database", status: "down" as const, detail: "The database did not respond to a ping." };
+    }
+  })();
+  const records = await (async () => {
+    if (database.status === "down") return { key: "core-data", label: "Core data access", status: "down" as const, detail: "Skipped while the database is unavailable." };
+    try {
+      const [users, resumes, questions] = await Promise.all([User.countDocuments(), Resume.countDocuments(), AptitudeAttempt.countDocuments()]);
+      return { key: "core-data", label: "Core data access", status: "operational" as const, detail: `${users} users · ${resumes} resumes · ${questions} aptitude attempts accessible.` };
+    } catch {
+      return { key: "core-data", label: "Core data access", status: "degraded" as const, detail: "Database is connected, but one or more core collections could not be read." };
+    }
+  })();
+  const services = [
+    { key: "api", label: "API runtime", status: "operational" as const, detail: `Running for ${Math.floor(process.uptime() / 60)} minutes.` },
+    database,
+    records,
+    { key: "ai", label: "AI provider", status: (env.AI_PROVIDER === "sarvam" ? !!env.SARVAM_API_KEY : env.AI_PROVIDER === "gemini" ? !!env.GEMINI_API_KEY : !!env.OPENAI_API_KEY) ? "configured" as const : "degraded" as const, detail: (env.AI_PROVIDER === "sarvam" ? !!env.SARVAM_API_KEY : env.AI_PROVIDER === "gemini" ? !!env.GEMINI_API_KEY : !!env.OPENAI_API_KEY) ? `${env.AI_PROVIDER} is configured for agent tasks.` : `${env.AI_PROVIDER} is selected but its API key is missing.` },
+    { key: "coding", label: "Coding evaluator", status: env.JUDGE0_ENDPOINT ? "configured" as const : "degraded" as const, detail: env.JUDGE0_ENDPOINT ? "Judge0 endpoint is configured for coding tests." : "Judge0 is not configured; coding aptitude questions are unavailable." },
+    { key: "authentication", label: "Authentication", status: "operational" as const, detail: "Access and refresh-token signing are configured." },
+  ];
+  const overall = services.some(service => service.status === "down") ? "down" : services.some(service => service.status === "degraded") ? "degraded" : "operational";
+  return response.json({ overall, checkedAt: new Date().toISOString(), responseTimeMs: Date.now() - startedAt, services });
+});
 
 router.get("/overview", async (_request, response) => {
   const sinceMonth = new Date(); sinceMonth.setDate(1); sinceMonth.setHours(0, 0, 0, 0);
