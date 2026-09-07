@@ -183,7 +183,7 @@ function AccessRequestScreen({ mode, onBack, onAuthenticated, onPending }: { mod
   return <main className="auth-page"><section className="auth-story"><Brand /><div className="auth-story-copy"><span className="auth-kicker"><ShieldCheck size={14} /> {mode === "institution" ? "Manual tenant onboarding" : "Verified recruiter network"}</span><h1>{mode === "institution" ? "Bring your institution into a workspace of its own." : "Verify once. Build trusted campus relationships."}</h1><p>{mode === "institution" ? "Every college receives a fully isolated tenant, configured with approved domains and a secure first-admin activation." : "Register with your company email. Placeble verifies the organization once; each institution still controls access to every drive."}</p></div><div className="auth-story-footer"><span><ShieldCheck size={15} /> Tenant-safe by design</span><span>© 2026 Placeble</span></div></section><section className="auth-form-side"><div className="auth-mobile-head"><Brand /></div><div className="auth-form-wrap"><button className="auth-back" onClick={onBack}><ArrowLeft size={16} /> Back to sign in</button><header className="auth-heading"><span className="auth-form-kicker">{mode === "institution" ? "Institution enquiry" : "Recruiter registration"}</span><h2>{mode === "institution" ? "Talk to our institution team." : "Register your company."}</h2><p>{mode === "institution" ? "This form starts a conversation; it never creates a tenant automatically." : "Use your work email so the company domain can be reviewed securely."}</p></header><form className="auth-form" onSubmit={submit}><label><span>Your full name</span><div className="auth-input"><CircleUserRound size={18} /><input required value={name} onChange={event => setName(event.target.value)} /></div></label><label><span>{mode === "institution" ? "Institution name" : "Company name"}</span><div className="auth-input"><Building2 size={18} /><input required value={organizationName} onChange={event => setOrganizationName(event.target.value)} /></div></label><label><span>Work email</span><div className="auth-input"><Mail size={18} /><input required type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder={mode === "institution" ? "you@college.edu" : "you@company.com"} /></div></label>{mode === "institution" ? <label><span>What should we know? <em>optional</em></span><textarea className="access-note" value={note} onChange={event => setNote(event.target.value)} placeholder="Student count, placement team size, or preferred timeline" /></label> : <label><span>Create password</span><div className="auth-input"><LockKeyhole size={18} /><input required type={showPassword ? "text" : "password"} value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password" /><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div><PasswordStrength password={password} /></label>}{error && <div className="auth-message error"><AlertCircle size={17} /><span>{error}</span></div>}{notice && <div className="auth-message success"><CheckCircle2 size={17} /><span>{notice}</span></div>}<button className="auth-submit" disabled={loading || Boolean(notice)}>{loading ? <><span className="button-spinner" /> Submitting securely</> : <>{mode === "institution" ? "Request institution onboarding" : "Submit company registration"}<ArrowRight size={17} /></>}</button></form></div></section></main>;
 }
 
-function AuthScreen({ onAuthenticated, onCompanyPending, onStudentPending }: { onAuthenticated: (user: AuthUser, accessToken: string) => void; onCompanyPending: () => void; onStudentPending: () => void }) {
+function AuthScreen({ onAuthenticated, onCompanyPending, onStudentPending, sessionExpired = false }: { onAuthenticated: (user: AuthUser, accessToken: string) => void; onCompanyPending: () => void; onStudentPending: () => void; sessionExpired?: boolean }) {
   const [view, setView] = useState<"login" | "signup" | "forgot">("login");
   const [portal, setPortal] = useState<"student" | "institution">("student");
   const [name, setName] = useState("");
@@ -194,6 +194,8 @@ function AuthScreen({ onAuthenticated, onCompanyPending, onStudentPending }: { o
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [errorCode, setErrorCode] = useState("");
+
+  useEffect(() => { if (sessionExpired) setNotice("Your session ended due to inactivity. Please sign in again."); }, [sessionExpired]);
   const [accessMode, setAccessMode] = useState<"institution" | "recruiter" | null>(null);
 
   const title = view === "signup" ? "Start building your readiness." : view === "forgot" ? "Reset your password." : portal === "student" ? "Welcome back." : "Institution access.";
@@ -308,6 +310,7 @@ export function PlacebleApp() {
   const [sessionState, setSessionState] = useState<"pending" | "suspended" | null>(null);
   const [pendingReason, setPendingReason] = useState<"institution" | "company">("institution");
   const [activationRoute, setActivationRoute] = useState<{ active: boolean; token: string }>({ active: false, token: "" });
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   const accessTokenRef = useRef("");
   const refreshInFlight = useRef<Promise<string | null> | null>(null);
@@ -315,6 +318,14 @@ export function PlacebleApp() {
   useEffect(() => {
     accessTokenRef.current = accessToken;
   }, [accessToken]);
+
+  const endExpiredSession = useCallback(() => {
+    accessTokenRef.current = "";
+    setAccessToken("");
+    setUser(null);
+    setSessionState(null);
+    setSessionExpired(true);
+  }, []);
 
   const renewAccessToken = useCallback(async () => {
     if (!refreshInFlight.current) {
@@ -385,22 +396,22 @@ export function PlacebleApp() {
       if (payload?.code !== "ACCESS_EXPIRED") return response;
 
       const nextToken = await renewAccessToken();
-      if (!nextToken) return response;
+      if (!nextToken) { endExpiredSession(); return response; }
       const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
       headers.set("Authorization", `Bearer ${nextToken}`);
       return nativeFetch(input, { ...init, headers });
     };
 
     return () => { window.fetch = nativeFetch; };
-  }, [renewAccessToken]);
+  }, [endExpiredSession, renewAccessToken]);
   const logout = () => {
-    setUser(null); setAccessToken(""); setSessionState(null);
+    accessTokenRef.current = ""; setUser(null); setAccessToken(""); setSessionState(null); setSessionExpired(false);
     void apiRequest("/auth/logout", { method: "POST", body: "{}" }).catch(() => undefined);
   };
   const authenticated = (nextUser: AuthUser, token: string) => {
     if (nextUser.status === "pending") { setPendingReason(nextUser.role === "recruiter" ? "company" : "institution"); setSessionState("pending"); return; }
     if (nextUser.status === "suspended") { setSessionState("suspended"); return; }
-    setUser(nextUser); setAccessToken(token);
+    setSessionExpired(false); setUser(nextUser); setAccessToken(token);
   };
   const returnToSignIn = () => {
     window.history.replaceState({}, "", "/");
@@ -411,7 +422,7 @@ export function PlacebleApp() {
   if (checking) return <main className="auth-loading"><Brand /><span /><p>Preparing your workspace…</p></main>;
   if (activationRoute.active) return <ActivationScreen token={activationRoute.token} onAuthenticated={(nextUser, token) => { setActivationRoute({ active: false, token: "" }); authenticated(nextUser, token); }} onReturnToSignIn={returnToSignIn} />;
   if (sessionState) return <SessionScreen type={sessionState} pendingReason={pendingReason} onLogout={logout} />;
-  if (!user) return <AuthScreen onAuthenticated={authenticated} onCompanyPending={() => { setPendingReason("company"); setSessionState("pending"); }} onStudentPending={() => { setPendingReason("institution"); setSessionState("pending"); }} />;
+  if (!user) return <AuthScreen sessionExpired={sessionExpired} onAuthenticated={authenticated} onCompanyPending={() => { setPendingReason("company"); setSessionState("pending"); }} onStudentPending={() => { setPendingReason("institution"); setSessionState("pending"); }} />;
   if (user.role === "student" && !user.onboardingCompleted) return <Onboarding user={user} accessToken={accessToken} onComplete={setUser} onLogout={logout} />;
   if (user.role === "student") return <PlacebleDashboard user={user} accessToken={accessToken} onLogout={logout} />;
   if (user.role === "platform_admin") return <PlatformAdminConsole user={user} accessToken={accessToken} onLogout={logout} />;
