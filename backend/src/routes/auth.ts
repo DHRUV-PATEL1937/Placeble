@@ -239,6 +239,22 @@ router.post("/forgot-password", async (request, response) => {
   return response.json({ message: "If an account exists for that email, reset instructions will be sent.", delivery: "provider_not_configured" });
 });
 
+router.post("/change-password", requireAuth, async (request, response, next) => {
+  try {
+    const input = z.object({ currentPassword: z.string().min(1), newPassword: passwordSchema }).parse(request.body);
+    const user = await User.findById(request.auth!.userId) as UserDocument | null;
+    if (!user?.passwordHash || user.authProvider !== "password") return response.status(400).json({ message: "This account does not use a password. Use the sign-in method provided for your account." });
+    if (!(await bcrypt.compare(input.currentPassword, user.passwordHash))) return response.status(400).json({ message: "Your current password is incorrect." });
+    if (await bcrypt.compare(input.newPassword, user.passwordHash)) return response.status(400).json({ message: "Choose a password you have not used for this account." });
+    user.passwordHash = await bcrypt.hash(input.newPassword, 12);
+    user.passwordChangedAt = new Date();
+    await user.save();
+    await RefreshSession.updateMany({ userId: user._id, revokedAt: null }, { $set: { revokedAt: new Date() } });
+    const accessToken = await createSession(user, request, response);
+    return response.json({ message: "Password changed successfully.", accessToken, user: await publicUser(user) });
+  } catch (error) { return next(error); }
+});
+
 router.post("/onboarding", requireAuth, requireRole("student"), async (request, response) => {
   const input = z.object({
     degree: z.string().min(2),

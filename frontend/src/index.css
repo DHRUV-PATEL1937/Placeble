@@ -660,6 +660,15 @@ h1, h2, h3, h4, .brand-name, .score-value strong { font-family: "Sora", sans-ser
 .settings-toggle-row > i.on { background: var(--pb-success); }
 .settings-toggle-row > i.on b { transform: translateX(20px); }
 .settings-security { padding-bottom: 4px; }
+.settings-password form { display: grid; gap: 14px; padding: 20px 24px 24px; }
+.settings-password label { display: grid; gap: 7px; color: var(--text-primary); font-size: 12px; font-weight: 700; }
+.settings-password input { min-height: 42px; width: 100%; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 9px; color: var(--text-primary); background: var(--surface-soft); font: inherit; }
+.settings-password label small { color: var(--text-secondary); font-weight: 400; line-height: 1.45; }
+.settings-password form > button { justify-self: start; min-height: 42px; padding: 0 16px; }
+.settings-password-message { display: flex; align-items: flex-start; gap: 7px; margin: 0; padding: 10px 12px; border-radius: 8px; font-size: 12px; line-height: 1.45; }
+.settings-password-message.error { color: var(--pb-danger); background: color-mix(in srgb, var(--pb-danger) 10%, transparent); }
+.settings-password-message.success { color: var(--pb-success); background: color-mix(in srgb, var(--pb-success) 10%, transparent); }
+@media (max-width: 620px) { .settings-password form { padding: 18px; } .settings-password form > button { width: 100%; } }
 .settings-info-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 15px 24px; border-bottom: 1px solid var(--border); font-size: 12px; }
 .settings-info-row span { color: var(--text-secondary); }
 .settings-info-row strong { text-align: right; }

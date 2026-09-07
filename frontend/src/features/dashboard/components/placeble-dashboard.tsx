@@ -12,6 +12,7 @@ import {
   Clock3,
   FileText,
   LayoutDashboard,
+  LockKeyhole,
   LogOut,
   Menu,
   MessageSquareText,
@@ -426,7 +427,13 @@ function StudentProfilePage({ accessToken, onSaved }: { accessToken: string; onS
   </div>;
 }
 
-function StudentSettingsPage({ dark, setDark }: { dark: boolean; setDark: (dark: boolean) => void }) {
+function ChangePasswordSettings({ accessToken }: { accessToken: string }) {
+  const [currentPassword, setCurrentPassword] = useState(""); const [newPassword, setNewPassword] = useState(""); const [confirmPassword, setConfirmPassword] = useState(""); const [saving, setSaving] = useState(false); const [message, setMessage] = useState(""); const [error, setError] = useState("");
+  const submit = async (event: FormEvent) => { event.preventDefault(); setError(""); setMessage(""); if (newPassword !== confirmPassword) { setError("Your new passwords do not match."); return; } setSaving(true); try { const response = await fetch(`${import.meta.env.VITE_API_URL ?? "/api/v1"}/auth/change-password`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ currentPassword, newPassword }) }); const payload = await response.json().catch(() => ({})); if (!response.ok) throw new Error(payload.message ?? "Could not change your password."); if (payload.accessToken) window.sessionStorage.setItem("placeble-access-token", payload.accessToken); setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); setMessage("Password changed. Your other signed-in sessions have been signed out."); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not change your password."); } finally { setSaving(false); } };
+  return <article className="panel settings-section settings-password"><header><span className="settings-section-icon"><LockKeyhole size={20} /></span><div><h3>Password</h3><p>Update your password securely. We will sign out your other sessions.</p></div></header><form onSubmit={submit}><label><span>Current password</span><input type="password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} autoComplete="current-password" required /></label><label><span>New password</span><input type="password" value={newPassword} onChange={event => setNewPassword(event.target.value)} autoComplete="new-password" minLength={8} required /><small>At least 8 characters, with uppercase, lowercase, and a number.</small></label><label><span>Confirm new password</span><input type="password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={8} required /></label>{error && <p className="settings-password-message error">{error}</p>}{message && <p className="settings-password-message success"><Check size={15} /> {message}</p>}<button className="button button-primary" disabled={saving}>{saving ? "Updating password…" : "Change password"}</button></form></article>;
+}
+
+function StudentSettingsPage({ dark, setDark, accessToken }: { dark: boolean; setDark: (dark: boolean) => void; accessToken: string }) {
   const [reducedMotion, setReducedMotion] = useState(() => window.localStorage.getItem("placeble-reduced-motion") === "true");
   const updateMotion = (value: boolean) => { setReducedMotion(value); window.localStorage.setItem("placeble-reduced-motion", String(value)); document.documentElement.dataset.reducedMotion = String(value); };
   return <div className="view-content inner-view student-account-page">
@@ -434,6 +441,7 @@ function StudentSettingsPage({ dark, setDark }: { dark: boolean; setDark: (dark:
     <section className="settings-page-grid">
       <article className="panel settings-section"><header><span className="settings-section-icon"><Sun size={20} /></span><div><h3>Appearance</h3><p>Choose the theme that is easiest for you to use.</p></div></header><div className="theme-choice-grid"><button className={!dark ? "active" : ""} onClick={() => setDark(false)}><span className="theme-preview light"><i /><i /><i /></span><strong>Light</strong><small>Bright and focused</small>{!dark && <Check size={17} />}</button><button className={dark ? "active" : ""} onClick={() => setDark(true)}><span className="theme-preview dark"><i /><i /><i /></span><strong>Dark</strong><small>Comfortable in low light</small>{dark && <Check size={17} />}</button></div></article>
       <article className="panel settings-section"><header><span className="settings-section-icon"><Settings size={20} /></span><div><h3>Accessibility</h3><p>Adjust motion while keeping every feature available.</p></div></header><button className="settings-toggle-row" onClick={() => updateMotion(!reducedMotion)} aria-pressed={reducedMotion}><span><strong>Reduce motion</strong><small>Minimises decorative transitions and animated entrances.</small></span><i className={reducedMotion ? "on" : ""}><b /></i></button></article>
+      <ChangePasswordSettings accessToken={accessToken} />
       <article className="panel settings-section settings-security"><header><span className="settings-section-icon"><CircleUserRound size={20} /></span><div><h3>Account & privacy</h3><p>Your account stays scoped to your verified institution.</p></div></header><div className="settings-info-row"><span>Profile visibility</span><strong>Institution only</strong></div><div className="settings-info-row"><span>Readiness evidence</span><strong>Verified activity only</strong></div><div className="settings-info-row"><span>Preference storage</span><strong>This device</strong></div></article>
     </section>
   </div>;
@@ -489,7 +497,7 @@ export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "studen
     if (current === "Opportunities") return <JobMatching accessToken={accessToken} initialSurface="feed" onBack={() => setCurrent("Overview")} />;
     if (current === "Applications") return <JobMatching accessToken={accessToken} initialSurface="tracker" onBack={() => setCurrent("Overview")} />;
     if (current === "Profile") return <StudentProfilePage accessToken={accessToken} onSaved={message => { setActionNotice(message); window.setTimeout(() => setActionNotice(""), 2600); }} />;
-    if (current === "Settings") return <StudentSettingsPage dark={dark} setDark={setDark} />;
+    if (current === "Settings") return <StudentSettingsPage dark={dark} setDark={setDark} accessToken={accessToken} />;
     return <Overview setCurrent={setCurrent} readiness={readiness} user={user} />;
   }, [current, accessToken, user, readiness, dark]);
   return (
