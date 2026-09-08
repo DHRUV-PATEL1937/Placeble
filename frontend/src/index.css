@@ -2504,3 +2504,5 @@ button.pa-logout-mobile {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+.mi-active-session-action { display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 12px; margin-bottom: 16px; padding: 13px 15px; border: 1px solid color-mix(in srgb, var(--pb-info) 28%, var(--border)); border-radius: 11px; background: color-mix(in srgb, var(--pb-info) 7%, var(--surface)); }.mi-active-session-action > span { display:grid; width:38px; height:38px; place-items:center; border-radius:9px; color:var(--pb-info); background:color-mix(in srgb, var(--pb-info) 12%, var(--surface)); }.mi-active-session-action strong { font-size:12px; }.mi-active-session-action p { margin-top:3px; color:var(--text-secondary); font-size:10px; line-height:1.45; } @media (max-width: 620px) { .mi-active-session-action { grid-template-columns:38px 1fr; }.mi-active-session-action .button { grid-column:1 / -1; width:100%; } }

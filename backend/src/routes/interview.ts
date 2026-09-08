@@ -3,8 +3,7 @@ import multer from "multer";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { Interview, interviewTypes } from "../models/Interview";
-import { storeInterviewRecording } from "../services/interview-storage-service";
-import { createInterviewSession, generateInterviewDebrief, getInterviewJob, getInterviewSession, getInterviewSummary, processInterviewTurn, queueInterviewJob } from "../services/interview-service";
+import { createInterviewSession, expireInactiveInterviewSessions, generateInterviewDebrief, getInterviewJob, getInterviewSession, getInterviewSummary, processInterviewTurn, queueInterviewJob } from "../services/interview-service";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 60 * 1024 * 1024 }, fileFilter: (_request, file, callback) => callback(null, /^(audio|video)\//.test(file.mimetype)) });
@@ -15,6 +14,7 @@ router.get("/jobs/:jobId", (request, response) => { const job = getInterviewJob(
 router.get("/sessions/:id", async (request, response) => { const interview = await getInterviewSession(request.params.id, request.auth!.userId); return interview ? response.json({ interview }) : response.status(404).json({ message: "That interview was not found." }); });
 
 router.post("/sessions", async (request, response) => {
+  await expireInactiveInterviewSessions(request.auth!.userId);
   const input = z.object({ type: z.enum(interviewTypes), targetRole: z.string().trim().max(120).default(""), totalTurns: z.number().int().min(3).max(8).default(5) }).parse(request.body);
   const existing = await Interview.findOne({ studentId: request.auth!.userId, status: "in_progress" }).select("_id").lean();
   if (existing) return response.status(409).json({ message: "You already have an interview in progress. Resume or abandon it first.", interviewId: existing._id });
@@ -24,15 +24,16 @@ router.post("/sessions", async (request, response) => {
 router.post("/sessions/:id/turns", upload.single("recording"), async (request, response) => {
   const interviewId = String(request.params.id);
   const input = z.object({ manualTranscript: z.string().trim().max(12000).default(""), timeSpentSeconds: z.coerce.number().int().min(0).max(1800).default(0) }).parse(request.body);
-  if (!request.file && input.manualTranscript.length < 12) return response.status(400).json({ message: "Record an answer or provide a typed practice answer." });
+  if (request.file) return response.status(400).json({ message: "Mock Interview currently accepts typed answers only." });
+  if (input.manualTranscript.length < 12) return response.status(400).json({ message: "Write at least a short typed answer before submitting." });
   const interview = await Interview.findOne({ _id: interviewId, studentId: request.auth!.userId, status: "in_progress" });
   if (!interview) return response.status(404).json({ message: "This interview is no longer active." });
   const turnNumber = interview.turns.length + 1;
   if (interview.processingTurn) return response.status(409).json({ message: "This answer is already being reviewed." });
   interview.processingTurn = turnNumber;
   await interview.save();
-  const recording = request.file ? { buffer: request.file.buffer, mimetype: request.file.mimetype, originalname: request.file.originalname } : undefined;
-  const recordingUrl = recording ? await storeInterviewRecording(recording, request.auth!.userId) : "";
+  const recording = undefined;
+  const recordingUrl = "";
   const userId = request.auth!.userId;
   const job = queueInterviewJob(userId, "interview:scoreTurn", "Receiving your answer", async update => {
     const result = await processInterviewTurn({ interviewId, userId, recording, recordingUrl, manualTranscript: input.manualTranscript, timeSpentSeconds: input.timeSpentSeconds }, update);

@@ -41,7 +41,14 @@ export async function createInterviewSession(input: { userId: string; type: Inte
   return interview.toObject();
 }
 
+export async function expireInactiveInterviewSessions(userId: string) {
+  const now = new Date();
+  const inactiveSince = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  await Interview.updateMany({ studentId: userId, status: "in_progress", updatedAt: { $lt: inactiveSince } }, { $set: { status: "abandoned", completedAt: now, processingTurn: 0 } });
+}
+
 export async function getInterviewSummary(userId: string) {
+  await expireInactiveInterviewSessions(userId);
   const [active, completed] = await Promise.all([
     Interview.findOne({ studentId: userId, status: "in_progress" }).sort({ updatedAt: -1 }).lean(),
     Interview.find({ studentId: userId, status: "completed" }).sort({ completedAt: -1 }).limit(8).lean(),
