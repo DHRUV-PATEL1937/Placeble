@@ -128,13 +128,14 @@ export function AptitudeTest({ accessToken, onBack }: { accessToken: string; onB
     setScreen(target);
     setTimeExpired(false);
     setError("");
+    setBlockedAttemptId("");
     setQuestionElapsed(0);
   }, []);
 
   const resumeAttempt = async (attemptId: string) => {
     setBusy(true); setError("");
-    try { const { payload: next } = await api<AttemptPayload>(`/aptitude/attempts/${attemptId}`, accessToken); openAttempt(next); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Could not resume this attempt."); }
+    try { const { payload: next } = await api<AttemptPayload>(`/aptitude/attempts/${attemptId}?resume=true`, accessToken); openAttempt(next); }
+    catch (cause) { setBlockedAttemptId(""); setPayload(null); setScreen("home"); await loadSummary(); setError(cause instanceof Error ? cause.message : "This test is no longer available to resume."); }
     finally { setBusy(false); }
   };
 
@@ -298,7 +299,7 @@ export function AptitudeTest({ accessToken, onBack }: { accessToken: string; onB
     </div>;
   }
 
-  if (screen === "results" && payload) return <div className="view-content inner-view aptitude-view"><AptitudeTop onBack={() => { setScreen("home"); void loadSummary(); }} label="Results" />
+  if (screen === "results" && payload) return <div className="view-content inner-view aptitude-view"><AptitudeTop onBack={() => { setPayload(null); setScreen("home"); void loadSummary(); }} label="Results" />
     {timeExpired && <AptitudeMessage type="notice" text="Time’s up—your saved answers were submitted automatically." onClose={() => setTimeExpired(false)} />}
     <section className="apt-results-hero"><div className="apt-result-score"><ReadinessScoreRing score={payload.attempt.scoreTotal} compact label="Aptitude score" /><span><small>Overall score</small><strong>{payload.attempt.scoreTotal}<em>/100</em></strong><p>{scoreBand(payload.attempt.scoreTotal)} · {payload.questions.length} questions completed</p></span></div><div><p className="eyebrow">Practice complete</p><h1>{payload.attempt.scoreTotal >= 80 ? "Strong work. Keep the edge sharp." : payload.attempt.scoreTotal >= 60 ? "Good foundation. Now target the gaps." : "Useful baseline. Your next step is clear."}</h1><p>Every mark came from deterministic grading. Use the topic map below to turn this attempt into focused progress.</p><div><button className="button button-secondary" onClick={() => { setReviewIndex(0); setScreen("review"); }}><BookOpenCheck size={16} /> Review answers</button><button className="button button-primary" onClick={() => setScreen("setup")}><RefreshCw size={16} /> New test</button></div></div></section>
     <section className="apt-result-grid"><article className="apt-result-panel"><header><div><p className="eyebrow">Category breakdown</p><h2>Where your score came from</h2></div><Target size={19} /></header><div className="apt-category-results">{payload.attempt.sections.map(category => <div key={category}><span>{categoryMeta[category].label}<strong>{payload.attempt.scoreByCategory?.[category] ?? 0}%</strong></span><i><b style={{ width: `${payload.attempt.scoreByCategory?.[category] ?? 0}%` }} /></i></div>)}</div></article><article className="apt-result-panel"><header><div><p className="eyebrow">Attempt detail</p><h2>Clear, explainable scoring</h2></div><ListChecks size={19} /></header><div className="apt-result-facts"><span><strong>{payload.attempt.responses.filter(response => response.isCorrect).length}</strong><small>Fully correct</small></span><span><strong>{payload.attempt.responses.length}</strong><small>Answered</small></span><span><strong>{Math.round(payload.attempt.responses.reduce((sum, response) => sum + (response.timeSpentSeconds ?? 0), 0) / 60)}</strong><small>Minutes used</small></span></div></article></section>

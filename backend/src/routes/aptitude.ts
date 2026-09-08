@@ -57,7 +57,9 @@ router.post("/attempts", async (request, response) => {
 
 router.get("/attempts/:attemptId", async (request, response) => {
   const payload = await getAttemptPayload(request.params.attemptId, request.auth!.userId);
-  return payload ? response.json(payload) : response.status(404).json({ message: "That aptitude attempt was not found." });
+  if (!payload) return response.status(404).json({ message: "That aptitude attempt was not found." });
+  if (request.query.resume === "true" && payload.attempt.status !== "in_progress") return response.status(409).json({ code: "ATTEMPT_NOT_ACTIVE", message: "This test has already ended. Start a new one whenever you are ready." });
+  return response.json(payload);
 });
 
 router.patch("/attempts/:attemptId/response", async (request, response) => {
