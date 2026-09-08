@@ -155,7 +155,17 @@ export async function getWeakAreaHeatmap(userId: string) {
   ]);
 }
 
+export async function expireElapsedAptitudeAttempts(userId: string) {
+  const now = new Date();
+  await AptitudeAttempt.updateMany({
+    studentId: userId,
+    status: "in_progress",
+    $expr: { $lte: [{ $add: [{ $toLong: "$startedAt" }, { $multiply: ["$durationSeconds", 1000] }] }, now.getTime()] },
+  }, { $set: { status: "abandoned", completedAt: now } });
+}
+
 export async function getAptitudeSummary(userId: string) {
+  await expireElapsedAptitudeAttempts(userId);
   await ensureAptitudeQuestionBank();
   const currentBankStatus = await getDynamicQuestionBankStatus();
   const needsRefresh = !currentBankStatus.lastDynamicRefreshAt || Date.now() - new Date(currentBankStatus.lastDynamicRefreshAt).getTime() >= 7 * 24 * 60 * 60 * 1000;

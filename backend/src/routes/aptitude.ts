@@ -9,6 +9,7 @@ import {
   getAptitudeJob,
   getAptitudeSummary,
   getAttemptPayload,
+  expireElapsedAptitudeAttempts,
   forceRefreshDynamicQuestionBank,
   gradeCodingAndCompleteAttempt,
   queueAptitudeJob,
@@ -39,6 +40,7 @@ router.post("/question-bank/refresh", (request, response) => {
 });
 
 router.post("/attempts", async (request, response) => {
+  await expireElapsedAptitudeAttempts(request.auth!.userId);
   const input = z.object({
     sections: z.array(z.enum(aptitudeCategories)).min(1).max(4),
     questionCount: z.number().int().min(3).max(20).default(10),

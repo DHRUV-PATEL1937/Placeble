@@ -54,7 +54,9 @@ async function api<T>(path: string, accessToken: string, init: RequestInit = {})
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const fieldMessage = payload.fields ? Object.values(payload.fields as Record<string, string[]>).flat().find((messages): messages is string => Array.isArray(messages) && typeof messages[0] === "string")?.[0] : undefined;
-    throw new Error(fieldMessage ?? payload.message ?? "The request could not be completed.");
+    const error = new Error(fieldMessage ?? payload.message ?? "The request could not be completed.") as Error & { attemptId?: string };
+    error.attemptId = typeof payload.attemptId === "string" ? payload.attemptId : undefined;
+    throw error;
   }
   return { payload: payload as T, status: response.status };
 }
@@ -97,6 +99,7 @@ export function AptitudeTest({ accessToken, onBack }: { accessToken: string; onB
   const [busy, setBusy] = useState(false);
   const [bankRefreshing, setBankRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [blockedAttemptId, setBlockedAttemptId] = useState("");
   const [notice, setNotice] = useState("");
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [questionElapsed, setQuestionElapsed] = useState(0);
@@ -143,14 +146,14 @@ export function AptitudeTest({ accessToken, onBack }: { accessToken: string; onB
   };
 
   const startAttempt = async (topic?: string, category?: Category) => {
-    setBusy(true); setError(""); setNotice("");
+    setBusy(true); setError(""); setNotice(""); setBlockedAttemptId("");
     try {
       const body = topic
         ? { sections: [category], questionCount: 5, durationMinutes: 8, difficulty: "mixed", topic }
         : { sections: selectedSections, questionCount, durationMinutes, difficulty };
       const { payload: next } = await api<AttemptPayload>("/aptitude/attempts", accessToken, { method: "POST", body: JSON.stringify(body) });
       openAttempt(next);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not start this test."); }
+    } catch (cause) { const blocking = cause as Error & { attemptId?: string }; setBlockedAttemptId(blocking.attemptId ?? ""); setError(cause instanceof Error ? cause.message : "Could not start this test."); }
     finally { setBusy(false); }
   };
 
@@ -270,7 +273,7 @@ export function AptitudeTest({ accessToken, onBack }: { accessToken: string; onB
 
   if (screen === "setup") return <div className="view-content inner-view aptitude-view"><AptitudeTop onBack={() => setScreen("home")} label="Test setup" />
     <section className="apt-setup"><header><p className="eyebrow">Build your practice set</p><h1>Choose the signal you want to strengthen.</h1><p>Questions are sampled from the active MongoDB bank, including the latest validated AI-generated batch. Scores use stored answer keys—never AI judgement.</p></header>
-      {error && <AptitudeMessage type="error" text={error} onClose={() => setError("")} />}
+      {error && <AptitudeMessage type="error" text={error} onClose={() => { setError(""); setBlockedAttemptId(""); }} />}{blockedAttemptId && <section className="apt-active-attempt-action"><span><TimerReset size={19} /></span><div><strong>Continue your active test</strong><p>Your timer is still running. Resume now to continue where you left off.</p></div><button className="button button-primary" disabled={busy} onClick={() => void resumeAttempt(blockedAttemptId)}><Play size={15} /> Resume test</button></section>}
       <div className="apt-setup-grid"><div className="apt-setup-main"><section><div className="apt-section-heading"><span>1</span><div><h3>Sections</h3><p>Select one or combine them for a balanced test.</p></div></div><div className="apt-category-picker">{(Object.keys(categoryMeta) as Category[]).map(category => { const meta = categoryMeta[category]; const Icon = meta.icon; const disabled = category === "coding" && !summary?.codingAvailable; return <button key={category} disabled={disabled} className={selectedSections.includes(category) ? "selected" : ""} onClick={() => setSelectedSections(current => current.includes(category) ? current.filter(item => item !== category) : [...current, category])}><span><Icon size={19} /></span><div><strong>{meta.label}</strong><small>{meta.description}</small>{disabled && <em><LockKeyhole size={11} /> Judge0 required</em>}</div><i>{selectedSections.includes(category) ? <Check size={14} /> : <Circle size={14} />}</i></button>; })}</div></section>
         <section><div className="apt-section-heading"><span>2</span><div><h3>Difficulty</h3><p>A mixed set follows a 30/50/20 easy-medium-hard distribution.</p></div></div><div className="apt-segmented">{(["mixed", "easy", "medium", "hard"] as const).map(value => <button className={difficulty === value ? "active" : ""} key={value} onClick={() => setDifficulty(value)}>{value === "mixed" ? "Balanced mix" : value}</button>)}</div></section>
         <section><div className="apt-section-heading"><span>3</span><div><h3>Length and pace</h3><p>Adjust the session to the time you have now.</p></div></div><div className="apt-number-options"><label><span>Questions</span><div>{[5, 10, 15].map(value => <button className={questionCount === value ? "active" : ""} key={value} onClick={() => setQuestionCount(value)}>{value}</button>)}</div></label><label><span>Duration</span><div>{[10, 15, 25].map(value => <button className={durationMinutes === value ? "active" : ""} key={value} onClick={() => setDurationMinutes(value)}>{value} min</button>)}</div></label></div></section></div>
@@ -284,7 +287,7 @@ export function AptitudeTest({ accessToken, onBack }: { accessToken: string; onB
     const timerState = timeRemaining <= 60 ? "danger" : timeRemaining <= 180 ? "warning" : "";
     return <div className="view-content inner-view aptitude-view apt-test-view"><header className="apt-test-top"><button onClick={() => setSubmitConfirm(true)}><X size={18} /> Exit test</button><div><span>{payload.attempt.mode === "focused" ? `${topicLabel(payload.attempt.focusTopic ?? "")} drill` : "Balanced aptitude test"}</span><strong>Question {questionIndex + 1} of {payload.questions.length}</strong></div><div className={`apt-timer ${timerState}`}><Clock3 size={17} /><span><small>Time remaining</small><strong>{formatTime(timeRemaining)}</strong></span></div></header>
       <div className="apt-test-progress"><span style={{ width: `${(questionIndex + 1) / payload.questions.length * 100}%` }} /></div>
-      {error && <AptitudeMessage type="error" text={error} onClose={() => setError("")} />}
+      {error && <AptitudeMessage type="error" text={error} onClose={() => { setError(""); setBlockedAttemptId(""); }} />}{blockedAttemptId && <section className="apt-active-attempt-action"><span><TimerReset size={19} /></span><div><strong>Continue your active test</strong><p>Your timer is still running. Resume now to continue where you left off.</p></div><button className="button button-primary" disabled={busy} onClick={() => void resumeAttempt(blockedAttemptId)}><Play size={15} /> Resume test</button></section>}
       {notice && <AptitudeMessage type="notice" text={notice} onClose={() => setNotice("")} />}
       <div className="apt-test-layout"><aside className="apt-question-nav"><header><span>Questions</span><em>{answeredCount}/{payload.questions.length} answered</em></header><div>{payload.questions.map((question, index) => <button key={question._id} className={`${index === questionIndex ? "current" : ""} ${answers[question._id]?.selectedOptionIndex !== undefined || answers[question._id]?.codeSubmission?.code.trim() ? "answered" : ""}`} onClick={() => void goToQuestion(index)}>{index + 1}</button>)}</div><footer><span><i className="answered" />Answered</span><span><i />Not answered</span></footer></aside>
         <main className="apt-question-card"><header><span className={`difficulty ${currentQuestion.difficulty}`}>{currentQuestion.difficulty}</span><span><CurrentIcon size={14} />{categoryMeta[currentQuestion.category].label}</span><span>{topicLabel(currentQuestion.topic)}</span></header><h1>{currentQuestion.prompt}</h1>
@@ -309,7 +312,7 @@ export function AptitudeTest({ accessToken, onBack }: { accessToken: string; onB
   }
 
   return <div className="view-content inner-view aptitude-view"><AptitudeTop onBack={onBack} label="Aptitude Practice" />
-    {error && <AptitudeMessage type="error" text={error} onClose={() => setError("")} />}{notice && <AptitudeMessage type="notice" text={notice} onClose={() => setNotice("")} />}
+    {error && <AptitudeMessage type="error" text={error} onClose={() => { setError(""); setBlockedAttemptId(""); }} />}{blockedAttemptId && <section className="apt-active-attempt-action"><span><TimerReset size={19} /></span><div><strong>Continue your active test</strong><p>Your timer is still running. Resume now to continue where you left off.</p></div><button className="button button-primary" disabled={busy} onClick={() => void resumeAttempt(blockedAttemptId)}><Play size={15} /> Resume test</button></section>}{notice && <AptitudeMessage type="notice" text={notice} onClose={() => setNotice("")} />}
     <section className="apt-home-hero"><div><p className="eyebrow">Practice with proof</p><h1>Know exactly what to strengthen next.</h1><p>Timed, current placement-style aptitude practice across quant, logic and verbal ability—with transparent scoring and one-tap drills for weak topics.</p><div><button className="button button-primary" onClick={() => setScreen("setup")}><Play size={17} /> Start a test</button>{summary?.heatmap?.[0] && <button className="button button-secondary" disabled={busy} onClick={() => void startAttempt(summary.heatmap[0].topic, summary.heatmap[0].category)}><Target size={17} /> Drill {topicLabel(summary.heatmap[0].topic)}</button>}</div><small><CheckCircle2 size={14} /> AI refreshes the bank; grading always uses stored, deterministic answer keys.</small></div><div className="apt-home-score"><ReadinessScoreRing score={latestScore || 64} label="Latest aptitude score" /><span><strong>{completedAttempts.length ? "Latest score" : "Starter benchmark"}</strong><p>{completedAttempts.length ? `${latestScore}/100 · ${scoreBand(latestScore)}` : "Take your first test to replace this benchmark."}</p></span></div></section>
     <section className="apt-bank-status"><span><RefreshCw size={19} /></span><div><p className="eyebrow">Live question bank</p><strong>{summary?.dynamicQuestionCount ?? 0} AI-refreshed questions plus a curated fallback</strong><small>{summary?.lastDynamicRefreshAt ? `Updated ${new Date(summary.lastDynamicRefreshAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}. Tests randomly sample the active MongoDB bank and avoid recent repeats.` : "A fresh AI batch will be generated while the curated bank keeps practice available."}</small>{summary?.dynamicRefreshWarning && <em>{summary.dynamicRefreshWarning}</em>}</div><button disabled={bankRefreshing} onClick={() => void refreshQuestionBank()}>{bankRefreshing ? <LoaderCircle size={15} /> : <RefreshCw size={15} />} {bankRefreshing ? "Refreshing..." : "Refresh questions"}</button></section>
     {summary?.inProgress && <section className="apt-resume-banner"><span><TimerReset size={20} /></span><div><strong>You have an unfinished test</strong><p>{summary.inProgress.questionIds.length} questions · started {new Date(summary.inProgress.startedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}. Resume with the original timer or close it and start fresh.</p></div><button disabled={busy} onClick={() => void abandonAttempt(summary.inProgress!._id)}>Abandon</button><button className="button button-primary" disabled={busy} onClick={() => void resumeAttempt(summary.inProgress!._id)}><Play size={15} /> Resume</button></section>}
