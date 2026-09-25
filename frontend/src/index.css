@@ -2560,3 +2560,4 @@ button.pa-logout-mobile {
 [data-theme="dark"] .pa-activation span { color: #a8c5b2; }
 [data-theme="dark"] .pa-logout-mobile { border-color: #88413b; color: #ffc2ba; background: #3c1d1b; }
 @media (max-width: 590px) { .prd-context { display: none; } .prd-theme-toggle { margin-left: 0; } }
+.roster-upload form > label.has-file { border-style: solid; border-color: color-mix(in srgb, var(--pb-success) 58%, var(--border)); color: var(--pb-success); background: color-mix(in srgb, var(--pb-success) 6%, var(--surface)); }.roster-upload form > label.has-file span { color: var(--text-secondary); }.roster-upload form > label strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
