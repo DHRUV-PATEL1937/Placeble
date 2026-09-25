@@ -26,9 +26,9 @@ export function getInterviewJob(id: string, userId: string) {
 
 const starterQuestions: Record<string, string[]> = {
   hr: ["Tell me about yourself and the kind of opportunity you are looking for.", "What motivates you to do your best work?"],
-  technical: ["Walk me through a technical project you are proud of. What problem did it solve, and what did you personally build?", "Describe a technical decision you made and the trade-offs you considered."],
-  behavioral: ["Tell me about a time you faced a difficult challenge in a team. What did you do, and what happened?", "Describe a time you received difficult feedback and how you responded."],
-  mixed: ["Give me a concise introduction to your background, then tell me about one project or experience that best represents your strengths.", "Tell me about a problem you solved and the people or technical choices involved."],
+  technical: ["Tell me about a project or assignment you enjoyed. What did you work on?", "What is one technical skill you have started learning, and how have you practised it?"],
+  behavioral: ["Tell me about a time you worked with others on a task. What was your part?", "Describe a small challenge you faced while studying or building something. How did you handle it?"],
+  mixed: ["Please introduce yourself and share one project, course, or experience you enjoyed.", "Tell me about a simple problem you solved and what you learned from it."],
 };
 
 function firstQuestion(type: InterviewType, targetRole: string) {
@@ -72,7 +72,7 @@ export async function processInterviewTurn(input: { interviewId: string; userId:
     update(64, "Reviewing structure, relevance and specificity");
     const scored = await scoreTurnAndGenerateNext({ type: interview.type, targetRole: interview.targetRole, turnNumber, totalTurns: interview.totalTurns, question: interview.currentQuestion, transcript, history: interview.turns.map(turn => ({ question: turn.question, answerTranscript: turn.answerTranscript, feedback: turn.feedback })) });
     const rate = fillerWordRate(transcript);
-    interview.turns.push({ turnNumber, question: interview.currentQuestion, questionAudioUrl: "", answerTranscript: transcript, answerAudioUrl: "", answerVideoUrl: input.recordingUrl, timeSpentSeconds: input.timeSpentSeconds, scores: { structure: Math.round(scored.structure.score * 10) / 10, relevance: Math.round(scored.relevance.score * 10) / 10, specificity: Math.round(scored.specificity.score * 10) / 10, fillerWordRate: rate }, feedback: scored.feedback });
+    interview.turns.push({ turnNumber, question: interview.currentQuestion, questionAudioUrl: "", answerTranscript: transcript, answerAudioUrl: input.recordingUrl, answerVideoUrl: "", timeSpentSeconds: input.timeSpentSeconds, scores: { structure: Math.round(scored.structure.score * 10) / 10, relevance: Math.round(scored.relevance.score * 10) / 10, specificity: Math.round(scored.specificity.score * 10) / 10, fillerWordRate: rate }, feedback: scored.feedback });
     const finalTurn = turnNumber >= interview.totalTurns;
     interview.currentQuestion = finalTurn ? "" : scored.nextQuestion;
     interview.processingTurn = 0;

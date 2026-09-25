@@ -130,6 +130,19 @@ export async function callTextAi(prompt: string, maxOutputTokens = 360) {
 }
 
 export async function transcribeInterviewRecording(buffer: Buffer, mimeType: string) {
+  if (env.AI_PROVIDER === "sarvam") {
+    if (!env.SARVAM_API_KEY) throw new Error("SARVAM_API_KEY is required for voice answers when Sarvam is selected.");
+    const form = new FormData();
+    form.append("file", new Blob([buffer], { type: mimeType }), `answer.${mimeType.includes("ogg") ? "ogg" : "webm"}`);
+    form.append("model", "saaras:v3");
+    form.append("mode", "verbatim");
+    form.append("language_code", "unknown");
+    const response = await fetchWithRetry("https://api.sarvam.ai/speech-to-text", { method: "POST", headers: { "api-subscription-key": env.SARVAM_API_KEY }, body: form, signal: AbortSignal.timeout(120_000) });
+    if (!response.ok) throw new Error(await providerError(response));
+    const payload = await response.json() as { transcript?: string };
+    if (!payload.transcript?.trim()) throw new Error("Sarvam could not hear enough of your answer. Please retry in a quieter space.");
+    return payload.transcript.trim();
+  }
   if (env.AI_PROVIDER === "openai") {
     if (!env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is required for transcription when OpenAI is selected.");
     const form = new FormData();
@@ -173,7 +186,7 @@ Question: ${input.question}
 Transcript: ${input.transcript}
 Earlier turns: ${JSON.stringify(input.history.slice(-5))}
 
-Fixed rubric (each 0-10): structure = clear logical or STAR-like shape; relevance = directly answers the question; specificity = concrete actions, reasoning, evidence and outcomes. Be exacting but fair. Feedback must cite a specific strength and the most useful change; forbid vague praise such as "great job". The next question must respect the interview type, feel like a natural interviewer follow-up, avoid repeating earlier questions, and be answerable by a student. If this is the final turn, still return a short closing reflection question as nextQuestion; it will not be shown.`;
+Fixed rubric (each 0-10): structure = clear logical or STAR-like shape; relevance = directly answers the question; specificity = concrete actions, reasoning, evidence and outcomes. Be supportive and fair to an early-career student. Feedback must cite a specific strength and the most useful change; forbid vague praise such as "great job". The next question must be low difficulty: use plain language, ask for one clear example or explanation, avoid trick questions and deep specialist knowledge, respect the interview type, feel like a natural interviewer follow-up, avoid repeating earlier questions, and be answerable by a student. If this is the final turn, still return a short closing reflection question as nextQuestion; it will not be shown.`;
   return scoreOutputSchema.parse(JSON.parse(await callStructuredAi(prompt, scoreJsonSchema)));
 }
 
