@@ -12,6 +12,7 @@ export const adminAuditActions = [
   "recruiter_org_reactivated",
   "tpo_credential_reissued",
   "admin_viewed_institution_detail",
+  "platform_admin_created",
 ] as const;
 
 const adminAuditLogEntrySchema = new Schema({

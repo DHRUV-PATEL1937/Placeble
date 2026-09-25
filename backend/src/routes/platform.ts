@@ -1,3 +1,5 @@
+import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 import { Router } from "express";
 import mongoose from "mongoose";
 import { Types } from "mongoose";
@@ -70,6 +72,19 @@ router.get("/health", async (_request, response) => {
   return response.json({ overall, checkedAt: new Date().toISOString(), responseTimeMs: Date.now() - startedAt, services });
 });
 
+router.get("/super-admins", async (_request, response) => {
+  const admins = await User.find({ role: "platform_admin" }).select("name email status lastLoginAt createdAt").sort({ createdAt: 1 }).lean();
+  return response.json({ admins });
+});
+
+router.post("/super-admins", async (request, response) => {
+  const input = z.object({ name: z.string().trim().min(2).max(80), email: z.string().trim().email().transform(value => value.toLowerCase()) }).parse(request.body);
+  if (await User.exists({ email: input.email })) return response.status(409).json({ message: "An account already exists for this email address." });
+  const temporaryPassword = `Plb!${randomBytes(12).toString("base64url")}9a`;
+  const admin = await User.create({ name: input.name, email: input.email, role: "platform_admin", passwordHash: await bcrypt.hash(temporaryPassword, 12), authProvider: "password", status: "active", emailVerified: true, passwordChangedAt: new Date() });
+  await writeAdminAudit({ platformAdminId: request.auth!.userId, action: "platform_admin_created", targetType: "user", targetId: admin._id, metadata: { name: admin.name, email: admin.email } });
+  return response.status(201).json({ admin: { _id: admin._id, name: admin.name, email: admin.email, status: admin.status }, temporaryPassword });
+});
 router.get("/overview", async (_request, response) => {
   const sinceMonth = new Date(); sinceMonth.setDate(1); sinceMonth.setHours(0, 0, 0, 0);
   const since90 = new Date(Date.now() - 89 * 24 * 60 * 60 * 1000); since90.setHours(0, 0, 0, 0);
