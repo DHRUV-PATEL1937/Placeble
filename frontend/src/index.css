@@ -2506,3 +2506,57 @@ button.pa-logout-mobile {
 }
 
 .mi-active-session-action { display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 12px; margin-bottom: 16px; padding: 13px 15px; border: 1px solid color-mix(in srgb, var(--pb-info) 28%, var(--border)); border-radius: 11px; background: color-mix(in srgb, var(--pb-info) 7%, var(--surface)); }.mi-active-session-action > span { display:grid; width:38px; height:38px; place-items:center; border-radius:9px; color:var(--pb-info); background:color-mix(in srgb, var(--pb-info) 12%, var(--surface)); }.mi-active-session-action strong { font-size:12px; }.mi-active-session-action p { margin-top:3px; color:var(--text-secondary); font-size:10px; line-height:1.45; } @media (max-width: 620px) { .mi-active-session-action { grid-template-columns:38px 1fr; }.mi-active-session-action .button { grid-column:1 / -1; width:100%; } }
+
+/* Authenticated workspace theme controls and dark-mode contrast. */
+.prd-theme-toggle { margin-left: 0; }
+.prd-icon-button:hover, .prd-context:hover { border-color: var(--pb-navy-300); color: var(--text-primary); background: var(--surface-soft); }
+.pa-theme-toggle { white-space: nowrap; }
+.pa-shell main > header .pa-theme-toggle { color: var(--text-primary); background: var(--surface); }
+.pa-shell main > header button:hover, .pa-toolbar button:hover, .pa-row-actions button:hover, .pa-pagination button:hover { border-color: var(--pb-navy-300); background: var(--surface-soft); }
+[data-theme="dark"] .pa-shell { --pa-border: #2c3a56; --pa-muted: #abb7ca; --pa-bg: #0b1224; color: var(--text-primary); }
+[data-theme="dark"] .pa-shell > main { background: var(--background); }
+[data-theme="dark"] .pa-panel,
+[data-theme="dark"] .pa-metrics article,
+[data-theme="dark"] .pa-data-table,
+[data-theme="dark"] .pa-loading,
+[data-theme="dark"] .pa-detail-hero,
+[data-theme="dark"] .pa-detail-summary article,
+[data-theme="dark"] .pa-health-check,
+[data-theme="dark"] .pa-audit-filters,
+[data-theme="dark"] .pa-toolbar label,
+[data-theme="dark"] .pa-toolbar select,
+[data-theme="dark"] .pa-toolbar input,
+[data-theme="dark"] .pa-shell main > header button,
+[data-theme="dark"] .pa-row-actions button,
+[data-theme="dark"] .pa-pagination button,
+[data-theme="dark"] .pa-modal-layer form { color: var(--text-primary); background: var(--surface-raised); }
+[data-theme="dark"] .pa-panel > header,
+[data-theme="dark"] .pa-data-table td,
+[data-theme="dark"] .pa-activity article,
+[data-theme="dark"] .pa-drives > div > article,
+[data-theme="dark"] .pa-recruiter-people > article { border-color: var(--pa-border); }
+[data-theme="dark"] .pa-data-table th { color: #bcc7db; background: #111c31; }
+[data-theme="dark"] .pa-data-table td,
+[data-theme="dark"] .pa-primary-cell strong,
+[data-theme="dark"] .pa-name-cell strong,
+[data-theme="dark"] .pa-empty h2 { color: var(--text-primary); }
+[data-theme="dark"] .pa-data-table tr.clickable:hover,
+[data-theme="dark"] .pa-data-table tr.clickable:focus { background: #1a2740; }
+[data-theme="dark"] .pa-primary-cell > i,
+[data-theme="dark"] .pa-metrics article > span,
+[data-theme="dark"] .pa-health-check > span,
+[data-theme="dark"] .pa-detail-hero > div > span,
+[data-theme="dark"] .pa-recruiter-people article > span:first-child { color: #bdcaff; background: #24365d; }
+[data-theme="dark"] .pa-progress-cell > span,
+[data-theme="dark"] .pa-engagement article > div,
+[data-theme="dark"] .pa-drives aside span { background: #17233a; }
+[data-theme="dark"] .pa-health-hero { border-color: #2d7456; color: #e0f5e9; background: linear-gradient(135deg, #123326, #172139); }
+[data-theme="dark"] .pa-health-hero p,[data-theme="dark"] .pa-health-hero small,[data-theme="dark"] .pa-health-hero > strong em { color: #afd7bf; }
+[data-theme="dark"] .pa-health-hero.degraded { border-color: #8d6a22; color: #ffe5ac; background: linear-gradient(135deg, #3a2a0f, #172139); }
+[data-theme="dark"] .pa-health-hero.down { border-color: #873f38; color: #ffd4ce; background: linear-gradient(135deg, #3d1d1b, #172139); }
+[data-theme="dark"] .pa-message { border-color: #2e7453; color: #b8ebce; background: #133526; }
+[data-theme="dark"] .pa-message.error { border-color: #88413b; color: #ffc2ba; background: #3c1d1b; }
+[data-theme="dark"] .pa-activation { border-color: #2e7453; color: #b8ebce; background: #133526; }
+[data-theme="dark"] .pa-activation span { color: #a8c5b2; }
+[data-theme="dark"] .pa-logout-mobile { border-color: #88413b; color: #ffc2ba; background: #3c1d1b; }
+@media (max-width: 590px) { .prd-context { display: none; } .prd-theme-toggle { margin-left: 0; } }

@@ -316,6 +316,11 @@ export function PlacebleApp() {
   const refreshInFlight = useRef<Promise<string | null> | null>(null);
 
   useEffect(() => {
+    const savedTheme = window.localStorage.getItem("placeble-theme");
+    document.documentElement.dataset.theme = savedTheme === "dark" || (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+  }, []);
+
+  useEffect(() => {
     accessTokenRef.current = accessToken;
   }, [accessToken]);
 
