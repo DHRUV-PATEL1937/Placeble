@@ -16,7 +16,11 @@ type InstitutionDetailData = { institution: InstitutionRow; primaryTpo?: { _id: 
 type OrganizationDetailData = { organization: OrganizationRow; recruiters: Array<{ _id: string; name: string; email: string; status: string; lastLoginAt?: string }>; grants: Array<{ _id: string; status: string; requestedAt: string; decidedAt?: string; institutionId?: { name: string; status: string }; driveId?: { title: string; companyName: string; status: string } }>; marketplaceRequests: Array<{ _id: string; status: string; requestedAccessLevel: string; grantedAccessLevel?: string; createdAt: string; institutionId?: { name: string; status: string } }> };
 
 async function platformApi(path: string, accessToken: string, init: RequestInit = {}) {
-  const response = await fetch(`${API_URL}${path}`, { ...init, credentials: "include", headers: { ...(init.body ? { "Content-Type": "application/json" } : {}), Authorization: `Bearer ${accessToken}`, ...init.headers } });
+  const request = (baseUrl: string) => fetch(`${baseUrl}${path}`, { ...init, credentials: "include", headers: { ...(init.body ? { "Content-Type": "application/json" } : {}), Authorization: `Bearer ${accessToken}`, ...init.headers } });
+  let response = await request(API_URL);
+  // Vercel rewrites can briefly serve a stale proxy route after a deploy. Retry the same
+  // authenticated request directly only for a 404, never for authorization failures.
+  if (response.status === 404 && API_URL.startsWith("/")) response = await request("https://api.placeble.in/api/v1");
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.message ?? "The platform action could not be completed.");
   return payload;
