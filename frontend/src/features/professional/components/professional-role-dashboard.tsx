@@ -59,7 +59,7 @@ type InvitationRow = { email: string; role: string; sent: string; status: string
 const initialInvites: InvitationRow[] = [];
 
 const navByRole: Record<Role, string[]> = {
-  tpo: ["Overview", "Students", "Roster", "Pending students", "Access requests", "Marketplace settings", "Drives", "Invitations", "Progress"],
+  tpo: ["Overview", "Students", "Roster", "Pending students", "Access requests", "Invitations", "Progress"],
   recruiter: ["Overview", "My Institutes", "Marketplace", "My requests", "Candidates", "Drive access", "Shortlist", "Interviews", "Progress"],
   faculty: ["Cohort", "At risk", "Progress"],
 };
