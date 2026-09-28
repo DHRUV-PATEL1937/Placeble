@@ -1,0 +1,38 @@
+import { Bell, BriefcaseBusiness, Check, ChevronRight, Eye, ShieldAlert, Target, UsersRound } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+
+const API_URL = import.meta.env.VITE_API_URL ?? "/api/v1";
+async function workflowApi(path: string, token: string, init: RequestInit = {}) {
+  const response = await fetch(`${API_URL}/workflows${path}`, { ...init, credentials: "include", headers: { ...(init.body ? { "Content-Type": "application/json" } : {}), Authorization: `Bearer ${token}`, ...init.headers } });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.message ?? "Could not load this workflow.");
+  return payload;
+}
+
+type PlanItem = { _id: string; title: string; detail: string; href: string; status: "pending" | "completed" | "dismissed" };
+export function StudentActionPlanPanel({ accessToken, onOpen }: { accessToken: string; onOpen: (view: string) => void }) {
+  const [items, setItems] = useState<PlanItem[]>([]); const [error, setError] = useState("");
+  const load = useCallback(() => workflowApi("/action-plan", accessToken).then(data => setItems(data.plan?.items ?? [])).catch(error => setError(error.message)), [accessToken]);
+  useEffect(() => { void load(); }, [load]);
+  const complete = async (item: PlanItem) => { await workflowApi(`/action-plan/${item._id}`, accessToken, { method: "PATCH", body: JSON.stringify({ status: "completed" }) }); await load(); };
+  return <section className="workflow-panel"><header><span><Target size={19} /></span><div><p>Readiness action plan</p><h3>Your highest-impact next steps</h3></div></header>{error ? <div className="workflow-empty">{error}</div> : <div className="workflow-list">{items.map(item => <article className={item.status} key={item._id}><button className="workflow-check" onClick={() => void complete(item)} aria-label={`Complete ${item.title}`}><Check size={15} /></button><div><strong>{item.title}</strong><p>{item.detail}</p></div><button onClick={() => onOpen(item.href)}>Open <ChevronRight size={15} /></button></article>)}</div>}</section>;
+}
+
+type Notice = { _id: string; title: string; body: string; href?: string; readAt?: string | null; createdAt: string };
+export function NotificationCentre({ accessToken, onOpen }: { accessToken: string; onOpen?: (view: string) => void }) {
+  const [open, setOpen] = useState(false); const [items, setItems] = useState<Notice[]>([]);
+  const load = useCallback(() => workflowApi("/notifications", accessToken).then(data => setItems(data.notifications ?? [])).catch(() => setItems([])), [accessToken]);
+  useEffect(() => { void load(); }, [load]); const unread = items.filter(item => !item.readAt).length;
+  const read = async (item: Notice) => { if (!item.readAt) await workflowApi(`/notifications/${item._id}/read`, accessToken, { method: "PATCH" }); if (item.href) onOpen?.(item.href); await load(); };
+  return <div className="workflow-notifications"><button className="icon-button" onClick={() => setOpen(value => !value)} aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}><Bell size={18} />{unread > 0 && <i>{unread}</i>}</button>{open && <div className="workflow-notification-menu"><header><strong>Notifications</strong><span>{unread} unread</span></header>{items.length ? items.slice(0, 8).map(item => <button className={item.readAt ? "" : "unread"} key={item._id} onClick={() => void read(item)}><Bell size={15} /><span><strong>{item.title}</strong><small>{item.body}</small></span></button>) : <p>You’re all caught up.</p>}</div>}</div>;
+}
+
+type Intervention = { student: { _id: string; name: string; email: string }; score: number; priority: string; reasons: string[] };
+export function InterventionQueue({ accessToken }: { accessToken: string }) { const [rows, setRows] = useState<Intervention[]>([]); const [loading, setLoading] = useState(true); useEffect(() => { workflowApi("/interventions", accessToken).then(data => setRows(data.interventions ?? [])).finally(() => setLoading(false)); }, [accessToken]); return <section className="workflow-panel workflow-wide"><header><span><UsersRound size={19} /></span><div><p>Student intervention queue</p><h3>Students who need timely support</h3></div></header>{loading ? <div className="workflow-empty">Loading interventions…</div> : rows.length ? <div className="workflow-table">{rows.map(row => <article key={row.student._id}><span className={`workflow-priority ${row.priority}`}>{row.priority}</span><div><strong>{row.student.name}</strong><small>{row.student.email}</small></div><b>{row.score}/100</b><p>{row.reasons.join(" · ") || "Readiness below target"}</p></article>)}</div> : <div className="workflow-empty">No students currently need intervention.</div>}</section>; }
+
+type AccessEvent = { _id: string; action: string; purpose: string; createdAt: string; actorId?: { name: string; role: string }; driveId?: { title: string; companyName: string } };
+export function AccessHistoryPanel({ accessToken }: { accessToken: string }) { const [events, setEvents] = useState<AccessEvent[]>([]); useEffect(() => { workflowApi("/access-history", accessToken).then(data => setEvents(data.events ?? [])).catch(() => setEvents([])); }, [accessToken]); return <section className="workflow-panel"><header><span><Eye size={19} /></span><div><p>Consent & access log</p><h3>Who accessed your placement evidence</h3></div></header>{events.length ? <div className="workflow-list compact">{events.map(event => <article key={event._id}><div><strong>{event.action.replaceAll("_", " ")}</strong><p>{event.actorId?.name ?? "Authorized platform process"} · {event.purpose}</p><small>{new Date(event.createdAt).toLocaleString("en-IN")}</small></div></article>)}</div> : <div className="workflow-empty">No profile-access events have been recorded.</div>}</section>; }
+
+export function OperationalAlertsPanel({ accessToken }: { accessToken: string }) { const [alerts, setAlerts] = useState<Array<{ key: string; severity: string; title: string; detail: string }>>([]); useEffect(() => { workflowApi("/operational-alerts", accessToken).then(data => setAlerts(data.alerts ?? [])).catch(() => setAlerts([])); }, [accessToken]); return <section className="workflow-panel workflow-wide"><header><span><ShieldAlert size={19} /></span><div><p>Operational alerts</p><h3>Issues requiring platform attention</h3></div></header><div className="workflow-alert-grid">{alerts.map(alert => <article className={alert.severity} key={alert.key}><ShieldAlert size={18} /><div><strong>{alert.title}</strong><p>{alert.detail}</p></div><span>{alert.severity}</span></article>)}</div></section>; }
+
+export function DriveWorkflowPanel({ accessToken }: { accessToken: string }) { const [drives, setDrives] = useState<Array<{ _id: string; title: string; companyName: string; status: string; startsAt?: string }>>([]); useEffect(() => { workflowApi("/drives", accessToken).then(data => setDrives(data.drives ?? [])).catch(() => setDrives([])); }, [accessToken]); return <section className="workflow-panel workflow-wide"><header><span><BriefcaseBusiness size={19} /></span><div><p>Placement drive workflow</p><h3>Drive stages and upcoming activity</h3></div></header>{drives.length ? <div className="workflow-table">{drives.map(drive => <article key={drive._id}><span className={`workflow-priority ${drive.status}`}>{drive.status}</span><div><strong>{drive.title}</strong><small>{drive.companyName}</small></div><p>{drive.startsAt ? new Date(drive.startsAt).toLocaleString("en-IN") : "Schedule not published"}</p></article>)}</div> : <div className="workflow-empty">No placement drives are available yet.</div>}</section>; }

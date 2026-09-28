@@ -9,6 +9,8 @@ import { RecruiterOrganization } from "../models/RecruiterOrganization";
 import { Institution } from "../models/Institution";
 import { MarketplaceRequest } from "../models/MarketplaceRequest";
 import { z } from "zod";
+import { ConsentAccessLog } from "../models/ConsentAccessLog";
+import { Notification } from "../models/Notification";
 
 const router = Router();
 
@@ -127,6 +129,7 @@ router.get("/candidates", requireAuth, requireRole("recruiter"), async (request,
   const institutionIds = [driveGrant.institutionId.toString()];
   const cohorts = await Promise.all(institutionIds.map(institutionReadiness));
   const students = cohorts.flatMap(cohort => cohort.students);
+  await ConsentAccessLog.insertMany(students.map(student => ({ studentId: student.id, actorId: request.auth!.userId, actorRole: "recruiter", action: "candidate_profile_viewed", purpose: "Approved placement drive candidate review", driveId: requestedDrive })), { ordered: false });
   const shortlisted = await RecruiterShortlist.find({ recruiterId: request.auth!.userId, candidateId: { $in: students.map(student => student.id) } }).select("candidateId").lean();
   const scores = students.map(student => student.readiness);
   return response.json({
@@ -154,6 +157,7 @@ router.post("/shortlist/:candidateId", requireAuth, requireRole("recruiter"), as
   const candidate = await User.findOne({ _id: candidateId, role: "student", status: "active", institutionId: grant.institutionId }).select("_id").lean();
   if (!candidate) return response.status(403).json({ code: "OUTSIDE_RECRUITER_SCOPE", message: "That candidate is outside your granted recruiter scope." });
   await RecruiterShortlist.updateOne({ recruiterId: request.auth!.userId, candidateId: candidate._id }, { $setOnInsert: { recruiterId: request.auth!.userId, candidateId: candidate._id } }, { upsert: true });
+  await Promise.all([ConsentAccessLog.create({ studentId: candidate._id, actorId: request.auth!.userId, actorRole: "recruiter", action: "candidate_shortlisted", purpose: "Candidate shortlisted for an approved placement drive", driveId }), Notification.findOneAndUpdate({ userId: candidate._id, sourceKey: `shortlist:${request.auth!.userId}:${driveId}` }, { $setOnInsert: { kind: "drive", title: "You were shortlisted", body: "A verified recruiter shortlisted your profile for a placement drive.", href: "Applications" } }, { upsert: true })]);
   return response.status(201).json({ candidateId: candidate._id.toString(), shortlisted: true });
 });
 

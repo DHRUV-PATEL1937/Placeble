@@ -17,6 +17,7 @@ import { readinessRouter } from "./routes/readiness";
 import { recruiterRouter } from "./routes/recruiter";
 import { platformRouter } from "./routes/platform";
 import { tenancyRouter } from "./routes/tenancy";
+import { workflowRouter } from "./routes/workflow";
 import { ensureInviteRetentionIndex } from "./models/Invite";
 import { interviewUploadDirectory } from "./services/interview-storage-service";
 import { bootstrapJobMatching } from "./services/matching-service";
@@ -83,6 +84,7 @@ app.use("/api/v1/readiness", readinessRouter);
 app.use("/api/v1/recruiter", recruiterRouter);
 app.use("/api/v1/platform-admin", platformRouter);
 app.use("/api/v1/tenancy", tenancyRouter);
+app.use("/api/v1/workflows", workflowRouter);
 
 app.use((_request, response) => response.status(404).json({ message: "Route not found." }));
 

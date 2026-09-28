@@ -39,6 +39,7 @@ import { MockInterview } from "@/src/features/interview/components/mock-intervie
 import { JobMatching, preloadJobMatching } from "@/src/features/jobs/components/job-matching";
 import { CoverLetter } from "@/src/features/cover-letter/components/cover-letter";
 import { GroupDiscussion } from "@/src/features/discussion/components/group-discussion";
+import { AccessHistoryPanel, NotificationCentre, StudentActionPlanPanel } from "@/src/components/workflow/workflow-panels";
 
 type View = "Overview" | "Progress" | "Agents" | "Resume Maker" | "Aptitude Test" | "Mock Interview" | "Job Matching" | "Cover Letter" | "Group Discussion" | "Opportunities" | "Applications" | "Profile" | "Settings";
 
@@ -185,18 +186,18 @@ function Sidebar({ current, setCurrent, open, setOpen, user, readiness, onProfil
   );
 }
 
-function Header({ current, dark, setDark, setMenuOpen, setCurrent, user, onLogout, onProfile, onSettings }: {
+function Header({ current, dark, setDark, setMenuOpen, setCurrent, user, accessToken, onLogout, onProfile, onSettings }: {
   current: View;
   dark: boolean;
   setDark: (dark: boolean) => void;
   setMenuOpen: (open: boolean) => void;
   setCurrent: (view: View) => void;
   user: { name: string };
+  accessToken: string;
   onLogout: () => void;
   onProfile: () => void;
   onSettings: () => void;
 }) {
-  const [noticesOpen, setNoticesOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [shortcutLabel, setShortcutLabel] = useState("⌘ K");
@@ -231,22 +232,14 @@ function Header({ current, dark, setDark, setMenuOpen, setCurrent, user, onLogou
         <button className="icon-button" onClick={() => setDark(!dark)} aria-label={dark ? "Use light mode" : "Use dark mode"}>
           {dark ? <Sun size={19} /> : <Moon size={19} />}
         </button>
-        <div className="notification-wrap">
-          <button className="icon-button" onClick={() => setNoticesOpen(!noticesOpen)} aria-label="Notifications"><Bell size={19} /></button>
-          {noticesOpen && (
-            <div className="notification-popover">
-              <div><strong>Notifications</strong><button onClick={() => setNoticesOpen(false)}>Mark all read</button></div>
-              <article><span className="notice-icon neutral"><Bell size={16} /></span><p><strong>No new notifications</strong><span>Verified updates will appear here when they are available.</span></p></article>
-            </div>
-          )}
-        </div>
+        <NotificationCentre accessToken={accessToken} onOpen={view => setCurrent(view as View)} />
         <div className="student-account-wrap"><button className="header-profile" onClick={() => setAccountOpen(!accountOpen)} aria-expanded={accountOpen} aria-label="Open account menu"><div className="avatar small">{initials}</div><span className="header-signout">Account</span><ChevronDown size={14} /></button>{accountOpen && <div className="student-account-menu"><button onClick={() => { setAccountOpen(false); onProfile(); }}><CircleUserRound size={16} /> My profile</button><button onClick={() => { setAccountOpen(false); onSettings(); }}><Settings size={16} /> Settings</button><button onClick={onLogout}><ArrowRight size={16} /> Sign out</button></div>}</div>
       </div>
     </header>
   );
 }
 
-function Overview({ setCurrent, readiness, user }: { setCurrent: (view: View) => void; readiness: ReadinessPayload | null; user: { name: string } }) {
+function Overview({ setCurrent, readiness, user, accessToken }: { setCurrent: (view: View) => void; readiness: ReadinessPayload | null; user: { name: string }; accessToken: string }) {
   const components = readiness?.current?.components;
   const recommendations: Array<{ title: string; detail: string; view: View; icon: typeof FileText; tone: string }> = [
     components?.resume
@@ -267,6 +260,7 @@ function Overview({ setCurrent, readiness, user }: { setCurrent: (view: View) =>
         <div><p className="eyebrow">{new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</p><h2>Good morning, {user.name.split(" ")[0]}.</h2><p>Here’s what will move your preparation forward today.</p></div>
         <button className="button button-secondary" onClick={() => setCurrent("Agents")}><Target size={17} /> View full plan</button>
       </section>
+      <StudentActionPlanPanel accessToken={accessToken} onOpen={view => setCurrent(view as View)} />
 
       <section className="readiness-card">
         <div className="readiness-main">
@@ -442,6 +436,7 @@ function StudentSettingsPage({ dark, setDark, accessToken }: { dark: boolean; se
       <article className="panel settings-section"><header><span className="settings-section-icon"><Sun size={20} /></span><div><h3>Appearance</h3><p>Choose the theme that is easiest for you to use.</p></div></header><div className="theme-choice-grid"><button className={!dark ? "active" : ""} onClick={() => setDark(false)}><span className="theme-preview light"><i /><i /><i /></span><strong>Light</strong><small>Bright and focused</small>{!dark && <Check size={17} />}</button><button className={dark ? "active" : ""} onClick={() => setDark(true)}><span className="theme-preview dark"><i /><i /><i /></span><strong>Dark</strong><small>Comfortable in low light</small>{dark && <Check size={17} />}</button></div></article>
       <article className="panel settings-section"><header><span className="settings-section-icon"><Settings size={20} /></span><div><h3>Accessibility</h3><p>Adjust motion while keeping every feature available.</p></div></header><button className="settings-toggle-row" onClick={() => updateMotion(!reducedMotion)} aria-pressed={reducedMotion}><span><strong>Reduce motion</strong><small>Minimises decorative transitions and animated entrances.</small></span><i className={reducedMotion ? "on" : ""}><b /></i></button></article>
       <ChangePasswordSettings accessToken={accessToken} />
+      <AccessHistoryPanel accessToken={accessToken} />
       <article className="panel settings-section settings-security"><header><span className="settings-section-icon"><CircleUserRound size={20} /></span><div><h3>Account & privacy</h3><p>Your account stays scoped to your verified institution.</p></div></header><div className="settings-info-row"><span>Profile visibility</span><strong>Institution only</strong></div><div className="settings-info-row"><span>Readiness evidence</span><strong>Verified activity only</strong></div><div className="settings-info-row"><span>Preference storage</span><strong>This device</strong></div></article>
     </section>
   </div>;
@@ -485,7 +480,7 @@ export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "studen
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [current]);
   const view = useMemo(() => {
-    if (current === "Overview") return <Overview setCurrent={setCurrent} readiness={readiness} user={user} />;
+    if (current === "Overview") return <Overview setCurrent={setCurrent} readiness={readiness} user={user} accessToken={accessToken} />;
     if (current === "Progress") return <ProgressView setCurrent={setCurrent} readiness={readiness} />;
     if (current === "Agents") return <AgentsView readiness={readiness} onOpenResume={() => setCurrent("Resume Maker")} onOpenAptitude={() => setCurrent("Aptitude Test")} onOpenInterview={() => setCurrent("Mock Interview")} onOpenMatching={() => setCurrent("Job Matching")} onOpenCoverLetter={() => setCurrent("Cover Letter")} onOpenGroupDiscussion={() => setCurrent("Group Discussion")} />;
     if (current === "Resume Maker") return <ResumeMaker user={user} accessToken={accessToken} onBack={() => setCurrent("Agents")} />;
@@ -498,13 +493,13 @@ export function PlacebleDashboard({ user = { name: "Arjun Kumar", email: "studen
     if (current === "Applications") return <JobMatching accessToken={accessToken} initialSurface="tracker" onBack={() => setCurrent("Overview")} />;
     if (current === "Profile") return <StudentProfilePage accessToken={accessToken} onSaved={message => { setActionNotice(message); window.setTimeout(() => setActionNotice(""), 2600); }} />;
     if (current === "Settings") return <StudentSettingsPage dark={dark} setDark={setDark} accessToken={accessToken} />;
-    return <Overview setCurrent={setCurrent} readiness={readiness} user={user} />;
+    return <Overview setCurrent={setCurrent} readiness={readiness} user={user} accessToken={accessToken} />;
   }, [current, accessToken, user, readiness, dark]);
   return (
     <div className="app-shell">
       <Sidebar current={current} setCurrent={setCurrent} open={menuOpen} setOpen={setMenuOpen} user={user} readiness={readiness} onProfile={() => { setCurrent("Profile"); setMenuOpen(false); }} onSettings={() => { setCurrent("Settings"); setMenuOpen(false); }} onLogout={onLogout} />
       <main className="main-shell">
-        <Header current={current} dark={dark} setDark={setDark} setMenuOpen={setMenuOpen} setCurrent={setCurrent} user={user} onLogout={onLogout} onProfile={() => setCurrent("Profile")} onSettings={() => setCurrent("Settings")} />
+        <Header current={current} dark={dark} setDark={setDark} setMenuOpen={setMenuOpen} setCurrent={setCurrent} user={user} accessToken={accessToken} onLogout={onLogout} onProfile={() => setCurrent("Profile")} onSettings={() => setCurrent("Settings")} />
         {view}
       </main>
       <BottomNav current={current} setCurrent={setCurrent} />
