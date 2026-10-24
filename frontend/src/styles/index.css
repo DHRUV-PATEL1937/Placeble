@@ -974,6 +974,13 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
 [data-theme="dark"] .apt-readiness-summary,
 [data-theme="dark"] .apt-topic-map,
 [data-theme="dark"] .apt-readiness-side > section { color: #edf2ff; background: #111c30; }
+[data-theme="dark"] .apt-topic-map {
+  border: 1px solid #263551;
+  background: radial-gradient(ellipse at 50% 55%, #1a2944 0%, #121e33 58%, #101a2c 100%);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .035);
+}
+[data-theme="dark"] .apt-topic-map h3 { color: #f1f5ff; }
+[data-theme="dark"] .apt-topic-map-hint { color: #9aaaca; }
 [data-theme="dark"] .apt-summary-ring > i,
 [data-theme="dark"] .apt-orbit-center > i { background: #0c1527; }
 [data-theme="dark"] .apt-summary-legend em small { color: #9dacc9; }
@@ -985,10 +992,16 @@ html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, 
 [data-theme="dark"] .apt-readiness-filters button.active { color: #d9e6ff; background: #1b3155; }
 [data-theme="dark"] .apt-readiness-filters b { color: #e6edff; background: #243451; }
 [data-theme="dark"] .apt-readiness-filters input { color: #f3f6ff; }
-[data-theme="dark"] .apt-topic-orbit::before { border-color: #2d3b59; }
-[data-theme="dark"] .apt-topic-orbit > button { background: #17243a; }
+[data-theme="dark"] .apt-topic-orbit::before { border-color: rgba(147, 169, 211, .2); }
+[data-theme="dark"] .apt-topic-orbit > button { background: #19263c; box-shadow: 0 5px 14px rgba(0, 0, 0, .2); }
+[data-theme="dark"] .apt-topic-orbit > button.needs-focus { color: #ff8290; border-color: #a84452; background: #321f31; }
+[data-theme="dark"] .apt-topic-orbit > button.improving { color: #ffc45e; border-color: #9c6a22; background: #332b23; }
+[data-theme="dark"] .apt-topic-orbit > button.strong { color: #55d4a6; border-color: #24785e; background: #17332f; }
+[data-theme="dark"] .apt-topic-orbit > button.selected { box-shadow: 0 0 0 4px rgba(105, 142, 255, .2), 0 10px 24px rgba(0, 0, 0, .3); }
+[data-theme="dark"] .apt-orbit-center { box-shadow: 0 14px 40px rgba(0, 0, 0, .3); }
 [data-theme="dark"] .apt-orbit-center .apt-orbit-category,
 [data-theme="dark"] .apt-orbit-center > i > span:not(.apt-orbit-category) { color: #aab8d7; }
+[data-theme="dark"] .apt-orbit-center strong { color: #f3f6ff; }
 [data-theme="dark"] .apt-focus-list { background: linear-gradient(145deg, #291b2a, #241923) !important; }
 [data-theme="dark"] .apt-focus-list > header > b { color: #ffbdc5; background: #4a2631; }
 [data-theme="dark"] .apt-focus-list > button,
