@@ -6,6 +6,7 @@ const coverLetterSchema = new Schema({
   applicationId: { type: Schema.Types.ObjectId, ref: "Application", default: null, index: true },
   resumeId: { type: Schema.Types.ObjectId, ref: "Resume", required: true, index: true },
   roleTitle: { type: String, trim: true, maxlength: 180, default: "" },
+  tone: { type: String, enum: ["Professional", "Confident", "Enthusiastic", "Concise", "Formal", "Creative"], default: "Professional" },
   targetJdText: { type: String, maxlength: 30000, default: "" },
   companyName: { type: String, trim: true, maxlength: 180, default: "" },
   hiringManagerName: { type: String, trim: true, maxlength: 180, default: "" },

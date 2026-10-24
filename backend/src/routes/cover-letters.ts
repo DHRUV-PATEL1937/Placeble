@@ -12,6 +12,7 @@ import { getResumeJob, queueResumeJob, renderSimpleTextPdf, type ResumeSection }
 
 const router = Router();
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Select a valid item.");
+const toneSchema = z.enum(["Professional", "Confident", "Enthusiastic", "Concise", "Formal", "Creative"]);
 router.use(requireAuth, requireRole("student"));
 
 router.get("/context", async (request, response) => {
@@ -34,6 +35,7 @@ router.get("/jobs/:jobId", (request, response) => {
 router.post("/generate", async (request, response) => {
   const input = z.object({
     resumeId: objectId,
+    tone: toneSchema.default("Professional"),
     applicationId: objectId.optional().nullable(),
     targetJdText: z.string().max(30000).optional().default(""),
     roleTitle: z.string().trim().max(180).optional().default(""),
@@ -58,6 +60,7 @@ router.post("/generate", async (request, response) => {
   const job = queueResumeJob(userId, "coverLetter:generate", "Writing your draft…", async () => {
     const result = await generateCoverLetter({
       studentName: user.name,
+      tone: input.tone,
       profile,
       resume: { title: resume.title, sections: resume.sections as unknown as ResumeSection[], targetJdText: resume.targetJdText },
       targetJdText,
@@ -74,6 +77,7 @@ router.post("/generate", async (request, response) => {
       companyName,
       hiringManagerName,
       bodyText: result.bodyText,
+      tone: input.tone,
       status: "draft",
     });
     return { letter, provider: result.provider, model: result.model };
@@ -84,6 +88,8 @@ router.post("/generate", async (request, response) => {
 router.patch("/:letterId", async (request, response) => {
   const input = z.object({
     bodyText: z.string().trim().min(40).max(12000).optional(),
+    tone: toneSchema.optional(),
+    targetJdText: z.string().max(30000).optional(),
     status: z.enum(["draft", "final"]).optional(),
     roleTitle: z.string().trim().max(180).optional(),
     companyName: z.string().trim().max(180).optional(),
