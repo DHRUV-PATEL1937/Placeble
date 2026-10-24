@@ -1,13 +1,10 @@
 # Frontend source layout
 
-The `app/` directory is deliberately limited to framework routes and global styles.
-Product code belongs in `src/`:
-
-- `components/` — shared visual primitives and layout components.
-- `features/` — domain-owned screens and feature components.
+- `components/` — shared UI, layout, and workflow components.
+- `hooks/` — reusable React hooks.
+- `pages/` — auth flow, role workspaces, and student activity screens.
 - `services/` — browser and API-facing utilities.
+- `styles/` — global styles and design tokens.
 
-Feature boundaries currently cover authentication, dashboard, aptitude, interview,
-jobs, cover letters, group discussions, resume building, professional workspaces,
-and platform administration. Add new domain code to its feature before adding it to
-shared UI.
+Static assets live in the root `public/` directory, as expected by Vite. App
+navigation and role workflows remain in the existing client-side application.

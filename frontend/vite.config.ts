@@ -7,8 +7,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      // Mirrors the `@/*` tsconfig path — allows "@/src/..." imports from components
-      "@": resolve(__dirname, "."),
+      // Alias app imports to the source root.
+      "@": resolve(__dirname, "src"),
     },
   },
   server: {
