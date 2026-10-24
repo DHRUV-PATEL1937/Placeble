@@ -40,8 +40,30 @@ async function spreadsheetRows(file: Express.Multer.File) {
 router.get("/roster", requireAuth, requireRole("tpo"), requireInstitutionScope, async (request, response) => {
   const search = typeof request.query.search === "string" ? request.query.search.trim().slice(0, 100) : "";
   const filter = { institutionId: request.institutionScope, ...(search ? { $or: [{ email: new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") }, { fullName: new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") }, { rollNumber: new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") }] } : {}) };
-  const [entries, total, matched] = await Promise.all([StudentRosterEntry.find(filter).sort({ uploadedAt: -1 }).limit(500).lean(), StudentRosterEntry.countDocuments({ institutionId: request.institutionScope }), StudentRosterEntry.countDocuments({ institutionId: request.institutionScope, status: "matched" })]);
-  return response.json({ entries, summary: { total, matched, unmatched: total - matched } });
+  const [entries, total, matched, institution] = await Promise.all([StudentRosterEntry.find(filter).sort({ uploadedAt: -1 }).limit(500).lean(), StudentRosterEntry.countDocuments({ institutionId: request.institutionScope }), StudentRosterEntry.countDocuments({ institutionId: request.institutionScope, status: "matched" }), Institution.findById(request.institutionScope).select("name approvedEmailDomains officialDomains").lean()]);
+  const approvedEmailDomains = [...new Set([...(institution?.approvedEmailDomains ?? []), ...(institution?.officialDomains ?? [])].map(String))];
+  return response.json({ entries, summary: { total, matched, unmatched: total - matched }, institution: institution ? { name: institution.name, approvedEmailDomains } : null });
+});
+
+router.get("/settings", requireAuth, requireRole("tpo"), requireInstitutionScope, async (request, response) => {
+  const institution = await Institution.findById(request.institutionScope).select("name approvedEmailDomains officialDomains").lean();
+  if (!institution) return response.status(404).json({ message: "Institution not found." });
+  const approvedEmailDomains = [...new Set([...(institution.approvedEmailDomains ?? []), ...(institution.officialDomains ?? [])].map(String))];
+  return response.json({ institution: { name: institution.name, approvedEmailDomains } });
+});
+
+router.patch("/settings/domains", requireAuth, requireRole("tpo"), requireInstitutionScope, async (request, response) => {
+  const input = z.object({ approvedEmailDomains: z.array(z.string().trim().toLowerCase().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/)).min(1).max(12) }).parse(request.body);
+  const domains = [...new Set(input.approvedEmailDomains)];
+  const domainOwner = await Institution.findOne({ _id: { $ne: request.institutionScope }, $or: [{ approvedEmailDomains: { $in: domains } }, { officialDomains: { $in: domains } }] }).select("name").lean();
+  if (domainOwner) return response.status(409).json({ code: "DOMAIN_ALREADY_ASSIGNED", message: `One of these domains is already assigned to ${domainOwner.name}.` });
+  const rosterEmails = await StudentRosterEntry.distinct("email", { institutionId: request.institutionScope });
+  const usedDomains = [...new Set(rosterEmails.map(email => String(email).split("@")[1]).filter(Boolean))];
+  const removedInUse = usedDomains.filter(domain => !domains.includes(domain));
+  if (removedInUse.length) return response.status(409).json({ code: "DOMAIN_IN_USE", message: `Cannot remove ${removedInUse.map(domain => `@${domain}`).join(", ")} while roster entries still use it.` });
+  const institution = await Institution.findByIdAndUpdate(request.institutionScope, { $set: { approvedEmailDomains: domains, officialDomains: domains } }, { returnDocument: "after" }).select("name approvedEmailDomains").lean();
+  if (!institution) return response.status(404).json({ message: "Institution not found." });
+  return response.json({ institution });
 });
 
 router.post("/roster/upload", requireAuth, requireRole("tpo"), requireInstitutionScope, upload.single("file"), async (request, response) => {

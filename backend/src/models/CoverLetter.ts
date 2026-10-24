@@ -5,6 +5,7 @@ const coverLetterSchema = new Schema({
   studentId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
   applicationId: { type: Schema.Types.ObjectId, ref: "Application", default: null, index: true },
   resumeId: { type: Schema.Types.ObjectId, ref: "Resume", required: true, index: true },
+  roleTitle: { type: String, trim: true, maxlength: 180, default: "" },
   targetJdText: { type: String, maxlength: 30000, default: "" },
   companyName: { type: String, trim: true, maxlength: 180, default: "" },
   hiringManagerName: { type: String, trim: true, maxlength: 180, default: "" },

@@ -3,7 +3,8 @@ import mongoose from "mongoose";
 import { env } from "../config/env";
 import { AptitudeAttempt } from "../models/AptitudeAttempt";
 import { AptitudeQuestion, aptitudeCategories, aptitudeDifficulties } from "../models/AptitudeQuestion";
-import { ensureAptitudeQuestionBank, getDynamicQuestionBankStatus, refreshDynamicAptitudeQuestionBank } from "./aptitude-question-bank";
+import { aptitudeQuestionSeeds, ensureAptitudeQuestionBank, getDynamicQuestionBankStatus, refreshDynamicAptitudeQuestionBank } from "./aptitude-question-bank";
+import { callTextAi } from "./interview-ai-service";
 
 export type AptitudeCategory = typeof aptitudeCategories[number];
 export type AptitudeDifficulty = typeof aptitudeDifficulties[number];
@@ -52,11 +53,15 @@ function sampleMixedDifficulty(pool: PlainQuestion[], count: number) {
   return shuffle(chosen).slice(0, count);
 }
 
-export async function createAptitudeAttempt(input: { userId: string; sections: AptitudeCategory[]; questionCount: number; durationMinutes: number; difficulty: AptitudeDifficulty | "mixed"; topic?: string }) {
+export async function createAptitudeAttempt(input: { userId: string; sections: AptitudeCategory[]; questionCount: number; durationMinutes: number; difficulty: AptitudeDifficulty | "mixed"; topic?: string; topicFilters?: Partial<Record<AptitudeCategory, string[]>> }) {
   await ensureAptitudeQuestionBank();
   const recent = await AptitudeAttempt.find({ studentId: input.userId }).sort({ createdAt: -1 }).limit(3).select("questionIds").lean();
   const recentIds = new Set(recent.flatMap(attempt => attempt.questionIds.map(id => id.toString())));
-  const query: Record<string, unknown> = { isActive: true, category: { $in: input.sections } };
+  const filteredSections = input.sections.map(category => ({ category, topics: input.topicFilters?.[category]?.filter(Boolean) ?? [] }));
+  const query: Record<string, unknown> = {
+    isActive: true,
+    $or: filteredSections.map(({ category, topics }) => topics.length ? { category, topic: { $in: topics } } : { category }),
+  };
   if (input.topic) query.topic = input.topic;
   if (input.difficulty !== "mixed") query.difficulty = input.difficulty;
   const all = await AptitudeQuestion.find(query).lean() as unknown as PlainQuestion[];
@@ -107,7 +112,8 @@ export async function saveAttemptResponse(input: { attemptId: string; userId: st
   if (!attempt) throw new Error("This practice attempt is no longer active.");
   if (!attempt.questionIds.some(id => id.toString() === input.questionId)) throw new Error("That question is not part of this attempt.");
   const responses = attempt.responses.map(response => response.toObject()) as Array<Record<string, unknown>>;
-  const next = { questionId: input.questionId, selectedOptionIndex: input.selectedOptionIndex, codeSubmission: input.codeSubmission, isCorrect: false, awardedFraction: 0, timeSpentSeconds: input.timeSpentSeconds };
+  const elapsedSeconds = Math.min(attempt.durationSeconds, Math.max(0, Math.floor((Date.now() - attempt.startedAt.getTime()) / 1000)));
+  const next = { questionId: input.questionId, selectedOptionIndex: input.selectedOptionIndex, codeSubmission: input.codeSubmission, isCorrect: false, awardedFraction: 0, timeSpentSeconds: Math.min(input.timeSpentSeconds, elapsedSeconds) };
   const existingIndex = responses.findIndex(response => String(response.questionId) === input.questionId);
   if (existingIndex >= 0) responses[existingIndex] = next;
   else responses.push(next);
@@ -127,6 +133,8 @@ function scoreGroups(items: Array<{ category: string; topic: string; fraction: n
 export async function completeAptitudeAttempt(attemptId: string, userId: string) {
   const attempt = await AptitudeAttempt.findOne({ _id: attemptId, studentId: userId, status: "in_progress" });
   if (!attempt) throw new Error("This attempt has already been completed or abandoned.");
+  const completedAt = new Date();
+  const elapsedSeconds = Math.min(attempt.durationSeconds, Math.max(0, Math.floor((completedAt.getTime() - attempt.startedAt.getTime()) / 1000)));
   const questions = await AptitudeQuestion.find({ _id: { $in: attempt.questionIds } }).lean() as unknown as PlainQuestion[];
   const responses = new Map(attempt.responses.map(response => [response.questionId.toString(), response.toObject()]));
   const scored = questions.map(question => {
@@ -137,7 +145,10 @@ export async function completeAptitudeAttempt(attemptId: string, userId: string)
   });
   const scoreTotal = Math.round(scored.reduce((sum, item) => sum + item.fraction, 0) / Math.max(1, scored.length) * 100);
   const groups = scoreGroups(scored);
-  attempt.set({ responses: scored.map(item => item.response), scoreTotal, ...groups, completedAt: new Date(), status: "completed" });
+  const recordedSeconds = scored.reduce((sum, item) => sum + item.response.timeSpentSeconds, 0);
+  const timeScale = recordedSeconds > elapsedSeconds && recordedSeconds > 0 ? elapsedSeconds / recordedSeconds : 1;
+  const normalizedResponses = scored.map(item => ({ ...item.response, timeSpentSeconds: Math.floor(item.response.timeSpentSeconds * timeScale) }));
+  attempt.set({ responses: normalizedResponses, scoreTotal, ...groups, completedAt, status: "completed" });
   await attempt.save();
   const [payload, heatmap] = await Promise.all([getAttemptPayload(attemptId, userId, true), getWeakAreaHeatmap(userId)]);
   return { ...payload, heatmap };
@@ -170,13 +181,22 @@ export async function getAptitudeSummary(userId: string) {
   const currentBankStatus = await getDynamicQuestionBankStatus();
   const needsRefresh = !currentBankStatus.lastDynamicRefreshAt || Date.now() - new Date(currentBankStatus.lastDynamicRefreshAt).getTime() >= 7 * 24 * 60 * 60 * 1000;
   if (needsRefresh) void refreshDynamicAptitudeQuestionBank(false).catch(error => console.error("Dynamic aptitude refresh failed:", error instanceof Error ? error.message : error));
-  const [attempts, inProgress, heatmap, counts] = await Promise.all([
+  const [attempts, inProgress, heatmap, counts, topicRows] = await Promise.all([
     AptitudeAttempt.find({ studentId: userId, status: "completed" }).sort({ completedAt: -1 }).limit(8).select("scoreTotal scoreByCategory scoreByTopic sections completedAt mode focusTopic questionIds").lean({ flattenMaps: true }),
     AptitudeAttempt.findOne({ studentId: userId, status: "in_progress" }).sort({ createdAt: -1 }).select("sections startedAt durationSeconds questionIds mode focusTopic").lean(),
     getWeakAreaHeatmap(userId),
     AptitudeQuestion.aggregate([{ $match: { isActive: true } }, { $group: { _id: "$category", count: { $sum: 1 } } }]),
+    AptitudeQuestion.aggregate([
+      { $match: { isActive: true, category: { $in: ["quant", "logical", "verbal"] } } },
+      { $group: { _id: { category: "$category", topic: "$topic" } } },
+      { $sort: { "_id.category": 1, "_id.topic": 1 } },
+    ]),
   ]);
-  return { attempts, inProgress, heatmap, questionCounts: Object.fromEntries(counts.map(item => [item._id, item.count])), codingAvailable: Boolean(env.JUDGE0_ENDPOINT), ...currentBankStatus, dynamicRefreshWarning: "" };
+  const topicsByCategory = Object.fromEntries(["quant", "logical", "verbal"].map(category => [category, Array.from(new Set([
+    ...aptitudeQuestionSeeds.filter(item => item.category === category).map(item => item.topic),
+    ...topicRows.filter(item => item._id.category === category).map(item => item._id.topic),
+  ])).sort()]));
+  return { attempts, inProgress, heatmap, questionCounts: Object.fromEntries(counts.map(item => [item._id, item.count])), topicsByCategory, ...currentBankStatus, dynamicRefreshWarning: "" };
 }
 
 export async function forceRefreshDynamicQuestionBank() {
@@ -200,14 +220,29 @@ async function judgeOne(code: string, language: string, testCase: { input: strin
   return { passed: payload.status?.id === 3, status: payload.status?.description ?? "Unknown", output: payload.stdout ? Buffer.from(payload.stdout, "base64").toString().trim() : "", error: payload.stderr || payload.compile_output ? Buffer.from(payload.stderr ?? payload.compile_output ?? "", "base64").toString().slice(0, 500) : "" };
 }
 
+async function aiEvaluateCoding(input: { code: string; language: string; prompt: string; cases: Array<{ input: string; expectedOutput: string }> }) {
+  const prompt = `You are a careful coding-practice evaluator. There is no code execution runtime available, so provide a cautious AI estimate only.
+Problem: ${input.prompt}
+Language: ${input.language}
+Student code:\n${input.code}
+Visible tests: ${JSON.stringify(input.cases)}
+Return strict JSON only: {"results":[{"passed":boolean,"status":string,"output":string}],"estimatedRuntimeMs":number,"extraTests":[{"input":string,"expectedOutput":string}]}. Add 3 to 5 useful edge-case tests not already visible. Estimate runtime in milliseconds as a rough static-analysis guess, never claim it is measured. Do not invent a passing result when the code is clearly invalid.`;
+  const raw = await callTextAi(prompt, 900);
+  const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] ?? raw) as { results?: Array<{ passed?: boolean; status?: string; output?: string }>; estimatedRuntimeMs?: number; extraTests?: Array<{ input?: string; expectedOutput?: string }> };
+  const results = (parsed.results ?? []).slice(0, input.cases.length).map(result => ({ passed: Boolean(result.passed), status: result.status ?? "AI estimate", output: result.output ?? "" }));
+  return { passed: results.filter(result => result.passed).length, total: results.length, results, estimatedRuntimeMs: Math.max(1, Math.round(parsed.estimatedRuntimeMs ?? 0)), extraTests: (parsed.extraTests ?? []).filter(test => typeof test.input === "string" && typeof test.expectedOutput === "string").slice(0, 5), aiEstimated: true };
+}
+
 export async function runCodingQuestion(input: { questionId: string; language: string; code: string; visibleOnly: boolean }) {
   const question = await AptitudeQuestion.findById(input.questionId).lean() as unknown as PlainQuestion | null;
   if (!question || question.category !== "coding") throw new Error("That coding question was not found.");
   if (!languageIds[input.language]) throw new Error("Choose a supported language.");
   const cases = (question.testCases ?? []).filter(testCase => !input.visibleOnly || !testCase.hidden);
+  if (!env.JUDGE0_ENDPOINT) return aiEvaluateCoding({ code: input.code, language: input.language, prompt: question.prompt, cases });
   const results = [];
+  const startedAt = Date.now();
   for (const testCase of cases) results.push(await judgeOne(input.code, input.language, testCase));
-  return { passed: results.filter(result => result.passed).length, total: results.length, results: input.visibleOnly ? results : results.map(result => ({ passed: result.passed, status: result.status })) };
+  return { passed: results.filter(result => result.passed).length, total: results.length, results: input.visibleOnly ? results : results.map(result => ({ passed: result.passed, status: result.status })), estimatedRuntimeMs: Date.now() - startedAt, aiEstimated: false };
 }
 
 export async function gradeCodingAndCompleteAttempt(attemptId: string, userId: string) {

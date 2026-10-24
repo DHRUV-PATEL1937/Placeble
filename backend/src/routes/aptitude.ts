@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { AptitudeAttempt } from "../models/AptitudeAttempt";
-import { AptitudeQuestion, aptitudeCategories, aptitudeDifficulties } from "../models/AptitudeQuestion";
+import { AptitudeQuestion, aptitudeDifficulties } from "../models/AptitudeQuestion";
 import {
   completeAptitudeAttempt,
   createAptitudeAttempt,
@@ -26,6 +26,7 @@ const answerInput = z.object({
 
 const router = Router();
 router.use(requireAuth, requireRole("student"));
+const practiceCategories = ["quant", "logical", "verbal"] as const;
 
 router.get("/summary", async (request, response) => response.json(await getAptitudeSummary(request.auth!.userId)));
 
@@ -42,16 +43,15 @@ router.post("/question-bank/refresh", (request, response) => {
 router.post("/attempts", async (request, response) => {
   await expireElapsedAptitudeAttempts(request.auth!.userId);
   const input = z.object({
-    sections: z.array(z.enum(aptitudeCategories)).min(1).max(4),
+    sections: z.array(z.enum(practiceCategories)).min(1).max(3),
     questionCount: z.number().int().min(3).max(20).default(10),
     durationMinutes: z.number().int().min(3).max(120).default(15),
     difficulty: z.union([z.enum(aptitudeDifficulties), z.literal("mixed")]).default("mixed"),
     topic: z.string().trim().max(80).optional(),
+    topicFilters: z.record(z.enum(practiceCategories), z.array(z.string().trim().min(1).max(80)).max(12)).optional(),
   }).parse(request.body);
   const existing = await AptitudeAttempt.findOne({ studentId: request.auth!.userId, status: "in_progress" }).sort({ createdAt: -1 }).select("_id").lean();
   if (existing) return response.status(409).json({ message: "You already have an active test. Resume or abandon it before starting another.", attemptId: existing._id });
-  const summary = await getAptitudeSummary(request.auth!.userId);
-  if (input.sections.includes("coding") && !summary.codingAvailable) return response.status(503).json({ message: "Coding practice needs a Judge0 endpoint. Choose quant, logical, or verbal for now." });
   return response.status(201).json(await createAptitudeAttempt({ ...input, userId: request.auth!.userId }));
 });
 

@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { env } from "../config/env";
 import { Interview, type InterviewType } from "../models/Interview";
-import { createInterviewDebrief, fillerWordRate, scoreTurnAndGenerateNext, transcribeInterviewRecording } from "./interview-ai-service";
+import { Resume } from "../models/Resume";
+import { StudentProfile } from "../models/StudentProfile";
+import { createInterviewDebrief, fillerWordRate, generateInterviewOpeningQuestion, scoreTurnAndGenerateNext, transcribeInterviewRecording } from "./interview-ai-service";
 
 type InterviewJobKind = "interview:scoreTurn" | "interview:renderQuestionAudio" | "interview:debrief";
 type InterviewJob = { id: string; userId: string; kind: InterviewJobKind; status: "queued" | "processing" | "complete" | "failed"; progress: number; message: string; result?: unknown; error?: string };
@@ -25,19 +27,24 @@ export function getInterviewJob(id: string, userId: string) {
 }
 
 const starterQuestions: Record<string, string[]> = {
-  hr: ["Tell me about yourself and the kind of opportunity you are looking for.", "What motivates you to do your best work?"],
-  technical: ["Tell me about a project or assignment you enjoyed. What did you work on?", "What is one technical skill you have started learning, and how have you practised it?"],
-  behavioral: ["Tell me about a time you worked with others on a task. What was your part?", "Describe a small challenge you faced while studying or building something. How did you handle it?"],
-  mixed: ["Please introduce yourself and share one project, course, or experience you enjoyed.", "Tell me about a simple problem you solved and what you learned from it."],
+  hr: ["What interests you about this kind of role?", "Which part of your recent learning are you most proud of?", "What motivates you to do your best work?", "What kind of team helps you learn and contribute well?"],
+  technical: ["Tell me about a project or assignment you enjoyed. What did you work on?", "What is one technical skill you have started learning, and how have you practised it?", "How would you explain one technical idea you know to a new teammate?", "When your solution does not work, what is the first thing you check?"],
+  behavioral: ["Tell me about a time you worked with others on a task. What was your part?", "Describe a small challenge you faced while studying or building something. How did you handle it?", "Tell me about a time you had to learn something quickly.", "Describe a time you received useful feedback and what you changed."],
+  mixed: ["Please introduce yourself and share one project, course, or experience you enjoyed.", "Tell me about a simple problem you solved and what you learned from it.", "What skill would you most like to use in your next role?", "Tell me about something you built, improved, or helped complete."],
 };
 
 function firstQuestion(type: InterviewType, targetRole: string) {
-  const base = starterQuestions[type]?.[Math.floor(Math.random() * starterQuestions[type].length)] ?? starterQuestions.mixed[0];
-  return targetRole ? `${base} Please connect your answer to the ${targetRole} role where relevant.` : base;
+  return targetRole ? `Please introduce yourself and walk me through the experience, skills, or interests that are most relevant to the ${targetRole} role.` : "Please introduce yourself and walk me through the experience, skills, or interests you would bring to your next opportunity.";
 }
 
 export async function createInterviewSession(input: { userId: string; type: InterviewType; targetRole: string; totalTurns: number }) {
-  const interview = await Interview.create({ studentId: input.userId, type: input.type, targetRole: input.targetRole, totalTurns: input.totalTurns, currentQuestion: firstQuestion(input.type, input.targetRole), status: "in_progress", startedAt: new Date() });
+  const [resume, profile] = await Promise.all([
+    Resume.findOne({ studentId: input.userId }).sort({ isCurrent: -1, updatedAt: -1 }).select("title sections targetJdText").lean(),
+    StudentProfile.findOne({ userId: input.userId }).select("preferredRoles education skills projects experience").lean(),
+  ]);
+  const resumeContext = JSON.stringify({ resume: resume ? { title: resume.title, sections: resume.sections, targetJdText: resume.targetJdText } : null, profile: profile ?? null }).slice(0, 18000);
+  const openingQuestion = await generateInterviewOpeningQuestion({ targetRole: input.targetRole, resumeContext });
+  const interview = await Interview.create({ studentId: input.userId, type: input.type, targetRole: input.targetRole, totalTurns: input.totalTurns, currentQuestion: openingQuestion || firstQuestion(input.type, input.targetRole), status: "in_progress", startedAt: new Date() });
   return interview.toObject();
 }
 
@@ -70,7 +77,12 @@ export async function processInterviewTurn(input: { interviewId: string; userId:
     const transcript = input.manualTranscript.trim() || (input.recording ? await transcribeInterviewRecording(input.recording.buffer, input.recording.mimetype) : "");
     if (transcript.length < 12) throw new Error("We could not hear enough of your answer. Please retry and speak a little closer to the microphone.");
     update(64, "Reviewing structure, relevance and specificity");
-    const scored = await scoreTurnAndGenerateNext({ type: interview.type, targetRole: interview.targetRole, turnNumber, totalTurns: interview.totalTurns, question: interview.currentQuestion, transcript, history: interview.turns.map(turn => ({ question: turn.question, answerTranscript: turn.answerTranscript, feedback: turn.feedback })) });
+    const [resume, profile] = await Promise.all([
+      Resume.findOne({ studentId: input.userId }).sort({ isCurrent: -1, updatedAt: -1 }).select("title sections targetJdText").lean(),
+      StudentProfile.findOne({ userId: input.userId }).select("preferredRoles education skills projects experience").lean(),
+    ]);
+    const resumeContext = JSON.stringify({ resume: resume ? { title: resume.title, sections: resume.sections, targetJdText: resume.targetJdText } : null, profile: profile ?? null }).slice(0, 18000);
+    const scored = await scoreTurnAndGenerateNext({ type: interview.type, targetRole: interview.targetRole, turnNumber, totalTurns: interview.totalTurns, question: interview.currentQuestion, transcript, resumeContext, history: interview.turns.map(turn => ({ question: turn.question, answerTranscript: turn.answerTranscript, feedback: turn.feedback })) });
     const rate = fillerWordRate(transcript);
     interview.turns.push({ turnNumber, question: interview.currentQuestion, questionAudioUrl: "", answerTranscript: transcript, answerAudioUrl: input.recordingUrl, answerVideoUrl: "", timeSpentSeconds: input.timeSpentSeconds, scores: { structure: Math.round(scored.structure.score * 10) / 10, relevance: Math.round(scored.relevance.score * 10) / 10, specificity: Math.round(scored.specificity.score * 10) / 10, fillerWordRate: rate }, feedback: scored.feedback });
     const finalTurn = turnNumber >= interview.totalTurns;

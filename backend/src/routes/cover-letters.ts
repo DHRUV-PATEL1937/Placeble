@@ -36,6 +36,7 @@ router.post("/generate", async (request, response) => {
     resumeId: objectId,
     applicationId: objectId.optional().nullable(),
     targetJdText: z.string().max(30000).optional().default(""),
+    roleTitle: z.string().trim().max(180).optional().default(""),
     companyName: z.string().trim().max(180).optional().default(""),
     hiringManagerName: z.string().trim().max(180).optional().default(""),
   }).parse(request.body);
@@ -62,12 +63,13 @@ router.post("/generate", async (request, response) => {
       targetJdText,
       companyName,
       hiringManagerName,
-      roleTitle: linkedJob?.title ?? profile.preferredRoles?.[0] ?? "",
+      roleTitle: input.roleTitle || linkedJob?.title || profile.preferredRoles?.[0] || "",
     });
     const letter = await CoverLetter.create({
       studentId,
       applicationId: application?._id ?? null,
       resumeId: resume._id,
+      roleTitle: input.roleTitle || linkedJob?.title || "",
       targetJdText,
       companyName,
       hiringManagerName,
@@ -83,6 +85,7 @@ router.patch("/:letterId", async (request, response) => {
   const input = z.object({
     bodyText: z.string().trim().min(40).max(12000).optional(),
     status: z.enum(["draft", "final"]).optional(),
+    roleTitle: z.string().trim().max(180).optional(),
     companyName: z.string().trim().max(180).optional(),
     hiringManagerName: z.string().trim().max(180).optional(),
   }).refine(value => Object.keys(value).length > 0).parse(request.body);
