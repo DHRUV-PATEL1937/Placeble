@@ -7,7 +7,7 @@ import { ZodError } from "zod";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { importResumeText } from "../src/services/resume-import";
-import { renderResumePdf, renderResumeDocx } from "../src/services/resume-renderer";
+import { renderResumePdf, renderResumeDocx, fitResumeToOnePage } from "../src/services/resume-renderer";
 
 process.env.MONGODB_URI = "mongodb://127.0.0.1/resume-studio-test";
 process.env.JWT_ACCESS_SECRET = "resume-studio-test-access-00000000000000";
@@ -54,10 +54,23 @@ test("PDF and DOCX exports contain current personal details and omit hidden sect
 
 test("long PDF resumes paginate without losing the final entry", async () => {
   const sections = [{ type: "experience" as const, order: 0, content: { entries: Array.from({ length: 30 }, (_, i) => ({ title: `Position ${i + 1}`, bullets: ["A detailed contribution with measurable context supplied by the candidate.", "An additional responsibility preserved in the exported document."] })) } }];
-  const pdf = await renderResumePdf("Test Candidate", "Long resume", sections, { template: "modern" });
+  const pdf = await renderResumePdf("Test Candidate", "Long resume", sections, { template: "modern", design: { onePage: false } });
   const parsed = await pdfParse(pdf);
   assert.ok(parsed.numpages > 1);
   assert.ok(parsed.text.includes("Position 30"));
+  await assert.rejects(() => renderResumePdf("Test Candidate", "Student resume", sections), /Shorten descriptions/);
+});
+
+test("student resume fits one page without dropping the final entry", async () => {
+  const sections = [{ type: "projects" as const, order: 0, content: { entries: Array.from({ length: 9 }, (_, i) => ({ title: `Project ${i + 1}`, date: "2025-06", detail: "Designed and delivered a useful application with careful attention to reliability and user experience." })) } }];
+  const fitted = await fitResumeToOnePage("Student Candidate", "Student resume", sections, { design: { fontSize: 13, margin: 65, lineHeight: 1.9, entrySpacing: 12, dateFormat: "long", datePosition: "right", footerText: "Portfolio available", pageNumbers: true } });
+  const parsed = await pdfParse(fitted.buffer, { version: "v2.0.550" });
+  assert.equal(parsed.numpages, 1);
+  assert.ok(parsed.text.includes("Project 9"));
+  assert.ok(parsed.text.includes("June 2025"));
+  assert.ok(parsed.text.includes("Portfolio available"));
+  assert.ok(fitted.design.fontSize >= 9);
+  assert.ok(fitted.design.fontSize < 13);
 });
 
 test("blank drafts, designs, versions, and imported details persist through the authenticated API", async () => {
@@ -88,6 +101,11 @@ test("blank drafts, designs, versions, and imported details persist through the 
     assert.equal(version.status,201);
     assert.equal(version.data.resume.personalDetails.fullName,"Edited Name");
     assert.equal(version.data.resume.design.pageSize,"LETTER");
+      const fitted = await request("/resume/fit", "POST", {});
+      assert.equal(fitted.status, 200);
+      assert.equal(fitted.data.pages, 1);
+      assert.equal(fitted.data.resume.design.onePage, true);
+      assert.deepEqual(fitted.data.resume.sections, version.data.resume.sections);
     const restored=await request(`/resume/versions/${created.data.resume._id}/restore`,"POST",{});
     assert.equal(restored.status,201); assert.deepEqual(restored.data.resume.sections,[]);
     assert.equal(await Resume.countDocuments({studentId:user._id,isCurrent:true}),1);

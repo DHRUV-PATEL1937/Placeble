@@ -19,6 +19,7 @@ import {
   type ResumeSection,
 } from "../services/resume-service";
 import { runResumeCopilot } from "../services/resume-copilot-service";
+import { fitResumeToOnePage } from "../services/resume-renderer";
 import { markStudentMatchingProfileChanged } from "../services/matching-service";
 
 const router = Router();
@@ -239,6 +240,23 @@ router.post("/versions/:versionId/restore", async (request, response) => {
 router.post("/new", async (request, response) => {
   await Resume.updateMany({ studentId: request.auth!.userId, isCurrent: true }, { isCurrent: false });
   return response.json({ ok: true });
+});
+
+router.post("/fit", async (request, response) => {
+  const [resume, user] = await Promise.all([
+    Resume.findOne({ studentId: request.auth!.userId, isCurrent: true }),
+    User.findById(request.auth!.userId).select("name email").lean(),
+  ]);
+  if (!resume || !user) return response.status(404).json({ message: "There is no resume to fit." });
+  try {
+    const fitted = await fitResumeToOnePage(user.name, resume.title, resume.sections as unknown as ResumeSection[], { template: resume.template, personalDetails: { fullName: user.name, email: user.email, ...resume.personalDetails }, design: resume.design });
+    resume.design = fitted.design;
+    resume.fileUrl = "";
+    await resume.save();
+    return response.json({ resume, pages: fitted.pages });
+  } catch (error) {
+    return response.status(422).json({ message: error instanceof Error ? error.message : "The resume could not be fitted." });
+  }
 });
 
 router.post("/export/:format", async (request, response) => {

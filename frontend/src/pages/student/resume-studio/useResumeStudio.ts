@@ -104,7 +104,14 @@ export function useResumeStudio(token: string, user: { name: string; email: stri
     await save(); const { job } = await request<{ job: Job }>("/resume/generate", { method: "POST", body: JSON.stringify({ targetJdText: latest.current?.targetJdText || "" }) });
     const result = await poll(job.id); if (!result?.resume) throw new Error("Your draft could not be created."); accept(result.resume); await refreshVersions();
   };
+  const fit = async () => {
+    await save();
+    const data = await request<{ resume: Resume }>("/resume/fit", { method: "POST", body: "{}" });
+    accept(data.resume);
+    setNotice("Fitted to one PDF page. All your content has been kept.");
+  };
   const exportFile = async (format: "pdf" | "docx") => {
+    if (latest.current?.design.onePage) await fit();
     await save(); const { job } = await request<{ job: Job }>(`/resume/export/${format}`, { method: "POST", body: "{}" });
     const result = await poll(job.id); if (!result?.fileUrl) throw new Error("The export did not return a file.");
     const path = new URL(result.fileUrl, new URL(API, window.location.origin));
@@ -124,5 +131,5 @@ export function useResumeStudio(token: string, user: { name: string; email: stri
   };
   const apply = () => { if (!latest.current || !proposal) return; setUndo(structuredClone(latest.current)); update(r => ({ ...r, sections: proposal.sections })); setProposal(null); setNotice("Writing changes applied. You can undo this edit."); };
   const undoChange = () => { if (undo) { update(() => undo); setUndo(null); setProposal(null); } };
-  return { resume, versions, loading, busy, saveState, error, notice, proposal, reply, undo, update, run, save, create, upload, generate, exportFile, saveVersion, restore, assist, apply, undoChange, setProposal, setError, setNotice };
+  return { resume, versions, loading, busy, saveState, error, notice, proposal, reply, undo, update, run, save, create, upload, generate, fit, exportFile, saveVersion, restore, assist, apply, undoChange, setProposal, setError, setNotice };
 }
