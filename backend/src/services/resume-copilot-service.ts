@@ -2,7 +2,7 @@ import { z } from "zod";
 import { env } from "../config/env";
 import { buildVerifiedResumeContext, type ResumeSection } from "./resume-service";
 
-const sectionTypes = ["summary", "experience", "education", "skills", "projects", "certifications"] as const;
+const sectionTypes = ["summary", "experience", "education", "skills", "projects", "certifications", "languages", "interests", "courses", "awards", "organizations", "publications", "references", "declaration", "custom"] as const;
 
 const entrySchema = z.object({
   title: z.string().max(180),
@@ -12,6 +12,7 @@ const entrySchema = z.object({
   degree: z.string().max(180),
   graduationYear: z.string().max(40),
   detail: z.string().max(800),
+  location: z.string().max(220),
   bullets: z.array(z.string().max(420)).max(8),
 });
 
@@ -57,7 +58,7 @@ const responseJsonSchema = {
                   properties: {
                     title: { type: "string" }, subtitle: { type: "string" }, date: { type: "string" },
                     institution: { type: "string" }, degree: { type: "string" }, graduationYear: { type: "string" },
-                    detail: { type: "string" }, bullets: { type: "array", items: { type: "string" } },
+                    detail: { type: "string" }, location: { type: "string" }, bullets: { type: "array", items: { type: "string" } },
                   },
                 },
               },
@@ -212,12 +213,12 @@ function applyChanges(sections: ResumeSection[], changes: z.infer<typeof copilot
   return sections.map(section => {
     const change = byType.get(section.type);
     if (!change) return section;
-    const content = section.type === "summary"
+    const content = ["summary", "declaration"].includes(section.type)
       ? { text: change.content.text }
-      : section.type === "skills"
+      : ["skills", "languages", "interests"].includes(section.type)
         ? { items: change.content.items }
         : { entries: change.content.entries };
-    return { ...section, content };
+    return { ...section, content: { ...section.content, ...content } };
   });
 }
 

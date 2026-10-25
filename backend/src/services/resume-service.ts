@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
+import { importResumeText } from "./resume-import";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import PDFDocument from "pdfkit";
 import { cosineSimilarity, embedText, EMBEDDING_PIPELINE_VERSION } from "./embedding-service";
 
 export type ResumeSection = {
-  type: "summary" | "experience" | "education" | "skills" | "projects" | "certifications";
+  type: "summary" | "experience" | "education" | "skills" | "projects" | "certifications" | "languages" | "interests" | "courses" | "awards" | "organizations" | "publications" | "references" | "declaration" | "custom";
   order: number;
   content: Record<string, unknown>;
 };
@@ -54,7 +54,8 @@ function tokens(value: string) {
 }
 
 export function resumeText(sections: ResumeSection[]) {
-  return sections.map(section => Object.values(section.content).flatMap(value => Array.isArray(value) ? value.map(item => typeof item === "object" ? Object.values(item ?? {}).join(" ") : String(item)) : typeof value === "object" ? Object.values(value ?? {}).join(" ") : String(value)).join(" ")).join(" ");
+  const flatten = (value: unknown): string => Array.isArray(value) ? value.map(flatten).join(" ") : value && typeof value === "object" ? Object.values(value).map(flatten).join(" ") : typeof value === "string" || typeof value === "number" ? String(value) : "";
+  return sections.filter(section => !section.content.hidden).map(section => Object.entries(section.content).filter(([key]) => !["hidden", "heading"].includes(key)).map(([, value]) => flatten(value)).join(" ")).join(" ").trim();
 }
 
 function withoutEmbeddingFields(profile: unknown) {
@@ -85,7 +86,8 @@ export function buildVerifiedResumeContext(input: {
 }
 
 export function scoreResume(sections: ResumeSection[], targetJdText = "") {
-  const text = resumeText(sections);
+  const text = resumeText(sections.filter(section => !section.content.hidden));
+  if (!text.trim()) return { atsScore: 0, keywordOverlap: 0, semanticSimilarity: 0, missingKeywords: [] };
   if (!targetJdText.trim()) {
     const present = new Set(sections.filter(section => resumeText([section]).trim().length > 10).map(section => section.type));
     const score = Math.min(92, 46 + present.size * 7 + Math.min(12, new Set(tokens(text)).size / 3));
@@ -121,9 +123,9 @@ export function generateProfileResume(profile: { degree?: string | null; graduat
   const roles = profile.preferredRoles?.filter(Boolean) ?? [];
   const focus = roles[0] ?? "graduate technology";
   const sections: ResumeSection[] = [
-    { type: "summary", order: 0, content: { text: `${profile.degree || "Technology"} student preparing for ${focus} roles, with demonstrated skills in ${skills.slice(0, 4).join(", ") || "problem solving and collaborative delivery"}. Brings a structured learning mindset and a focus on clear, dependable work.` } },
-    { type: "education", order: 1, content: { entries: [{ institution: "TechEnd Institute of Technology", degree: profile.degree || "Bachelor's degree", graduationYear: profile.graduationYear || 2027, detail: "Relevant learning and practical coursework" }] } },
-    { type: "skills", order: 2, content: { items: skills.length ? skills : ["Problem solving", "Communication", "Team collaboration"] } },
+    { type: "summary", order: 0, content: { text: `${profile.degree ? `${profile.degree} student` : "Candidate"} preparing for ${focus} roles.${skills.length ? ` Skills include ${skills.slice(0, 4).join(", ")}.` : ""}` } },
+    { type: "education", order: 1, content: { entries: profile.degree ? [{ institution: "", degree: profile.degree, graduationYear: profile.graduationYear || "", detail: "" }] : [] } },
+    { type: "skills", order: 2, content: { items: skills } },
     { type: "projects", order: 3, content: { entries: [] } },
     { type: "experience", order: 4, content: { entries: [] } },
     { type: "certifications", order: 5, content: { entries: [] } },
@@ -132,82 +134,16 @@ export function generateProfileResume(profile: { degree?: string | null; graduat
   return { title: `${studentName} — ${roles[0] || "Graduate"} Resume`, sections, targetJdText, ...score };
 }
 
-function sectionFromLines(type: ResumeSection["type"], order: number, lines: string[]): ResumeSection {
-  if (type === "summary") return { type, order, content: { text: lines.slice(0, 4).join(" ").slice(0, 700) } };
-  if (type === "skills") return { type, order, content: { items: lines.join(",").split(/[,|•]/).map(item => item.trim()).filter(Boolean).slice(0, 24) } };
-  return { type, order, content: { entries: lines.filter(Boolean).slice(0, 8).map(line => ({ title: line, subtitle: "Imported from your resume", date: "", bullets: [] })) } };
-}
-
 export async function parseResumeUpload(file: Express.Multer.File) {
-  const lower = file.originalname.toLowerCase();
-  const rawText = lower.endsWith(".docx") ? (await mammoth.extractRawText({ buffer: file.buffer })).value : (await pdfParse(file.buffer)).text;
+  const rawText = file.originalname.toLowerCase().endsWith(".docx") ? (await mammoth.extractRawText({ buffer: file.buffer })).value : (await pdfParse(file.buffer, { version: "v2.0.550" })).text;
   const cleaned = rawText.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
-  if (!cleaned) throw new Error("We could not find readable text in that file.");
-  const buckets: Record<string, string[]> = { summary: [], experience: [], education: [], skills: [], projects: [], certifications: [] };
-  let active = "summary";
-  for (const line of cleaned.split("\n").map(value => value.trim()).filter(Boolean)) {
-    const heading = line.toLowerCase().replace(/[^a-z ]/g, "");
-    if (/^(professional )?summary|profile|objective$/.test(heading)) active = "summary";
-    else if (/experience|employment|internships?/.test(heading)) active = "experience";
-    else if (/education|academics?/.test(heading)) active = "education";
-    else if (/skills|technologies|competencies/.test(heading)) active = "skills";
-    else if (/projects?/.test(heading)) active = "projects";
-    else if (/certifications?|courses?/.test(heading)) active = "certifications";
-    else buckets[active].push(line);
-  }
-  const ordered = ["summary", "experience", "education", "skills", "projects", "certifications"] as const;
-  const sections = ordered.map((type, index) => sectionFromLines(type, index, buckets[type]));
-  const score = scoreResume(sections);
-  return { title: file.originalname.replace(/\.(pdf|docx)$/i, ""), sections, rawTextLength: cleaned.length, ...score };
+  if (cleaned.length < 20) throw new Error("This file has too little readable text. For scanned PDFs, upload a text-based PDF or DOCX instead.");
+  const parsed = importResumeText(cleaned);
+  const score = scoreResume(parsed.sections);
+  return { title: file.originalname.replace(/\.(pdf|docx)$/i, ""), ...parsed, rawTextLength: cleaned.length, ...score };
 }
 
-function displaySectionTitle(type: ResumeSection["type"]) {
-  return type.charAt(0).toUpperCase() + type.slice(1);
-}
-
-function contentLines(section: ResumeSection) {
-  const content = section.content;
-  if (section.type === "summary") return [String(content.text ?? "")];
-  if (section.type === "skills") return [(content.items as unknown[] ?? []).join(" • ")];
-  const entries = (content.entries as Array<Record<string, unknown>> ?? []);
-  return entries.flatMap(entry => [String(entry.title ?? entry.institution ?? ""), [entry.subtitle ?? entry.degree, entry.date ?? entry.graduationYear].filter(Boolean).join(" · "), ...(Array.isArray(entry.bullets) ? entry.bullets.map(bullet => `• ${bullet}`) : [])].filter(Boolean));
-}
-
-export async function renderResumeDocx(name: string, title: string, sections: ResumeSection[]) {
-  const children: Paragraph[] = [
-    new Paragraph({ text: name, heading: HeadingLevel.TITLE, spacing: { after: 80 } }),
-    new Paragraph({ children: [new TextRun({ text: title, color: "4A5688", size: 20 })], spacing: { after: 220 } }),
-  ];
-  for (const section of [...sections].sort((a, b) => a.order - b.order)) {
-    children.push(new Paragraph({ text: displaySectionTitle(section.type), heading: HeadingLevel.HEADING_1, spacing: { before: 220, after: 80 } }));
-    for (const line of contentLines(section)) children.push(new Paragraph({ text: line, bullet: line.startsWith("•") ? { level: 0 } : undefined, spacing: { after: 70 } }));
-  }
-  return Buffer.from(await Packer.toBuffer(new Document({ sections: [{ properties: {}, children }] })));
-}
-
-export async function renderResumePdf(name: string, title: string, sections: ResumeSection[]) {
-  return new Promise<Buffer>((resolve, reject) => {
-    const document = new PDFDocument({ size: "A4", margins: { top: 48, right: 52, bottom: 48, left: 52 } });
-    const chunks: Buffer[] = [];
-    document.on("data", chunk => chunks.push(Buffer.from(chunk)));
-    document.on("end", () => resolve(Buffer.concat(chunks)));
-    document.on("error", reject);
-    document.fillColor("#0B1224").font("Helvetica-Bold").fontSize(22).text(name);
-    document.fillColor("#4A5688").font("Helvetica").fontSize(10).text(title, { lineGap: 3 });
-    document.moveDown(1.2);
-    for (const section of [...sections].sort((a, b) => a.order - b.order)) {
-      document.fillColor("#0B1224").font("Helvetica-Bold").fontSize(11).text(displaySectionTitle(section.type).toUpperCase(), { characterSpacing: 1.2 });
-      document.moveTo(document.x, document.y + 3).lineTo(543, document.y + 3).strokeColor("#D9DEEA").lineWidth(.6).stroke();
-      document.moveDown(.55);
-      for (const line of contentLines(section)) {
-        document.fillColor("#3E4658").font(line.startsWith("•") ? "Helvetica" : "Helvetica").fontSize(9.5).text(line, { lineGap: 2, indent: line.startsWith("•") ? 8 : 0 });
-        document.moveDown(.3);
-      }
-      document.moveDown(.7);
-    }
-    document.end();
-  });
-}
+export { renderResumeDocx, renderResumePdf } from "./resume-renderer";
 
 export async function renderSimpleTextPdf(input: { studentName: string; title: string; bodyText: string }) {
   return new Promise<Buffer>((resolve, reject) => {

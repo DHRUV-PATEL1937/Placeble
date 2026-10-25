@@ -1,7 +1,7 @@
 import mongoose, { type InferSchemaType, type Model } from "mongoose";
 const { model, models, Schema } = mongoose;
 
-export const resumeSectionTypes = ["summary", "experience", "education", "skills", "projects", "certifications"] as const;
+export const resumeSectionTypes = ["summary", "experience", "education", "skills", "projects", "certifications", "languages", "interests", "courses", "awards", "organizations", "publications", "references", "declaration", "custom"] as const;
 
 const resumeSectionSchema = new Schema({
   type: { type: String, enum: resumeSectionTypes, required: true },
@@ -12,6 +12,8 @@ const resumeSectionSchema = new Schema({
 const resumeSchema = new Schema({
   studentId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
   title: { type: String, required: true, trim: true },
+  personalDetails: { type: Schema.Types.Mixed, default: {} },
+  design: { type: Schema.Types.Mixed, default: {} },
   sections: { type: [resumeSectionSchema], default: [] },
   sourceType: { type: String, enum: ["generated", "uploaded", "hybrid"], required: true },
   targetJdText: { type: String, default: "" },

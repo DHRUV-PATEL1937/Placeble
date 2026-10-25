@@ -2,7 +2,8 @@ import { Router } from "express";
 import multer from "multer";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../middleware/auth";
-import { Resume } from "../models/Resume";
+import { Resume, resumeSectionTypes } from "../models/Resume";
+import { personalDetailsSchema, resumeDesignSchema } from "../services/resume-settings";
 import { StudentProfile } from "../models/StudentProfile";
 import { User } from "../models/User";
 import {
@@ -24,13 +25,15 @@ const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 }, fileFilter: (_request, file, callback) => callback(null, /\.(pdf|docx)$/i.test(file.originalname)) });
 
 const sectionSchema = z.object({
-  type: z.enum(["summary", "experience", "education", "skills", "projects", "certifications"]),
+  type: z.enum(resumeSectionTypes),
   order: z.number().int().min(0),
   content: z.record(z.string(), z.unknown()),
 });
 const saveSchema = z.object({
   title: z.string().trim().min(2).max(140),
-  sections: z.array(sectionSchema).max(12),
+  sections: z.array(sectionSchema).max(20),
+  personalDetails: personalDetailsSchema.optional(),
+  design: resumeDesignSchema.optional(),
   targetJdText: z.string().max(30000).optional().default(""),
   template: z.enum(["classic", "modern", "compact"]).optional().default("classic"),
 });
@@ -40,6 +43,24 @@ router.use(requireAuth, requireRole("student"));
 router.get("/current", async (request, response) => {
   const resume = await Resume.findOne({ studentId: request.auth!.userId, isCurrent: true }).sort({ updatedAt: -1 });
   return response.json({ resume });
+});
+
+router.post("/draft", async (request, response) => {
+  const input = z.object({
+    title: z.string().trim().min(2).max(140).default("Untitled resume"),
+    template: z.enum(["classic", "modern", "compact"]).default("classic"),
+    design: resumeDesignSchema.optional(),
+  }).parse(request.body);
+  const userId = request.auth!.userId;
+  const [user, previous] = await Promise.all([
+    User.findById(userId).select("name email").lean(),
+    Resume.findOne({ studentId: userId }).sort({ versionNumber: -1 }).select("versionNumber _id").lean(),
+  ]);
+  if (!user) return response.status(404).json({ message: "Your account could not be found." });
+  const resume = await Resume.create({ ...input, studentId: userId, personalDetails: { fullName: user.name, email: user.email }, sections: [], sourceType: "generated", versionNumber: (previous?.versionNumber ?? 0) + 1, parentVersionId: previous?._id ?? null, isCurrent: true });
+  await Resume.updateMany({ studentId: userId, isCurrent: true, _id: { $ne: resume._id } }, { isCurrent: false });
+  await markStudentMatchingProfileChanged(userId);
+  return response.status(201).json({ resume });
 });
 
 router.get("/versions", async (request, response) => {
@@ -81,6 +102,8 @@ router.post("/generate", async (request, response) => {
       atsScore: score.atsScore,
       atsBreakdown: { keywordOverlap: score.keywordOverlap, semanticSimilarity: score.semanticSimilarity, missingKeywords: score.missingKeywords },
       template: current?.template ?? "classic",
+      personalDetails: current?.personalDetails ?? {},
+      design: current?.design ?? {},
       versionNumber: (previous?.versionNumber ?? 0) + 1,
       parentVersionId: previous?._id ?? null,
       isCurrent: true,
@@ -102,6 +125,7 @@ router.post("/upload", upload.single("resume"), async (request, response) => {
     const resume = await Resume.create({
       studentId: userId,
       title: parsed.title,
+      personalDetails: parsed.personalDetails,
       sections: parsed.sections,
       sourceType: "uploaded",
       atsScore: parsed.atsScore,
@@ -145,7 +169,7 @@ router.post("/copilot", async (request, response) => {
     conversation: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string().max(2400) })).max(20).default([]),
     resume: z.object({
       title: z.string().max(140),
-      sections: z.array(sectionSchema).min(1).max(12),
+      sections: z.array(sectionSchema).min(1).max(20),
       targetJdText: z.string().max(30000).optional().default(""),
     }),
   }).parse(request.body);
@@ -177,6 +201,8 @@ router.post("/versions", async (request, response) => {
     atsScore: current.atsScore,
     atsBreakdown: current.atsBreakdown,
     template: current.template,
+    personalDetails: current.personalDetails,
+    design: current.design,
     versionNumber: current.versionNumber + 1,
     parentVersionId: current._id,
     isCurrent: true,
@@ -200,6 +226,8 @@ router.post("/versions/:versionId/restore", async (request, response) => {
     atsScore: source.atsScore,
     atsBreakdown: source.atsBreakdown,
     template: source.template,
+    personalDetails: source.personalDetails,
+    design: source.design,
     versionNumber: (latest?.versionNumber ?? 0) + 1,
     parentVersionId: source._id,
     isCurrent: true,
@@ -217,13 +245,14 @@ router.post("/export/:format", async (request, response) => {
   const format = z.enum(["pdf", "docx"]).parse(request.params.format);
   const [resume, user] = await Promise.all([
     Resume.findOne({ studentId: request.auth!.userId, isCurrent: true }).lean(),
-    User.findById(request.auth!.userId).select("name").lean(),
+    User.findById(request.auth!.userId).select("name email").lean(),
   ]);
   if (!resume || !user) return response.status(404).json({ message: "There is no resume to export." });
   const userId = request.auth!.userId;
   const job = queueResumeJob(userId, format === "pdf" ? "resume:renderPdf" : "resume:renderDocx", `Rendering your ${format.toUpperCase()} file`, async () => {
     const sections = resume.sections as unknown as ResumeSection[];
-    const buffer = format === "pdf" ? await renderResumePdf(user.name, resume.title, sections) : await renderResumeDocx(user.name, resume.title, sections);
+    const options = { template: resume.template, personalDetails: { fullName: user.name, email: user.email, ...resume.personalDetails }, design: resume.design };
+    const buffer = format === "pdf" ? await renderResumePdf(user.name, resume.title, sections, options) : await renderResumeDocx(user.name, resume.title, sections, options);
     const filename = `${user.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "")}-resume.${format}`;
     const mimeType = format === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     const exportId = storeExport(userId, filename, mimeType, buffer);
