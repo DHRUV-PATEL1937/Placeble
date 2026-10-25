@@ -135,12 +135,33 @@ export function generateProfileResume(profile: { degree?: string | null; graduat
 }
 
 export async function parseResumeUpload(file: Express.Multer.File) {
-  const rawText = file.originalname.toLowerCase().endsWith(".docx") ? (await mammoth.extractRawText({ buffer: file.buffer })).value : (await pdfParse(file.buffer, { version: "v2.0.550" })).text;
+  const isDocx = file.originalname.toLowerCase().endsWith(".docx");
+  const rawText = isDocx ? (await mammoth.extractRawText({ buffer: file.buffer })).value : (await pdfParse(file.buffer, { version: "v2.0.550", pagerender: layoutAwarePdfPage })).text;
   const cleaned = rawText.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
   if (cleaned.length < 20) throw new Error("This file has too little readable text. For scanned PDFs, upload a text-based PDF or DOCX instead.");
   const parsed = importResumeText(cleaned);
   const score = scoreResume(parsed.sections);
   return { title: file.originalname.replace(/\.(pdf|docx)$/i, ""), ...parsed, rawTextLength: cleaned.length, ...score };
+}
+
+async function layoutAwarePdfPage(page: unknown) {
+  const pageData = page as { getTextContent: (options: { normalizeWhitespace: boolean; disableCombineTextItems: boolean }) => Promise<{ items: Array<{ str?: string; transform?: number[] }> }> };
+  const content = await pageData.getTextContent({ normalizeWhitespace: true, disableCombineTextItems: true });
+  const items = content.items.filter(item => item.str?.trim() && item.transform && item.transform.length >= 6).map(item => ({ text: item.str!.trim(), x: item.transform![4], y: item.transform![5] }));
+  const rows: Array<{ y: number; items: typeof items }> = [];
+  for (const item of items) {
+    let row = rows.find(candidate => Math.abs(candidate.y - item.y) <= 2.5);
+    if (!row) { row = { y: item.y, items: [] }; rows.push(row); }
+    row.items.push(item);
+  }
+  const sortedRows = rows.map(row => ({ ...row, items: row.items.sort((a, b) => a.x - b.x) })).sort((a, b) => b.y - a.y);
+  const xPositions = sortedRows.flatMap(row => row.items.map(item => item.x)).sort((a, b) => a - b);
+  const largestGap = xPositions.reduce((best, x, index) => index ? Math.max(best, x - xPositions[index - 1]) : best, 0);
+  if (largestGap < 70) return sortedRows.map(row => row.items.map(item => item.text).join(" ")).join("\n");
+  const split = xPositions.find((x, index) => index && x - xPositions[index - 1] === largestGap) ?? xPositions[0];
+  const left = sortedRows.filter(row => row.items.some(item => item.x < split)).map(row => row.items.filter(item => item.x < split).map(item => item.text).join(" "));
+  const right = sortedRows.filter(row => row.items.some(item => item.x >= split)).map(row => row.items.filter(item => item.x >= split).map(item => item.text).join(" "));
+  return [...left, ...right].filter(Boolean).join("\n");
 }
 
 export { renderResumeDocx, renderResumePdf } from "./resume-renderer";

@@ -31,6 +31,8 @@ test("imports retain contact details, extra section types, and all original line
   assert.ok(parsed.sections.some(s => s.type === "languages"));
   assert.ok(JSON.stringify(parsed.sections).includes("Detail 12"));
   assert.ok(!JSON.stringify(parsed.sections.find(s => s.type === "summary")).includes("aisha@example.com"));
+  assert.equal(parsed.sections.find(s => s.type === "education")?.content.entries?.[0]?.degree, "Bachelor of Design");
+  assert.equal(parsed.sections.find(s => s.type === "projects")?.content.entries?.[0]?.title, "Wayfinding");
 });
 
 test("PDF and DOCX exports contain current personal details and omit hidden sections", async () => {
