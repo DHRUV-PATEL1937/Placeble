@@ -1,0 +1,54 @@
+.roster-upload > .roster-template-guide {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin: 16px 18px 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.roster-template-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--pb-navy-500);
+  background: var(--surface-soft);
+}
+.roster-template-copy { min-width: 0; }
+.roster-template-copy strong { display: block; color: var(--text-primary); font-size: 12px; font-weight: 650; line-height: 1.5; }
+.roster-template-copy p { max-width: 680px; margin: 4px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.65; }
+.roster-template-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  background: var(--surface);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.4;
+  text-decoration: none;
+  transition: background .18s, border-color .18s;
+}
+.roster-template-download svg { flex-shrink: 0; color: var(--pb-navy-500); }
+.roster-template-download:hover { background: var(--surface-soft); border-color: var(--pb-navy-300); }
+.roster-template-download:focus-visible { outline: 3px solid var(--pb-navy-300); outline-offset: 3px; }
+[data-theme="dark"] .roster-template-icon, [data-theme="dark"] .roster-template-download svg { color: #b6c5f4; }
+@media (max-width: 900px) {
+  .roster-upload > .roster-template-guide { grid-template-columns: 40px minmax(0, 1fr); }
+  .roster-template-download { grid-column: 2; justify-self: start; }
+}
+@media (max-width: 520px) {
+  .roster-upload > .roster-template-guide { gap: 10px; padding: 13px; }
+  .roster-template-download { grid-column: 1 / -1; justify-self: stretch; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .roster-template-download { transition: none; } }
