@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { importResumeText } from "./resume-import";
+import { importResumeText, importResumeWithSarvam } from "./resume-import";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import PDFDocument from "pdfkit";
@@ -139,9 +139,18 @@ export async function parseResumeUpload(file: Express.Multer.File) {
   const rawText = isDocx ? (await mammoth.extractRawText({ buffer: file.buffer })).value : (await pdfParse(file.buffer, { version: "v2.0.550", pagerender: layoutAwarePdfPage })).text;
   const cleaned = rawText.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
   if (cleaned.length < 20) throw new Error("This file has too little readable text. For scanned PDFs, upload a text-based PDF or DOCX instead.");
-  const parsed = importResumeText(cleaned);
+  let parsed = importResumeText(cleaned);
+  let extractionProvider = "local";
+  if (process.env.SARVAM_API_KEY) {
+    try {
+      const aiParsed = await importResumeWithSarvam(cleaned);
+      if (aiParsed?.sections.length) { parsed = aiParsed; extractionProvider = "sarvam"; }
+    } catch (error) {
+      console.warn("Sarvam resume extraction failed; using deterministic parser:", error instanceof Error ? error.message : error);
+    }
+  }
   const score = scoreResume(parsed.sections);
-  return { title: file.originalname.replace(/\.(pdf|docx)$/i, ""), ...parsed, rawTextLength: cleaned.length, ...score };
+  return { title: file.originalname.replace(/\.(pdf|docx)$/i, ""), ...parsed, extractionProvider, rawTextLength: cleaned.length, ...score };
 }
 
 async function layoutAwarePdfPage(page: unknown) {
