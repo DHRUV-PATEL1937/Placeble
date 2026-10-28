@@ -21,8 +21,12 @@ import { StudentRosterEntry } from "../models/StudentRosterEntry";
 import { RecruiterOrganization } from "../models/RecruiterOrganization";
 import { InstitutionLead } from "../models/InstitutionLead";
 import { issueActivationInvite } from "../services/invite-issuance-service";
+import { rateLimit } from "../middleware/rate-limit";
+import { env } from "../config/env";
 
 const router = Router();
+const authIpLimit = (name: string, limit: number) => rateLimit({ name, limit, windowMs: env.AUTH_RATE_LIMIT_WINDOW_MS });
+const recoveryLimit = authIpLimit("recovery", env.AUTH_RATE_LIMIT_RECOVERY);
 const passwordSchema = z.string().min(8, "Use at least 8 characters.").regex(/[A-Z]/, "Add an uppercase letter.").regex(/[a-z]/, "Add a lowercase letter.").regex(/[0-9]/, "Add a number.");
 
 function destinationFor(user: UserDocument, onboardingCompleted = true) {
@@ -77,7 +81,7 @@ function inviteStateResponse(state: InviteState) {
   return { status: 400, code: "INVITE_INVALID", message: "This invite link is invalid or malformed. Check the full link or request a new invite." };
 }
 
-router.post("/register", async (request, response, next) => {
+router.post("/register", authIpLimit("register", env.AUTH_RATE_LIMIT_LOGIN), async (request, response, next) => {
   try {
     const input = z.object({
       name: z.string().trim().min(2).max(80),
@@ -109,7 +113,7 @@ router.post("/register", async (request, response, next) => {
   } catch (error) { return next(error); }
 });
 
-router.post("/recruiter-register", async (request, response, next) => {
+router.post("/recruiter-register", authIpLimit("recruiter-register", env.AUTH_RATE_LIMIT_LOGIN), async (request, response, next) => {
   try {
     const input = z.object({ name: z.string().trim().min(2).max(80), companyName: z.string().trim().min(2).max(120), email: z.string().email(), password: passwordSchema }).parse(request.body);
     const email = input.email.toLowerCase();
@@ -135,7 +139,7 @@ router.post("/institution-leads", async (request, response, next) => {
   } catch (error) { return next(error); }
 });
 
-router.post("/login", async (request, response, next) => {
+router.post("/login", authIpLimit("login", env.AUTH_RATE_LIMIT_LOGIN), async (request, response, next) => {
   try {
     const input = z.object({
       email: z.string().email(),
@@ -159,7 +163,7 @@ router.post("/login", async (request, response, next) => {
   } catch (error) { return next(error); }
 });
 
-router.post("/refresh", async (request, response) => {
+router.post("/refresh", authIpLimit("refresh", env.AUTH_RATE_LIMIT_REFRESH), async (request, response) => {
   try {
     const oldToken = readRefreshToken(request);
     if (!oldToken) return response.status(401).json({ message: "No active session." });
@@ -234,12 +238,12 @@ router.patch("/profile", requireAuth, requireRole("student"), async (request, re
   return response.json({ user: await publicUser(user), message: "Profile updated." });
 });
 
-router.post("/forgot-password", async (request, response) => {
+router.post("/forgot-password", recoveryLimit, async (request, response) => {
   z.object({ email: z.string().email() }).parse(request.body);
   return response.json({ message: "If an account exists for that email, reset instructions will be sent.", delivery: "provider_not_configured" });
 });
 
-router.post("/change-password", requireAuth, async (request, response, next) => {
+router.post("/change-password", recoveryLimit, requireAuth, async (request, response, next) => {
   try {
     const input = z.object({ currentPassword: z.string().min(1), newPassword: passwordSchema }).parse(request.body);
     const user = await User.findById(request.auth!.userId) as UserDocument | null;
@@ -282,7 +286,7 @@ router.post("/invites", requireAuth, requireRole("tpo"), requireInstitutionScope
   });
 });
 
-router.get("/activate", async (request, response, next) => {
+router.get("/activate", recoveryLimit, async (request, response, next) => {
   try {
     const token = typeof request.query.token === "string" ? request.query.token.trim() : "";
     const result = await resolveInvite(token);
@@ -306,7 +310,7 @@ router.get("/activate", async (request, response, next) => {
   } catch (error) { return next(error); }
 });
 
-router.post("/activate", async (request, response) => {
+router.post("/activate", recoveryLimit, async (request, response) => {
   const rawToken = typeof request.body?.token === "string" ? request.body.token.trim() : "";
   const resolved = await resolveInvite(rawToken);
   if (resolved.state !== "valid" || !resolved.invite) {

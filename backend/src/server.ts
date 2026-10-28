@@ -24,7 +24,7 @@ import { bootstrapJobMatching } from "./services/matching-service";
 
 const app = express();
 app.disable("x-powered-by");
-app.set("trust proxy", 1);
+app.set("trust proxy", env.TRUST_PROXY_HOPS);
 
 // Configure CORS for local & production origins
 const configuredOrigins = env.APP_ORIGIN.split(",").map(url => url.trim()).filter(Boolean);
@@ -36,13 +36,11 @@ app.use(cors({
 
     try {
       const url = new URL(origin);
-      const isAllowedDomain =
+      const isAllowedDomain = env.ALLOW_PREVIEW_ORIGINS &&
         url.protocol === "https:" &&
         (url.hostname.endsWith(".vercel.app") ||
          url.hostname === "ngrok-free.dev" ||
-         url.hostname.endsWith(".ngrok-free.dev") ||
-         url.hostname === "placeble.in" ||
-         url.hostname.endsWith(".placeble.in"));
+         url.hostname.endsWith(".ngrok-free.dev"));
 
       return callback(null, isAllowedDomain);
     } catch {

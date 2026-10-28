@@ -50,7 +50,9 @@ export function setRefreshCookie(response: Response, token: string) {
   response.cookie(REFRESH_COOKIE, token, {
     httpOnly: true,
     secure: env.NODE_ENV === "production",
-    sameSite: "strict",
+    // Production uses separate frontend and API sites, so Strict prevents the
+    // browser from sending this cookie during a normal cross-site refresh.
+    sameSite: env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: REFRESH_EXPIRY_SECONDS * 1000,
     path: "/api/v1/auth",
   });
@@ -60,7 +62,7 @@ export function clearRefreshCookie(response: Response) {
   response.clearCookie(REFRESH_COOKIE, {
     httpOnly: true,
     secure: env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: env.NODE_ENV === "production" ? "none" : "lax",
     path: "/api/v1/auth",
   });
 }
