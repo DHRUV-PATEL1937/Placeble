@@ -94,3 +94,373 @@
 @media (max-width: 900px) { .ls-header-actions { width: 100%; justify-content: flex-end; }.ls-save { margin-right: auto; }.ls-workspace { grid-template-columns: 225px minmax(0, 1fr); }.ls-setup { padding-inline: 15px; }.ls-page-area { padding: 18px 12px; }.ls-page { padding-inline: 22px; }.ls-letterhead > span { display: none; }.ls-preview-note { display: none; }.ls-heading h1 { flex-wrap: wrap; gap: 7px; } }
 @media (max-width: 680px) { .letter-studio { padding-inline: 12px; }.ls-header { padding-bottom: 18px; gap: 11px; }.ls-heading h1 { font-size: 23px; }.ls-beta { display: none; }.ls-eyebrow { font-size: 8px; }.ls-save { font-size: 9px; }.ls-button { padding-inline: 10px; }.ls-workspace { display: flex; flex-direction: column; }.ls-setup { padding: 22px; }.ls-tones > div { grid-template-columns: repeat(3, 1fr); }.ls-label textarea { min-height: 115px; }.ls-canvas { border: 0; border-top: 1px solid var(--ls-border); }.ls-page-area { padding: 18px 13px; }.ls-page { min-height: 560px; padding: 25px; }.ls-blank { padding-top: 40px; }.ls-guide { display: flex; gap: 0; }.ls-tips { display: grid; grid-template-columns: 1fr; padding-top: 15px; }.ls-guide-tabs { gap: 25px; }.ls-evidence { margin-top: 10px; }.ls-guide-intro { padding-bottom: 15px; }.ls-modal section { padding: 25px 20px; }.ls-generation-bar { width: max-content; font-size: 10px; padding: 12px 16px; } }
 @media (prefers-reduced-motion: reduce) { .letter-studio *, .letter-studio *::before, .letter-studio *::after { transition: none !important; animation: none !important; } }
+
+/* ==========================================================================
+   Cover Letter Studio: Dark Mode Support
+   ========================================================================== */
+[data-theme="dark"] .letter-studio {
+  --ls-ink: #f5f6fc;
+  --ls-muted: #94a3b8;
+  --ls-border: #28334b;
+  --ls-blue: #60a5fa;
+  --ls-soft: #111a2d;
+  color: var(--ls-ink);
+  color-scheme: dark;
+}
+
+[data-theme="dark"] .ls-heading h1 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ls-eyebrow {
+  color: #818cf8;
+}
+
+[data-theme="dark"] .ls-heading p {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ls-beta {
+  border-color: #3b4d75;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+[data-theme="dark"] .ls-icon {
+  border-color: var(--ls-border);
+  background: #111a2d;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .ls-icon:hover {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .ls-button {
+  border-color: var(--ls-border);
+  background: #111a2d;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .ls-button:hover {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .ls-save {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ls-save svg {
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .ls-workspace {
+  background: #111a2d;
+  border-color: var(--ls-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .ls-setup {
+  background: #111a2d;
+}
+
+[data-theme="dark"] .ls-panel-title > span {
+  color: #818cf8;
+}
+
+[data-theme="dark"] .ls-panel-title h2 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ls-label {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .ls-label input,
+[data-theme="dark"] .ls-label textarea {
+  border-color: var(--ls-border);
+  background: #0b1224;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ls-label input:focus,
+[data-theme="dark"] .ls-label textarea:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+[data-theme="dark"] .ls-label input::placeholder,
+[data-theme="dark"] .ls-label textarea::placeholder {
+  color: #64748b;
+}
+
+[data-theme="dark"] .ls-resume {
+  border-color: var(--ls-border);
+  background: #0e1729;
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .ls-resume select {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .ls-source {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ls-tones legend {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .ls-tones button {
+  border-color: var(--ls-border);
+  background: #0e1729;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .ls-tones button:hover {
+  background: #1e293b;
+}
+
+[data-theme="dark"] .ls-tones button.selected {
+  border-color: #6366f1;
+  color: #93c5fd;
+  background: rgba(99, 102, 241, 0.2);
+}
+
+[data-theme="dark"] .ls-advanced {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .ls-history {
+  border-top-color: var(--ls-border);
+}
+
+[data-theme="dark"] .ls-history summary {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .ls-history summary span {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .ls-history > button {
+  background: #0e1729;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ls-history > button:hover,
+[data-theme="dark"] .ls-history > button.selected {
+  background: #1e293b;
+  border-color: #3b4761;
+}
+
+[data-theme="dark"] .ls-history button strong {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .ls-canvas {
+  background: #0b1224;
+  border-inline-color: var(--ls-border);
+}
+
+[data-theme="dark"] .ls-toolbar {
+  background: #111a2d;
+  border-bottom-color: var(--ls-border);
+}
+
+[data-theme="dark"] .ls-status {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .ls-toolbar-rule {
+  border-left-color: var(--ls-border);
+}
+
+[data-theme="dark"] .ls-toolbar select {
+  color: #cbd5e1;
+  background: #111a2d;
+}
+
+[data-theme="dark"] .ls-page {
+  background: #131d33;
+  border-color: #28334b;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .ls-letterhead {
+  border-bottom-color: #28334b;
+}
+
+[data-theme="dark"] .ls-letterhead > span {
+  color: #64748b;
+}
+
+[data-theme="dark"] .ls-paper-brand {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .ls-recipient h2 {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .ls-recipient > span,
+[data-theme="dark"] .ls-recipient p {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ls-page textarea {
+  background: transparent;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .ls-paper-end {
+  color: #64748b;
+}
+
+[data-theme="dark"] .ls-paper-end > span {
+  background: #334155;
+}
+
+[data-theme="dark"] .ls-blank-icon {
+  background: radial-gradient(ellipse at top, #1e293b, #111a2d);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .ls-blank .ls-eyebrow {
+  color: #818cf8;
+}
+
+[data-theme="dark"] .ls-blank h2 {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .ls-blank p {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ls-skeleton i {
+  background: #1e293b;
+}
+
+[data-theme="dark"] .ls-blank-hint {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .ls-canvas-footer {
+  background: #111a2d;
+  border-top-color: var(--ls-border);
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ls-canvas-footer button {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .ls-guide {
+  background: #111a2d;
+}
+
+[data-theme="dark"] .ls-guide-tabs {
+  border-bottom-color: var(--ls-border);
+}
+
+[data-theme="dark"] .ls-guide-tabs button {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ls-guide-tabs button[aria-selected="true"] {
+  color: #93c5fd;
+  border-bottom-color: #60a5fa;
+}
+
+[data-theme="dark"] .ls-guide-intro > span {
+  border-color: #312e81;
+  background: rgba(99, 102, 241, 0.18);
+  color: #a5b4fc;
+}
+
+[data-theme="dark"] .ls-guide-intro h2 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ls-guide-intro p {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ls-tips {
+  border-top-color: var(--ls-border);
+}
+
+[data-theme="dark"] .ls-tips li > span {
+  color: #818cf8;
+}
+
+[data-theme="dark"] .ls-tips h3 {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .ls-tips p {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ls-evidence {
+  border-color: rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+[data-theme="dark"] .ls-evidence strong {
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .ls-evidence p {
+  color: #a7f3d0;
+}
+
+[data-theme="dark"] .ls-review h2 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ls-check {
+  border-top-color: var(--ls-border);
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ls-check strong {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .ls-check small {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ls-check-circle {
+  border-color: #475569;
+}
+
+[data-theme="dark"] .ls-modal section {
+  background: #111a2d;
+  border-color: var(--ls-border);
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ls-modal textarea {
+  background: #0b1224;
+  border-color: var(--ls-border);
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ls-generation-bar {
+  background: #111a2d;
+  border-color: #3b4761;
+  color: #93c5fd;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+
+.ls-field-error { display: block; margin-top: 4px; color: #c0392b; font-size: 12.5px; font-weight: 500; }
+.ls-label input[aria-invalid="true"], .ls-label textarea[aria-invalid="true"] { border-color: #c0392b; }

@@ -4,6 +4,7 @@ import mammoth from "mammoth";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import PDFDocument from "pdfkit";
 import { cosineSimilarity, embedText, EMBEDDING_PIPELINE_VERSION } from "./embedding-service";
+import { cloudinaryEnabled, privateDownloadUrl, uploadPrivateRaw } from "./cloudinary-service";
 
 export type ResumeSection = {
   type: "summary" | "experience" | "education" | "skills" | "projects" | "certifications" | "languages" | "interests" | "courses" | "awards" | "organizations" | "publications" | "references" | "declaration" | "custom";
@@ -48,6 +49,12 @@ export function getExport(id: string, userId: string) {
   return file?.userId === userId ? file : null;
 }
 
+export async function storePersistentExport(userId: string, filename: string, buffer: Buffer) {
+  if (!cloudinaryEnabled()) return null;
+  const stored = await uploadPrivateRaw(buffer, { publicId: `${userId}/${filename.replace(/[^a-z0-9._-]+/gi, "-")}-${randomUUID()}` });
+  return { fileUrl: privateDownloadUrl(stored, filename), stored };
+}
+
 function tokens(value: string) {
   const stop = new Set(["about", "after", "again", "also", "been", "being", "candidate", "company", "from", "have", "into", "more", "must", "role", "that", "their", "they", "this", "with", "will", "work", "years", "your"]);
   return value.toLowerCase().match(/[a-z][a-z+#.-]{2,}/g)?.filter(token => token.length > 3 && !stop.has(token)) ?? [];
@@ -85,13 +92,32 @@ export function buildVerifiedResumeContext(input: {
   };
 }
 
+/**
+ * Score for a resume with no target job: how complete and substantial it is, out of 92 (fit to a role is unknown, so it can't be perfect).
+ * Core sections 70 (education, skills 15 each, summary 10, experience and projects 15 each but capped at 30 together), length 15, numbers and results 10, extras 5.
+ * An empty or one-line resume scores near zero instead of getting a free floor.
+ */
+export function resumeCompleteness(sections: ResumeSection[], text: string) {
+  const filled = (type: ResumeSection["type"]) => sections.some(section => section.type === type && !section.content.hidden && resumeText([section]).trim().length >= 25);
+  const has = { education: filled("education"), skills: filled("skills"), summary: filled("summary"), experience: filled("experience"), projects: filled("projects") };
+  const structure = (has.education ? 15 : 0) + (has.skills ? 15 : 0) + (has.summary ? 10 : 0) + Math.min(30, (has.experience ? 15 : 0) + (has.projects ? 15 : 0));
+  const words = text.split(/\s+/).filter(Boolean).length;
+  const depth = Math.min(15, Math.round(words / 20));
+  const results = Math.min(10, (text.match(/\d+(?:[.,]\d+)?\s?(?:%|x|k\b|\+)?/g)?.length ?? 0) * 2);
+  const extras = (["certifications", "awards", "courses", "organizations", "publications", "languages"] as const).some(filled) ? 5 : 0;
+  const gaps = [
+    !has.education && "Add an education section", !has.skills && "Add a skills section", !has.summary && "Add a short summary",
+    !has.experience && !has.projects && "Add experience or projects", words < 150 && "Add more detail: aim for 300+ words", results < 6 && "Add numbers and results to your bullets",
+  ].filter((gap): gap is string => Boolean(gap));
+  return { score: Math.min(92, structure + depth + results + extras), gaps };
+}
+
 export function scoreResume(sections: ResumeSection[], targetJdText = "") {
   const text = resumeText(sections.filter(section => !section.content.hidden));
   if (!text.trim()) return { atsScore: 0, keywordOverlap: 0, semanticSimilarity: 0, missingKeywords: [] };
   if (!targetJdText.trim()) {
-    const present = new Set(sections.filter(section => resumeText([section]).trim().length > 10).map(section => section.type));
-    const score = Math.min(92, 46 + present.size * 7 + Math.min(12, new Set(tokens(text)).size / 3));
-    return { atsScore: Math.round(score), keywordOverlap: Math.round(score - 4), semanticSimilarity: Math.round(score + 3), missingKeywords: ["Add a target job description for role-specific gaps"] };
+    const rubric = resumeCompleteness(sections, text);
+    return { atsScore: rubric.score, keywordOverlap: rubric.score, semanticSimilarity: rubric.score, missingKeywords: [...rubric.gaps, "Add a target job description for role-specific gaps"].slice(0, 8) };
   }
   const jdTerms = [...new Set(tokens(targetJdText))].slice(0, 30);
   const resumeTerms = new Set(tokens(text));

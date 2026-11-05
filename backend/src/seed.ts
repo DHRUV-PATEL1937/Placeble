@@ -3,6 +3,7 @@ import { connectDatabase, disconnectDatabase } from "./config/database";
 import { env } from "./config/env";
 import { FacultyProfile } from "./models/FacultyProfile";
 import { Institution } from "./models/Institution";
+import { University } from "./models/University";
 import { RecruiterProfile } from "./models/RecruiterProfile";
 import { StudentProfile } from "./models/StudentProfile";
 import { User, type UserDocument } from "./models/User";
@@ -42,6 +43,20 @@ async function seed() {
     { name: "Placeble Platform Admin", email: "platform@placeble.local", role: "platform_admin", institutionId: null, recruiterOrgId: null, passwordHash, authProvider: "password", status: "active", emailVerified: true },
     { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   ) as UserDocument;
+  // Demo hierarchy: a university above the demo institute, with its own TPO, plus a principal for the institute.
+  const university = await University.findOneAndUpdate(
+    { slug: "techend-university" },
+    { name: "TechEnd University", slug: "techend-university", status: "active", createdByPlatformAdminId: platformAdmin._id },
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
+  );
+  await Institution.updateOne({ _id: institution._id }, { $set: { universityId: university._id } });
+  const hierarchy = [
+    { email: "university@placeble.local", name: "Dr. Anil Kapoor", role: "university_admin", institutionId: null, universityId: university._id },
+    { email: "principal@placeble.local", name: "Dr. S. Rao", role: "principal", institutionId: institution._id, universityId: null },
+  ] as const;
+  for (const account of hierarchy) {
+    await User.findOneAndUpdate({ email: account.email }, { ...account, passwordHash, authProvider: "password", status: "active", emailVerified: true }, { upsert: true, returnDocument: "after", setDefaultsOnInsert: true });
+  }
   const recruiterOrganization = await RecruiterOrganization.findOneAndUpdate(
     { companyDomain: "razorpay.com" },
     { companyName: "Razorpay", companyDomain: "razorpay.com", verificationStatus: "verified", verifiedByPlatformAdminId: platformAdmin._id, verifiedAt: new Date(), suspendedAt: null },
@@ -61,7 +76,7 @@ async function seed() {
 
   await StudentProfile.findOneAndUpdate(
     { userId: users.get("student")!._id },
-    { institutionId: institution._id, degree: "B.Tech Computer Science", graduationYear: 2027, skills: ["React", "JavaScript", "SQL"], preferredRoles: ["Product Analyst", "Software Engineer"], onboardingCompleted: true },
+    { institutionId: institution._id, degree: "B.Tech Computer Science", graduationYear: 2027, skills: ["React", "JavaScript", "SQL"], preferredRoles: ["Product Analyst", "Software Engineer"], programCode: "BTECH_CSE", admissionYear: 2023, dateOfBirth: new Date("2002-01-15"), onboardingCompleted: true },
     { upsert: true, returnDocument: "after" },
   );
   await RecruiterProfile.findOneAndUpdate(

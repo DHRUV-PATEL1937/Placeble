@@ -2,6 +2,7 @@ import "dotenv/config";
 import { z } from "zod";
 
 const optionalSecret = z.preprocess(value => value === "" ? undefined : value, z.string().min(20).optional());
+const optionalValue = z.preprocess(value => value === "" ? undefined : value, z.string().min(1).optional());
 const optionalUrl = z.preprocess(value => value === "" ? undefined : value, z.string().url().optional());
 
 const envSchema = z.object({
@@ -13,15 +14,22 @@ const envSchema = z.object({
   API_PORT: z.coerce.number().default(5000),
   HOST: z.string().default("0.0.0.0"),
   APP_ORIGIN: z.string().default("http://localhost:3000"),
-  ALLOW_PREVIEW_ORIGINS: z.coerce.boolean().default(false),
-  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
-  AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
-  AUTH_RATE_LIMIT_LOGIN: z.coerce.number().int().positive().default(10),
-  AUTH_RATE_LIMIT_REFRESH: z.coerce.number().int().positive().default(30),
-  AUTH_RATE_LIMIT_RECOVERY: z.coerce.number().int().positive().default(5),
+  // Origin used for links inside emails (verification, password reset, invites). Defaults to app.placeble.in in production.
+  APP_LINK_ORIGIN: optionalUrl,
+  SMTP_HOST: z.string().default("smtp.gmail.com"),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(465),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  EMAIL_FROM: z.string().email().default("noreply@placeble.in"),
+  // Where messages from the public website contact form are sent.
+  CONTACT_NOTIFY_EMAIL: z.string().email().default("support@placeble.in"),
   AI_PROVIDER: z.enum(["sarvam", "gemini", "openai"]).default("sarvam"),
   SARVAM_API_KEY: optionalSecret,
   SARVAM_MODEL: z.string().min(1).default("sarvam-105b"),
+  CLOUDINARY_CLOUD_NAME: optionalValue,
+  CLOUDINARY_API_KEY: optionalValue,
+  CLOUDINARY_API_SECRET: optionalValue,
+  CLOUDINARY_FOLDER: z.string().min(1).default("placeble/resumes"),
   GEMINI_API_KEY: optionalSecret,
   GEMINI_MODEL: z.string().min(1).default("gemini-2.5-flash"),
   EMBEDDING_PROVIDER: z.enum(["gemini", "openai"]).default("gemini"),
@@ -31,6 +39,10 @@ const envSchema = z.object({
   OPENAI_EMBEDDING_MODEL: z.string().min(1).default("text-embedding-3-small"),
   JUDGE0_ENDPOINT: optionalUrl,
   JUDGE0_API_KEY: optionalSecret,
+  // Razorpay: key id and secret from the dashboard (Settings > API Keys); webhook secret from Settings > Webhooks.
+  RAZORPAY_KEY_ID: optionalValue,
+  RAZORPAY_KEY_SECRET: optionalValue,
+  RAZORPAY_WEBHOOK_SECRET: optionalValue,
   SEED_DEMO_PASSWORD: z.string().min(8).optional(),
   PLATFORM_ADMIN_EMAIL: z.string().email().optional(),
   PLATFORM_ADMIN_PASSWORD: z.string().min(12).optional(),

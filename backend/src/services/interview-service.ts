@@ -77,10 +77,7 @@ export async function processInterviewTurn(input: { interviewId: string; userId:
     const transcript = input.manualTranscript.trim() || (input.recording ? await transcribeInterviewRecording(input.recording.buffer, input.recording.mimetype) : "");
     if (transcript.length < 12) throw new Error("We could not hear enough of your answer. Please retry and speak a little closer to the microphone.");
     update(64, "Reviewing structure, relevance and specificity");
-    const [resume, profile] = await Promise.all([
-      Resume.findOne({ studentId: input.userId }).sort({ isCurrent: -1, updatedAt: -1 }).select("title sections targetJdText").lean(),
-      StudentProfile.findOne({ userId: input.userId }).select("preferredRoles education skills projects experience").lean(),
-    ]);
+    const [resume, profile] = await Promise.all([Resume.findOne({ studentId: input.userId }).sort({ isCurrent: -1, updatedAt: -1 }).select("title sections targetJdText").lean(), StudentProfile.findOne({ userId: input.userId }).select("preferredRoles education skills projects experience").lean()]);
     const resumeContext = JSON.stringify({ resume: resume ? { title: resume.title, sections: resume.sections, targetJdText: resume.targetJdText } : null, profile: profile ?? null }).slice(0, 18000);
     const scored = await scoreTurnAndGenerateNext({ type: interview.type, targetRole: interview.targetRole, turnNumber, totalTurns: interview.totalTurns, question: interview.currentQuestion, transcript, resumeContext, history: interview.turns.map(turn => ({ question: turn.question, answerTranscript: turn.answerTranscript, feedback: turn.feedback })) });
     const rate = fillerWordRate(transcript);
@@ -102,7 +99,11 @@ export async function generateInterviewDebrief(interviewId: string, userId: stri
   if (!interview || !interview.turns.length) throw new Error("Complete at least one answer before opening a debrief.");
   update(40, "Looking for patterns across your answers");
   const result = await createInterviewDebrief({ type: interview.type, targetRole: interview.targetRole, turns: interview.turns.map(turn => turn.toObject()) });
-  Object.assign(interview, { overallScore: Math.round(result.overallScore), overallFeedback: result.overallFeedback, strengths: result.strengths, improvements: result.improvements, status: "completed", completedAt: new Date(), currentQuestion: "", processingTurn: 0 });
+  // The score comes from the per-answer scores (structure, relevance, specificity, each out of 10), so it can never disagree with them.
+  // The AI debrief still writes the feedback, strengths and improvements.
+  const perAnswer = interview.turns.map(turn => ((turn.scores?.structure ?? 0) + (turn.scores?.relevance ?? 0) + (turn.scores?.specificity ?? 0)) / 3);
+  const computedScore = Math.max(0, Math.min(100, Math.round(perAnswer.reduce((sum, value) => sum + value, 0) / Math.max(1, perAnswer.length) * 10)));
+  Object.assign(interview, { overallScore: computedScore, overallFeedback: result.overallFeedback, strengths: result.strengths, improvements: result.improvements, status: "completed", completedAt: new Date(), currentQuestion: "", processingTurn: 0 });
   await interview.save();
   update(88, "Finishing your coaching notes");
   return { interview: interview.toObject() };

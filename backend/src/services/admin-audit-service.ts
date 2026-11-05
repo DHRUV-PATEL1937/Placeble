@@ -4,7 +4,7 @@ import { AdminAuditLogEntry, adminAuditActions } from "../models/AdminAuditLogEn
 export async function writeAdminAudit(input: {
   platformAdminId: string;
   action: (typeof adminAuditActions)[number];
-  targetType: "institution" | "recruiterOrganization" | "user";
+  targetType: "institution" | "recruiterOrganization" | "user" | "university" | "program";
   targetId: string | Types.ObjectId;
   metadata?: Record<string, unknown>;
 }) {

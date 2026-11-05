@@ -24,6 +24,7 @@ const resumeSchema = new Schema({
     missingKeywords: [{ type: String }],
   },
   fileUrl: { type: String, default: "" },
+  originalFile: { type: Schema.Types.Mixed, default: null },
   template: { type: String, enum: ["classic", "modern", "compact"], default: "classic" },
   versionNumber: { type: Number, default: 1 },
   parentVersionId: { type: Schema.Types.ObjectId, ref: "Resume", default: null },
@@ -31,6 +32,7 @@ const resumeSchema = new Schema({
 }, { timestamps: true });
 
 resumeSchema.index({ studentId: 1, versionNumber: -1 });
+resumeSchema.post("findOneAndUpdate", document => { if (document) void import("../services/readiness-service").then(({ scheduleReadiness }) => scheduleReadiness(String(document.studentId), "resume_updated")).catch(console.error); });
 resumeSchema.post("save", document => { void import("../services/readiness-service").then(({ recomputeReadiness }) => recomputeReadiness(String(document.studentId), "resume_saved")).catch(console.error); });
 
 type ResumeShape = InferSchemaType<typeof resumeSchema>;

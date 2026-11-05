@@ -5,6 +5,7 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { Interview, interviewTypes } from "../models/Interview";
 import { createInterviewSession, expireInactiveInterviewSessions, generateInterviewDebrief, getInterviewJob, getInterviewSession, getInterviewSummary, processInterviewTurn, queueInterviewJob } from "../services/interview-service";
 import { storeInterviewRecording } from "../services/interview-storage-service";
+import { meter } from "../middleware/usage-limit";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 }, fileFilter: (_request, file, callback) => callback(null, /^audio\//.test(file.mimetype)) });
@@ -14,7 +15,7 @@ router.get("/summary", async (request, response) => response.json(await getInter
 router.get("/jobs/:jobId", (request, response) => { const job = getInterviewJob(request.params.jobId, request.auth!.userId); return job ? response.json({ job }) : response.status(404).json({ message: "That interview task was not found." }); });
 router.get("/sessions/:id", async (request, response) => { const interview = await getInterviewSession(request.params.id, request.auth!.userId); return interview ? response.json({ interview }) : response.status(404).json({ message: "That interview was not found." }); });
 
-router.post("/sessions", async (request, response) => {
+router.post("/sessions", meter("interview"), async (request, response) => {
   await expireInactiveInterviewSessions(request.auth!.userId);
   const input = z.object({ type: z.enum(interviewTypes), targetRole: z.string().trim().max(120).default(""), totalTurns: z.number().int().min(3).max(8).default(5) }).parse(request.body);
   const existing = await Interview.findOne({ studentId: request.auth!.userId, status: "in_progress" }).select("_id").lean();
@@ -25,7 +26,7 @@ router.post("/sessions", async (request, response) => {
 router.post("/sessions/:id/turns", upload.single("recording"), async (request, response) => {
   const interviewId = String(request.params.id);
   const input = z.object({ manualTranscript: z.string().trim().max(12000).default(""), timeSpentSeconds: z.coerce.number().int().min(0).max(1800).default(0) }).parse(request.body);
-  if (!request.file && input.manualTranscript.length < 12) return response.status(400).json({ message: "Write or record a short answer before submitting." });
+  if (!request.file && input.manualTranscript.length < 2) return response.status(400).json({ message: "Write or record a short answer before submitting." });
   const interview = await Interview.findOne({ _id: interviewId, studentId: request.auth!.userId, status: "in_progress" });
   if (!interview) return response.status(404).json({ message: "This interview is no longer active." });
   const turnNumber = interview.turns.length + 1;

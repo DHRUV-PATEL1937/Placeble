@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { normalizeResume, type Resume, type Section, type Version, type Design } from "./types";
 const API = import.meta.env.VITE_API_URL || "/api/v1";
-type Proposal = { sections: Section[]; changeSummary: string[] };
-type Job = { id: string; status: string; error?: string; result?: { resume?: Resume; fileUrl?: string; filename?: string; reply?: string; proposal?: Proposal } };
+type Proposal = { sections: Section[]; design?: Design; changeSummary: string[] };
+export type ChatMessage = { role: "user" | "assistant"; text: string };
+type Job = { id: string; status: string; error?: string; result?: { resume?: Resume; fileUrl?: string; filename?: string; reply?: string; proposal?: Proposal; suggestedPrompts?: string[] } };
 const editable = (r: Resume) => JSON.stringify({ title: r.title, sections: r.sections, template: r.template, design: r.design, personalDetails: r.personalDetails, targetJdText: r.targetJdText });
 export function useResumeStudio(token: string, user: { name: string; email: string }) {
   const [resume, setResume] = useState<Resume | null>(null);
@@ -14,6 +15,8 @@ export function useResumeStudio(token: string, user: { name: string; email: stri
   const [notice, setNotice] = useState("");
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [reply, setReply] = useState("");
+  const [conversation, setConversation] = useState<ChatMessage[]>([{ role: "assistant", text: "Hi — I can improve your writing or redesign this resume with you. Tell me what you want to change, and I’ll show a preview before applying anything." }]);
+  const [suggestedPrompts, setSuggestedPrompts] = useState(["Make this cleaner and more modern", "Improve my summary", "Fit everything comfortably on one page"]);
   const [undo, setUndo] = useState<Resume | null>(null);
   const latest = useRef<Resume | null>(null);
   const saved = useRef("");
@@ -29,11 +32,12 @@ export function useResumeStudio(token: string, user: { name: string; email: stri
     const normalized = normalizeResume(r, user);
     latest.current = normalized; saved.current = editable(normalized);
     setResume(normalized); setSaveState("saved"); setProposal(null);
-  }, [user]);
+  }, [user.name, user.email]);
   const refreshVersions = useCallback(async () => { const data = await request<{ versions: Version[] }>("/resume/versions"); setVersions(data.versions); }, [request]);
   useEffect(() => {
     let mounted = true;
-    void Promise.all([request<{ resume: Resume | null }>("/resume/current"), request<{ versions: Version[] }>("/resume/versions")]).then(([current, history]) => {
+    const timeout = new Promise<{ resume: Resume | null }>(resolve => window.setTimeout(() => resolve({ resume: null }), 8000));
+    void Promise.all([Promise.race([request<{ resume: Resume | null }>("/resume/current"), timeout]), request<{ versions: Version[] }>("/resume/versions").catch(() => ({ versions: [] }))]).then(([current, history]) => {
       if (!mounted) return;
       if (current.resume) accept(current.resume);
       setVersions(history.versions);
@@ -89,16 +93,16 @@ export function useResumeStudio(token: string, user: { name: string; email: stri
   const create = async (template: Resume["template"], design: Design) => {
     await save(); const data = await request<{ resume: Resume }>("/resume/draft", { method: "POST", body: JSON.stringify({ template, design }) }); accept(data.resume); await refreshVersions();
   };
-  const upload = async (file: File, template: Resume["template"], design: Design) => {
+  const upload = async (file: File, template: Resume["template"], design: Design, linkedinUrl = "") => {
     if (!/\.(pdf|docx)$/i.test(file.name)) throw new Error("Choose a PDF or DOCX resume.");
     if (file.size > 8 * 1024 * 1024) throw new Error("Choose a file smaller than 8 MB.");
-    await save(); const form = new FormData(); form.append("resume", file);
+    await save(); const form = new FormData(); form.append("resume", file); if (linkedinUrl) form.append("linkedinUrl", linkedinUrl);
     const { job } = await request<{ job: Job }>("/resume/upload", { method: "POST", body: form });
     const result = await poll(job.id);
     if (!result?.resume) throw new Error("The import did not return an editable resume.");
     accept({ ...result.resume, template, design });
     // Persist the chosen design after import rather than overwriting it with defaults.
-    saved.current = ""; await save(); await refreshVersions(); setNotice("Import complete. Review the extracted details and sections before downloading.");
+    saved.current = ""; await save(); setNotice("Import complete. Review the extracted details and sections before downloading.");
   };
   const generate = async () => {
     await save(); const { job } = await request<{ job: Job }>("/resume/generate", { method: "POST", body: JSON.stringify({ targetJdText: latest.current?.targetJdText || "" }) });
@@ -124,12 +128,13 @@ export function useResumeStudio(token: string, user: { name: string; email: stri
   const assist = async (message: string) => {
     const current = latest.current; if (!current) return;
     if (!current.sections.length) throw new Error("Add some resume content first so the writing assistant has facts to work with.");
-    const { job } = await request<{ job: Job }>("/resume/copilot", { method: "POST", body: JSON.stringify({ message, conversation: [], resume: { title: current.title, sections: current.sections, targetJdText: current.targetJdText } }) });
+    const history = conversation.slice(-12); setConversation(items => [...items, { role: "user", text: message }]);
+    const { job } = await request<{ job: Job }>("/resume/copilot", { method: "POST", body: JSON.stringify({ message, conversation: history, resume: { title: current.title, sections: current.sections, targetJdText: current.targetJdText, design: current.design, personalDetails: { hasPhoto: Boolean(current.personalDetails.photo), professionalTitle: current.personalDetails.professionalTitle, location: current.personalDetails.location } } }) });
     const result = await poll(job.id); if (!result?.reply) throw new Error("The writing assistant could not respond.");
     if (latest.current?._id !== current._id || JSON.stringify(latest.current.sections) !== JSON.stringify(current.sections)) throw new Error("Your resume changed while the review was running. Please request a fresh review of the latest content.");
-    setReply(result.reply); setProposal(result.proposal || null);
+    setReply(result.reply); setConversation(items => [...items, { role: "assistant", text: result.reply! }]); setSuggestedPrompts(result.suggestedPrompts || []); setProposal(result.proposal || null);
   };
-  const apply = () => { if (!latest.current || !proposal) return; setUndo(structuredClone(latest.current)); update(r => ({ ...r, sections: proposal.sections })); setProposal(null); setNotice("Writing changes applied. You can undo this edit."); };
+  const apply = () => { if (!latest.current || !proposal) return; setUndo(structuredClone(latest.current)); update(r => ({ ...r, sections: proposal.sections, design: proposal.design || r.design })); setProposal(null); setNotice("AI changes applied. You can undo this edit."); };
   const undoChange = () => { if (undo) { update(() => undo); setUndo(null); setProposal(null); } };
-  return { resume, versions, loading, busy, saveState, error, notice, proposal, reply, undo, update, run, save, create, upload, generate, fit, exportFile, saveVersion, restore, assist, apply, undoChange, setProposal, setError, setNotice };
+  return { resume, versions, loading, busy, saveState, error, notice, proposal, reply, conversation, suggestedPrompts, undo, update, run, save, create, upload, generate, fit, exportFile, saveVersion, restore, assist, apply, undoChange, setProposal, setError, setNotice };
 }

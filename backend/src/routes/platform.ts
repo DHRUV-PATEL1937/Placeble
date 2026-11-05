@@ -4,6 +4,7 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import { Types } from "mongoose";
 import { z } from "zod";
+import { personName } from "../services/validation";
 import { env } from "../config/env";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { AdminAuditLogEntry, adminAuditActions } from "../models/AdminAuditLogEntry";
@@ -22,9 +23,16 @@ import { RecruiterOrganization } from "../models/RecruiterOrganization";
 import { Resume } from "../models/Resume";
 import { StudentRosterEntry } from "../models/StudentRosterEntry";
 import { User } from "../models/User";
+import { University } from "../models/University";
+import { createInstitute } from "../services/institute-service";
 import { writeAdminAudit } from "../services/admin-audit-service";
 import { issueActivationInvite } from "../services/invite-issuance-service";
+import { appLink, emailAudience, queueEmail } from "../services/email-service";
+import { commercialInput, commercialUpdate, presentCommercial } from "../services/pilot-service";
+import { removeLogo, saveLogo, takeLogo } from "../services/logo-service";
 import { institutionReadiness } from "../services/readiness-service";
+import { buildStudentReport, studentRows } from "./reports";
+import { universityRollup } from "../services/university-rollup";
 
 const router = Router();
 router.use(requireAuth, requireRole("platform_admin"));
@@ -35,7 +43,8 @@ const reasonSchema = z.string().trim().min(3, "Please record a reason.").max(500
 async function latestReadinessByInstitution() {
   return ReadinessScore.aggregate<{ _id: Types.ObjectId | null; average: number }>([
     { $sort: { studentId: 1, calculatedAt: -1 } },
-    { $group: { _id: "$studentId", institutionId: { $first: "$institutionId" }, score: { $first: "$score" } } },
+    { $group: { _id: "$studentId", institutionId: { $first: "$institutionId" }, score: { $first: "$score" }, complete: { $first: "$complete" } } },
+    { $match: { complete: true } },
     { $group: { _id: "$institutionId", average: { $avg: "$score" } } },
   ]);
 }
@@ -65,7 +74,7 @@ router.get("/health", async (_request, response) => {
     database,
     records,
     { key: "ai", label: "AI provider", status: (env.AI_PROVIDER === "sarvam" ? !!env.SARVAM_API_KEY : env.AI_PROVIDER === "gemini" ? !!env.GEMINI_API_KEY : !!env.OPENAI_API_KEY) ? "configured" as const : "degraded" as const, detail: (env.AI_PROVIDER === "sarvam" ? !!env.SARVAM_API_KEY : env.AI_PROVIDER === "gemini" ? !!env.GEMINI_API_KEY : !!env.OPENAI_API_KEY) ? `${env.AI_PROVIDER} is configured for agent tasks.` : `${env.AI_PROVIDER} is selected but its API key is missing.` },
-    { key: "coding", label: "Coding evaluator", status: env.JUDGE0_ENDPOINT ? "configured" as const : "degraded" as const, detail: env.JUDGE0_ENDPOINT ? "Judge0 endpoint is configured for coding tests." : "Judge0 is not configured; coding aptitude questions are unavailable." },
+    { key: "coding", label: "Coding evaluator", status: (env.JUDGE0_ENDPOINT || env.SARVAM_API_KEY || env.GEMINI_API_KEY || env.OPENAI_API_KEY) ? "configured" as const : "degraded" as const, detail: env.JUDGE0_ENDPOINT ? "Judge0 endpoint is configured for coding tests." : (env.SARVAM_API_KEY || env.GEMINI_API_KEY || env.OPENAI_API_KEY) ? "AI Virtual Execution Engine is active for multi-language evaluation." : "Judge0 or AI provider is not configured for coding execution." },
     { key: "authentication", label: "Authentication", status: "operational" as const, detail: "Access and refresh-token signing are configured." },
   ];
   const overall = services.some(service => service.status === "down") ? "down" : services.some(service => service.status === "degraded") ? "degraded" : "operational";
@@ -78,7 +87,7 @@ router.get("/super-admins", async (_request, response) => {
 });
 
 router.post("/super-admins", async (request, response) => {
-  const input = z.object({ name: z.string().trim().min(2).max(80), email: z.string().trim().email().transform(value => value.toLowerCase()) }).parse(request.body);
+  const input = z.object({ name: personName, email: z.string().trim().email().transform(value => value.toLowerCase()) }).parse(request.body);
   if (await User.exists({ email: input.email })) return response.status(409).json({ message: "An account already exists for this email address." });
   const temporaryPassword = `Plb!${randomBytes(12).toString("base64url")}9a`;
   const admin = await User.create({ name: input.name, email: input.email, role: "platform_admin", passwordHash: await bcrypt.hash(temporaryPassword, 12), authProvider: "password", status: "active", emailVerified: true, passwordChangedAt: new Date() });
@@ -97,7 +106,8 @@ router.get("/overview", async (_request, response) => {
     RecruiterOrganization.countDocuments({ verificationStatus: "pending", suspendedAt: null }),
     ReadinessScore.aggregate<{ average: number }>([
       { $sort: { studentId: 1, calculatedAt: -1 } },
-      { $group: { _id: "$studentId", score: { $first: "$score" } } },
+      { $group: { _id: "$studentId", score: { $first: "$score" }, complete: { $first: "$complete" } } },
+      { $match: { complete: true } },
       { $group: { _id: null, average: { $avg: "$score" } } },
     ]),
     User.aggregate<{ _id: string; count: number }>([
@@ -142,7 +152,7 @@ router.get("/institutions", async (request, response) => {
     ...(input.status !== "all" ? { status: input.status } : {}),
     ...(input.search ? { $or: [{ name: new RegExp(input.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") }, { approvedEmailDomains: new RegExp(input.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") }] } : {}),
   };
-  const [institutions, userStats, rosterStats, readinessStats] = await Promise.all([
+  const [institutions, userStats, rosterStats, readinessStats, signedInStats] = await Promise.all([
     Institution.find(filter).lean(),
     User.aggregate<{ _id: { institutionId: Types.ObjectId; role: string }; count: number }>([
       { $match: { institutionId: { $ne: null }, role: { $in: ["student", "tpo"] } } },
@@ -152,7 +162,12 @@ router.get("/institutions", async (request, response) => {
       { $group: { _id: "$institutionId", total: { $sum: 1 }, matched: { $sum: { $cond: [{ $eq: ["$status", "matched"] }, 1, 0] } } } },
     ]),
     latestReadinessByInstitution(),
+    User.aggregate<{ _id: Types.ObjectId; count: number }>([
+      { $match: { institutionId: { $ne: null }, role: "student", $or: [{ firstLoginAt: { $ne: null } }, { lastLoginAt: { $ne: null } }] } },
+      { $group: { _id: "$institutionId", count: { $sum: 1 } } },
+    ]),
   ]);
+  const signedIn = new Map(signedInStats.map(row => [String(row._id), row.count]));
   const users = new Map(userStats.map(row => [`${row._id.institutionId}:${row._id.role}`, row.count]));
   const roster = new Map(rosterStats.map(row => [String(row._id), row]));
   const readiness = new Map(readinessStats.map(row => [String(row._id), Math.round(row.average)]));
@@ -160,8 +175,11 @@ router.get("/institutions", async (request, response) => {
     const id = String(institution._id); const rosterRow = roster.get(id);
     return {
       ...institution,
+      commercial: presentCommercial(institution.commercial),
       studentCount: users.get(`${id}:student`) ?? 0,
       tpoCount: users.get(`${id}:tpo`) ?? 0,
+      signedInCount: signedIn.get(id) ?? 0,
+      invitedCount: Math.max(0, (users.get(`${id}:student`) ?? 0) - (signedIn.get(id) ?? 0)),
       rosterTotal: rosterRow?.total ?? 0,
       rosterMatched: rosterRow?.matched ?? 0,
       rosterMatchRate: rosterRow?.total ? Math.round(rosterRow.matched / rosterRow.total * 100) : 0,
@@ -178,23 +196,126 @@ router.get("/institutions", async (request, response) => {
 });
 
 router.post("/institutions", async (request, response) => {
-  const input = z.object({ name: z.string().trim().min(2).max(160), approvedEmailDomains: z.array(z.string().trim().toLowerCase().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/)).min(1).max(12), tpoName: z.string().trim().min(2).max(80), tpoEmail: z.string().email() }).parse(request.body);
-  const domains = [...new Set(input.approvedEmailDomains)];
-  const domainOwner = await Institution.findOne({ $or: [{ approvedEmailDomains: { $in: domains } }, { officialDomains: { $in: domains } }] }).select("name").lean();
-  if (domainOwner) return response.status(409).json({ code: "DOMAIN_ALREADY_ASSIGNED", message: `One of these domains is already assigned to ${domainOwner.name}.` });
-  if (await User.exists({ email: input.tpoEmail.toLowerCase() })) return response.status(409).json({ message: "An account already exists for the first TPO email." });
-  const slugBase = input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 54) || "institution";
+  const input = z.object({ name: z.string().trim().min(2).max(160), approvedEmailDomains: z.array(z.string().trim().toLowerCase().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/)).min(1).max(12), tpoName: personName, tpoEmail: z.string().email(), universityId: objectId.optional() }).parse(request.body);
+  if (input.universityId && !await University.exists({ _id: input.universityId })) return response.status(404).json({ message: "University not found." });
+  const commercial = commercialInput.parse(request.body.commercial ?? { type: "customer" });
+  const result = await createInstitute({ ...input, createdByPlatformAdminId: request.auth!.userId, invitedBy: request.auth!.userId });
+  if (!result.ok) return response.status(result.status).json({ code: result.code, message: result.message });
+  const { institution, issued } = result;
+  await Institution.updateOne({ _id: institution._id }, { $set: commercialUpdate(commercial, null) });
+  await writeAdminAudit({ platformAdminId: request.auth!.userId, action: "institution_created", targetType: "institution", targetId: institution._id, metadata: { name: institution.name, domains: input.approvedEmailDomains, tpoEmail: input.tpoEmail.toLowerCase(), universityId: input.universityId ?? null } });
+  return response.status(201).json({ institution, invite: { id: issued.invite._id, email: issued.invite.email, expiresAt: issued.invite.expiresAt }, activationPath: issued.activationPath, delivery: issued.delivery });
+});
+
+router.patch("/institutions/:institutionId/university", async (request, response) => {
+  const institutionId = objectId.parse(request.params.institutionId);
+  const input = z.object({ universityId: objectId.nullable() }).parse(request.body);
+  if (input.universityId && !await University.exists({ _id: input.universityId })) return response.status(404).json({ message: "University not found." });
+  const institution = await Institution.findByIdAndUpdate(institutionId, { $set: { universityId: input.universityId } }, { returnDocument: "after" });
+  if (!institution) return response.status(404).json({ message: "Institution not found." });
+  return response.json({ institution });
+});
+
+router.get("/universities", async (_request, response) => {
+  const [universities, institutes, admins] = await Promise.all([
+    University.find({}).sort({ name: 1 }).lean(),
+    Institution.aggregate<{ _id: Types.ObjectId; count: number }>([{ $match: { universityId: { $ne: null } } }, { $group: { _id: "$universityId", count: { $sum: 1 } } }]),
+    User.find({ role: "university_admin" }).select("universityId name email status").lean(),
+  ]);
+  const counts = new Map(institutes.map(row => [String(row._id), row.count]));
+  return response.json({ universities: universities.map(university => ({ id: String(university._id), name: university.name, status: university.status, commercial: presentCommercial(university.commercial), logoUrl: university.logoUrl ?? "", institutes: counts.get(String(university._id)) ?? 0, admins: admins.filter(admin => String(admin.universityId) === String(university._id)).map(admin => ({ id: String(admin._id), name: admin.name, email: admin.email, status: admin.status })) })) });
+});
+
+router.post("/universities", async (request, response) => {
+  const input = z.object({ name: z.string().trim().min(2).max(160), tpoName: personName, tpoEmail: z.string().email() }).parse(request.body);
+  if (await User.exists({ email: input.tpoEmail.toLowerCase() })) return response.status(409).json({ message: "An account already exists for the university TPO email." });
+  const slugBase = input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 54) || "university";
   let slug = slugBase;
-  for (let suffix = 2; await Institution.exists({ slug }); suffix += 1) slug = `${slugBase}-${suffix}`;
-  const institution = await Institution.create({ name: input.name, slug, approvedEmailDomains: domains, officialDomains: domains, status: "active", createdByPlatformAdminId: request.auth!.userId });
+  for (let suffix = 2; await University.exists({ slug }); suffix += 1) slug = `${slugBase}-${suffix}`;
+  const commercial = commercialInput.parse(request.body.commercial ?? { type: "customer" });
+  const university = await University.create({ name: input.name, slug, createdByPlatformAdminId: request.auth!.userId });
+  await University.updateOne({ _id: university._id }, { $set: commercialUpdate(commercial, null) });
   try {
-    const issued = await issueActivationInvite({ name: input.tpoName, email: input.tpoEmail, role: "tpo", institutionId: institution._id, invitedBy: request.auth!.userId });
-    await writeAdminAudit({ platformAdminId: request.auth!.userId, action: "institution_created", targetType: "institution", targetId: institution._id, metadata: { name: institution.name, domains, tpoEmail: input.tpoEmail.toLowerCase() } });
-    return response.status(201).json({ institution, invite: { id: issued.invite._id, email: issued.invite.email, expiresAt: issued.invite.expiresAt }, activationPath: issued.activationPath, delivery: "provider_not_configured" });
+    const issued = await issueActivationInvite({ name: input.tpoName, email: input.tpoEmail, role: "university_admin", universityId: university._id, invitedBy: request.auth!.userId });
+    await writeAdminAudit({ platformAdminId: request.auth!.userId, action: "university_created", targetType: "university", targetId: university._id, metadata: { name: university.name, tpoEmail: input.tpoEmail.toLowerCase() } });
+    return response.status(201).json({ university, invite: { email: issued.invite.email, expiresAt: issued.invite.expiresAt }, activationPath: issued.activationPath, delivery: issued.delivery });
   } catch (error) {
-    await Promise.all([Institution.deleteOne({ _id: institution._id }), Invite.deleteMany({ institutionId: institution._id })]);
+    await Promise.all([University.deleteOne({ _id: university._id }), Invite.deleteMany({ universityId: university._id })]);
     throw error;
   }
+});
+
+router.patch("/universities/:universityId/status", async (request, response) => {
+  const universityId = objectId.parse(request.params.universityId);
+  const input = z.object({ status: z.enum(["active", "suspended"]), reason: reasonSchema }).parse(request.body);
+  const university = await University.findByIdAndUpdate(universityId, { $set: { status: input.status } }, { returnDocument: "after" });
+  if (!university) return response.status(404).json({ message: "University not found." });
+  await writeAdminAudit({ platformAdminId: request.auth!.userId, action: input.status === "suspended" ? "university_suspended" : "university_reactivated", targetType: "university", targetId: university._id, metadata: { reason: input.reason, name: university.name } });
+  return response.json({ university });
+});
+
+router.put("/institutions/:institutionId/logo", takeLogo, async (request, response) => {
+  const result = await saveLogo("institution", String(request.params.institutionId), request.file!);
+  return response.status(result.status).json(result.status === 200 ? { logoUrl: result.logoUrl } : { message: result.message });
+});
+router.delete("/institutions/:institutionId/logo", async (request, response) => response.status((await removeLogo("institution", String(request.params.institutionId))).status === 200 ? 204 : 404).end());
+router.put("/universities/:universityId/logo", takeLogo, async (request, response) => {
+  const result = await saveLogo("university", String(request.params.universityId), request.file!);
+  return response.status(result.status).json(result.status === 200 ? { logoUrl: result.logoUrl } : { message: result.message });
+});
+router.delete("/universities/:universityId/logo", async (request, response) => response.status((await removeLogo("university", String(request.params.universityId))).status === 200 ? 204 : 404).end());
+
+async function changeCommercial(kind: "institution" | "university", id: string, request: Parameters<Parameters<typeof router.patch>[1]>[0], response: Parameters<Parameters<typeof router.patch>[1]>[1]) {
+  const input = commercialInput.parse(request.body);
+  const model = (kind === "institution" ? Institution : University) as typeof Institution;
+  const record = await model.findById(id).select("name commercial");
+  if (!record) return response.status(404).json({ message: "Not found." });
+  await model.updateOne({ _id: id }, { $set: commercialUpdate(input, record.commercial) });
+  const fresh = await model.findById(id).select("commercial").lean();
+  await writeAdminAudit({ platformAdminId: request.auth!.userId, action: "commercial_changed", targetType: kind, targetId: record._id, metadata: { name: record.name, to: input.type, pilotEndsOn: input.pilotEndsOn ?? null, was: record.commercial?.type ?? "customer" } });
+  return response.json({ commercial: presentCommercial(fresh?.commercial) });
+}
+router.patch("/universities/:universityId/commercial", (request, response) => changeCommercial("university", objectId.parse(request.params.universityId), request, response));
+router.patch("/institutions/:institutionId/commercial", (request, response) => changeCommercial("institution", objectId.parse(request.params.institutionId), request, response));
+
+router.get("/universities/:universityId", async (request, response) => {
+  const universityId = objectId.parse(request.params.universityId);
+  if (!(await University.exists({ _id: universityId }))) return response.status(404).json({ message: "University not found." });
+  const [rollup, tpos] = await Promise.all([
+    universityRollup(universityId),
+    User.find({ role: "university_admin", universityId }).select("name email status lastLoginAt").lean(),
+  ]);
+  return response.json({ ...rollup, tpos: tpos.map(tpo => ({ id: String(tpo._id), name: tpo.name, email: tpo.email, status: tpo.status, lastLoginAt: tpo.lastLoginAt ?? null })) });
+});
+
+router.get("/institutions/:institutionId/students", async (request, response) => {
+  const institutionId = objectId.parse(request.params.institutionId);
+  if (!(await Institution.exists({ _id: institutionId }))) return response.status(404).json({ message: "Institution not found." });
+  const { rows } = await studentRows(institutionId);
+  const text = (value: unknown) => (typeof value === "string" ? value.trim().toLowerCase() : "");
+  const search = text(request.query.search);
+  const login = text(request.query.login);
+  const branch = typeof request.query.branch === "string" ? request.query.branch : "";
+  const filtered = rows
+    .filter(row => !search || `${row.name} ${row.email} ${row.rollNumber}`.toLowerCase().includes(search))
+    .filter(row => login !== "invited" && login !== "active" ? true : row.loginStatus === login)
+    .filter(row => !branch || row.branchName === branch)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const pageSize = 15;
+  const page = Math.max(1, Math.min(Number(request.query.page) || 1, Math.max(1, Math.ceil(filtered.length / pageSize))));
+  return response.json({
+    total: filtered.length, page, pageSize,
+    branches: [...new Set(rows.map(row => row.branchName).filter(Boolean))].sort(),
+    students: filtered.slice((page - 1) * pageSize, page * pageSize),
+  });
+});
+
+router.get("/institutions/:institutionId/students/:studentId", async (request, response) => {
+  const institutionId = objectId.parse(request.params.institutionId);
+  const report = await buildStudentReport(institutionId, request.params.studentId as string);
+  if (!report) return response.status(404).json({ message: "Student not found." });
+  await writeAdminAudit({ platformAdminId: request.auth!.userId, action: "admin_viewed_student_report", targetType: "user", targetId: report.student.id, metadata: { institutionId } });
+  return response.json(report);
 });
 
 router.get("/institutions/:institutionId", async (request, response) => {
@@ -220,9 +341,10 @@ router.get("/institutions/:institutionId", async (request, response) => {
   const grants = await DriveAccessGrant.find({ institutionId, driveId: { $in: driveIds } }).populate("recruiterOrgId", "companyName companyDomain verificationStatus").sort({ requestedAt: -1 }).lean();
   await writeAdminAudit({ platformAdminId: request.auth!.userId, action: "admin_viewed_institution_detail", targetType: "institution", targetId: institution._id, metadata: { name: institution.name } });
   return response.json({
-    institution,
+    institution, commercial: presentCommercial(institution.commercial),
     primaryTpo,
     roster: { total: rosterTotal, matched: rosterMatched, unmatched: rosterTotal - rosterMatched, entries: rosterEntries },
+    logins: { signedIn: readiness.summary.loggedIn, invited: readiness.summary.invited, pending: readiness.students.filter(student => student.loginStatus === "invited").slice(0, 100).map(student => ({ name: student.name, email: student.email, invitedAt: student.invitedAt })) },
     engagement: { resumes: resumeUsers.length, aptitude: aptitudeUsers.length, interviews: interviewUsers.length, groupDiscussions: gdUsers.length, applications: applicationUsers.length },
     readiness,
     drives: drives.map(drive => ({ ...drive, grants: grants.filter(grant => String(grant.driveId) === String(drive._id)) })),
@@ -235,6 +357,7 @@ router.patch("/institutions/:institutionId/status", async (request, response) =>
   const institution = await Institution.findByIdAndUpdate(institutionId, { $set: { status: input.status } }, { returnDocument: "after" });
   if (!institution) return response.status(404).json({ message: "Institution not found." });
   await writeAdminAudit({ platformAdminId: request.auth!.userId, action: input.status === "suspended" ? "institution_suspended" : "institution_reactivated", targetType: "institution", targetId: institution._id, metadata: { reason: input.reason, name: institution.name } });
+  await emailAudience({ institutionId: institution._id, role: "tpo" }, `institution-status:${institution._id}:${institution.updatedAt?.getTime()}`, "Your institution workspace access changed", `${institution.name} is now ${input.status}.\nReason: ${input.reason}\n\nContact your Placeble administrator if you need help.`);
   return response.json({ institution });
 });
 
@@ -245,7 +368,7 @@ router.post("/institutions/:institutionId/reissue-tpo", async (request, response
   if (!tpo) return response.status(404).json({ message: "No active TPO account was found for this institution." });
   const issued = await issueActivationInvite({ name: tpo.name, email: tpo.email, role: "tpo", institutionId, invitedBy: request.auth!.userId, expiresInHours: 24, revokePrevious: true, purpose: "credential_reissue", targetUserId: tpo._id });
   await writeAdminAudit({ platformAdminId: request.auth!.userId, action: "tpo_credential_reissued", targetType: "user", targetId: tpo._id, metadata: { institutionId, reason: input.reason, email: tpo.email } });
-  return response.status(201).json({ invite: { id: issued.invite._id, email: issued.invite.email, expiresAt: issued.invite.expiresAt }, activationPath: issued.activationPath, delivery: "provider_not_configured" });
+  return response.status(201).json({ invite: { id: issued.invite._id, email: issued.invite.email, expiresAt: issued.invite.expiresAt }, activationPath: issued.activationPath, delivery: issued.delivery });
 });
 
 router.get("/recruiter-organizations", async (request, response) => {
@@ -289,6 +412,8 @@ router.patch("/recruiter-organizations/:organizationId", async (request, respons
   if (input.action === "verify" || input.action === "restore") await User.updateMany({ recruiterOrgId: organization._id, role: "recruiter" }, { $set: { status: "active" } });
   if (input.action === "reject" || input.action === "suspend") await User.updateMany({ recruiterOrgId: organization._id, role: "recruiter" }, { $set: { status: "suspended" } });
   const action = ({ verify: "recruiter_org_verified", reject: "recruiter_org_rejected", suspend: "recruiter_org_suspended", restore: "recruiter_org_reactivated" } as const)[input.action];
+  const recipients = await User.find({ recruiterOrgId: organization._id, role: "recruiter" }).select("email");
+  for (const recipient of recipients) await queueEmail({ key: `organization:${organization._id}:${input.action}:${organization.updatedAt?.getTime()}:${recipient._id}`, to: recipient.email, subject: "Your Placeble company access was updated", text: `${organization.companyName}: ${input.action === "verify" || input.action === "restore" ? "Your company access is approved. You can sign in." : "Your company access is currently unavailable."}${input.reason ? `\nReason: ${input.reason}` : ""}\n\n${appLink("/")}` });
   await writeAdminAudit({ platformAdminId: request.auth!.userId, action, targetType: "recruiterOrganization", targetId: organization._id, metadata: { reason: input.reason || undefined, companyName: organization.companyName } });
   return response.json({ organization });
 });

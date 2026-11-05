@@ -9,6 +9,13 @@ const scoreOutputSchema = z.object({
   nextQuestion: z.string().min(15).transform(value => value.slice(0, 800)),
 });
 
+export function parseInterviewTurnScore(raw: unknown, finalTurn: boolean) {
+  // There is no next question after the final answer. Do not reject valid
+  // scores just because the provider returned an empty closing question.
+  const value = finalTurn && raw && typeof raw === "object" ? { ...raw, nextQuestion: "Thank you for completing this interview." } : raw;
+  return scoreOutputSchema.parse(value);
+}
+
 const debriefOutputSchema = z.object({
   overallScore: z.number().min(0).max(100),
   overallFeedback: z.string().min(50).transform(value => value.slice(0, 1800)),
@@ -51,6 +58,25 @@ async function fetchWithRetry(url: string, init: RequestInit, attempts = 3) {
 }
 
 export async function callStructuredAi(prompt: string, schema: object, schemaName = "interview_result") {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const raw = await callStructuredAiOnce(prompt, schema, schemaName);
+      const clean = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+      // Validate before returning: providers occasionally truncate an otherwise
+      // successful response. Retry that request rather than losing the answer.
+      const parsed: unknown = JSON.parse(clean);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new SyntaxError("Expected a JSON object");
+      return JSON.stringify(parsed);
+    } catch (error) {
+      const malformed = error instanceof SyntaxError || (error instanceof Error && /empty.*response/i.test(error.message));
+      if (!malformed) throw error;
+      if (attempt === 1) throw new Error("The interview reviewer returned an incomplete response. Your recording is preserved. Please retry your saved answer.");
+    }
+  }
+  throw new Error("The interview response could not be read. Please retry your saved answer.");
+}
+
+async function callStructuredAiOnce(prompt: string, schema: object, schemaName: string) {
   if (env.AI_PROVIDER === "sarvam") {
     if (!env.SARVAM_API_KEY) throw new Error("Sarvam is selected, but SARVAM_API_KEY is not configured.");
     const response = await fetchWithRetry("https://api.sarvam.ai/v1/chat/completions", {
@@ -198,7 +224,7 @@ Verified student context: ${input.resumeContext || "No resume context was availa
 
 Fixed rubric (each 0-10): structure = clear logical or STAR-like shape; relevance = directly answers the question; specificity = concrete actions, reasoning, evidence and outcomes. Be supportive and fair to an early-career student. Feedback must cite a specific strength and the most useful change; forbid vague praise such as "great job".
 For nextQuestion, respond like a real interviewer who listened: use one detail from the transcript or ask the most useful next probe. Use plain language, ask for one clear example or explanation, avoid trick questions and deep specialist knowledge, respect the interview type, and never repeat or lightly rephrase an earlier question. Do not use generic prompts such as "tell me about yourself" after turn one. If the target role seems unrelated to the verified resume or preferred roles, ask a respectful clarification such as whether there is a specific reason the student is applying and what transferable experience connects them to it; never reject the role or make a judgment. If the target role is unusually specific, mention it naturally and ask about motivation or fit. Earlier questions to avoid: ${JSON.stringify(previousQuestions)}. If this is the final turn, still return a short closing reflection question as nextQuestion; it will not be shown.`;
-  const result = scoreOutputSchema.parse(JSON.parse(await callStructuredAi(prompt, scoreJsonSchema)));
+  const result = parseInterviewTurnScore(JSON.parse(await callStructuredAi(prompt, scoreJsonSchema)), input.turnNumber >= input.totalTurns);
   const normalized = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const nextNormalized = normalized(result.nextQuestion);
   const repeated = previousQuestions.some(question => normalized(question) === nextNormalized || normalized(question).includes(nextNormalized) || nextNormalized.includes(normalized(question)));
@@ -223,36 +249,37 @@ The overall score is 0-100 and must reflect the full trajectory, not a simple ar
 }
 
 export async function generateInterviewOpeningQuestion(input: { targetRole: string; resumeContext: string }) {
-  const selectedRole = input.targetRole.trim() || "a general graduate role";
+  const selectedRole = input.targetRole.trim() || "Software Engineer";
   const contextText = input.resumeContext.toLowerCase();
   const roleWords = selectedRole.toLowerCase().split(/[^a-z0-9]+/).filter(word => word.length > 3 && !["with", "from", "role", "at", "the"].includes(word));
   const matchingWords = roleWords.filter(word => contextText.includes(word));
   const roleFitsResume = roleWords.length > 0 && matchingWords.length >= Math.max(1, Math.ceil(roleWords.length * 0.5));
-  const prompt = `You are opening a natural mock interview. The student selected this exact target role: ${selectedRole}.
-The selected target role is authoritative. Never replace it with a role, title, employer, or preference found in the resume. You may compare the selected role with the resume only to decide whether the student should be asked about motivation or fit.
-Our deterministic resume comparison says this role is ${roleFitsResume ? "supported by" : "not clearly supported by"} the verified resume. ${roleFitsResume ? "Ask for a warm introduction connected to this selected role. Do not ask why the student is applying despite their background." : "Ask what attracted the student to this selected role and what transferable experience connects them to it. Do not replace the selected role with another role."}
-Verified resume and profile context:
-${input.resumeContext || "No resume context is available."}
+  
+  const prompt = `You are Alex Vance, the Lead People & Culture Sub-Agent opening a live virtual placement interview for the position: ${selectedRole}.
+This is Turn 1 of a realistic live interview. Greet the candidate warmly and ask a natural, conversational opening introduction question tailored specifically to the ${selectedRole} role.
+Candidate verified background context:
+${input.resumeContext || "Early-career candidate."}
 
-Return exactly one short question, with no quotation marks or explanation. Decide whether the role is reasonably supported by the resume/profile. If it is supported, ask a warm, conversational introduction question that invites the student to connect their background to the role. If it is not supported or seems unusual, do not ask for a generic introduction first: politely ask what attracted them to this role and whether there is a specific reason they are applying despite the apparent mismatch. Mention the role naturally. Never judge, reject, or invent facts. Vary the wording naturally between sessions. Keep it under 45 words.`;
+Guidelines:
+1. Speak naturally as Alex from People & Culture.
+2. Ask for a brief introduction of their journey, their passion for ${selectedRole}, and what motivated them to apply.
+3. Keep it warm, engaging, and under 40 words.
+4. Return ONLY the question text without quotes or preamble.
+5. Every generation must feel unique and fresh.`;
+
   try {
     const result = (await callTextAi(prompt, 180)).replace(/^['"“”]+|['"“”]+$/g, "").trim();
-    const context = JSON.parse(input.resumeContext || "{}");
-    const preferredRoles = Array.isArray(context.profile?.preferredRoles) ? context.profile.preferredRoles.join(" ") : "";
-    const otherRoleMentioned = preferredRoles && preferredRoles.toLowerCase().split(/[,|]/).some((role: string) => {
-      const normalized = role.trim().toLowerCase();
-      return normalized.length > 4 && !selectedRole.toLowerCase().includes(normalized) && result.toLowerCase().includes(normalized);
-    });
-    const isIntroduction = /introduce yourself|tell me about yourself|walk me through your background|your background|your journey|start by telling me about/i.test(result);
-    if (result.length >= 20 && !otherRoleMentioned && (!roleFitsResume || isIntroduction)) return result.slice(0, 500);
-  } catch { /* fallback below keeps interview start available if Sarvam is unavailable */ }
-  if (roleFitsResume && input.targetRole) {
-    const introductions = [
-      `To get us started, could you introduce yourself and connect your background to the ${input.targetRole} role?`,
-      `Please walk me through your background and the experiences that have prepared you for the ${input.targetRole} role.`,
-      `Tell me about yourself and what makes your experience relevant to the ${input.targetRole} role.`,
-    ];
-    return introductions[Math.floor(Math.random() * introductions.length)];
-  }
-  return input.targetRole ? `Before we begin, what attracted you to the ${input.targetRole} role, and how does it connect with what you have done or learned so far?` : "To get us started, could you introduce yourself and share what you would like to bring to your next opportunity?";
+    if (result.length >= 25 && !result.toLowerCase().includes("as an ai")) {
+      return result.slice(0, 500);
+    }
+  } catch { /* fallback below ensures interview always starts reliably */ }
+
+  const dynamicOpeners = [
+    `Hi, welcome! I'm Alex from People & Culture. To kick off our session, could you walk us through your journey and what drew you specifically to this ${selectedRole} opportunity?`,
+    `Welcome to the interview! Let's start with a brief introduction—tell us about yourself, your background, and the key projects that got you excited about becoming a ${selectedRole}.`,
+    `Great to have you here today. To get us started, could you share a bit about yourself and what motivates you to pursue this ${selectedRole} position?`,
+    `Hello and welcome to your interview! I'd love to start by learning about you—could you give us a quick overview of your experience and what made you choose the ${selectedRole} path?`,
+    `Welcome! We're excited to speak with you today. To get things rolling, tell us about yourself and the experiences that best represent your readiness for this ${selectedRole} role.`
+  ];
+  return dynamicOpeners[Math.floor(Math.random() * dynamicOpeners.length)];
 }

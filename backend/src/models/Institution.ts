@@ -4,8 +4,19 @@ const { model, models, Schema } = mongoose;
 const institutionSchema = new Schema({
   name: { type: String, required: true, trim: true },
   slug: { type: String, required: true, unique: true, lowercase: true },
+  universityId: { type: Schema.Types.ObjectId, ref: "University", default: null, index: true },
   officialDomains: [{ type: String, lowercase: true }],
   approvedEmailDomains: [{ type: String, lowercase: true, trim: true }],
+  // Pilot = a free trial with an end date. Customer = a paying account. Missing means customer, so older records keep working.
+  commercial: {
+    type: { type: String, enum: ["pilot", "customer"], default: "customer" },
+    pilotStartsAt: { type: Date, default: null },
+    pilotEndsAt: { type: Date, default: null },
+    convertedAt: { type: Date, default: null },
+    note: { type: String, default: "", maxlength: 300 },
+  },
+  logoUrl: { type: String, default: "" },
+  logoPublicId: { type: String, default: "" },
   status: { type: String, enum: ["active", "pending", "suspended"], default: "active" },
   createdByPlatformAdminId: { type: Schema.Types.ObjectId, ref: "User", default: null },
   marketplaceListing: {

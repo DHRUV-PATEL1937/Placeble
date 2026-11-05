@@ -19,7 +19,10 @@ export const templates: Array<{ id: string; name: string; category: "Simple" | "
 ];
 export function normalizeResume(resume: Resume, user: { name: string; email: string }): Resume {
   const details = (resume.personalDetails || {}) as Partial<Personal>;
-  return { ...resume, personalDetails: { fullName: details.fullName || user.name, professionalTitle: details.professionalTitle || "", email: details.email || user.email, phone: details.phone || "", location: details.location || "", linkedin: details.linkedin || "", website: details.website || "", photo: details.photo || "" }, design: { ...defaultDesign, ...resume.design } };
+  const sections = (Array.isArray(resume.sections) ? resume.sections : [])
+    .filter(section => section && sectionTypes.includes(section.type))
+    .map((section, index) => ({ ...section, order: Number.isFinite(section.order) ? section.order : index, content: section.content && typeof section.content === "object" ? section.content : {} }));
+  return { ...resume, sections, personalDetails: { fullName: details.fullName || user.name, professionalTitle: details.professionalTitle || "", email: details.email || user.email, phone: details.phone || "", location: details.location || "", linkedin: details.linkedin || "", website: details.website || "", photo: details.photo || "" }, design: { ...defaultDesign, ...resume.design } };
 }
 export const sample: Resume = normalizeResume({ _id: "sample", title: "Sample resume", template: "classic", sections: [
   { type: "summary", order: 0, content: { text: "Product designer who brings clarity to complex experiences. Combines research, thoughtful interaction design, and close collaboration to create useful, considered products." } },

@@ -1,6 +1,10 @@
 import { AlertCircle, ArrowLeft, ArrowRight, Check, CheckCheck, ChevronDown, Clipboard, Download, FileCheck2, FileText, LoaderCircle, Mail, Plus, ShieldCheck, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { cleanNameInput, nameProblem } from "@/services/validation";
 import "./cover-letter-studio.css";
+
+const cleanRole = (value: string) => value.replace(/[^\p{L}\p{N} &/.,()+#'’-]/gu, "").slice(0, 120);
+const cleanCompany = (value: string) => value.replace(/[^\p{L}\p{N} &.,()'’!-]/gu, "").slice(0, 120);
 
 const API_URL = import.meta.env.VITE_API_URL ?? "/api/v1";
 const tones = ["Professional", "Confident", "Enthusiastic", "Concise", "Formal", "Creative"] as const;
@@ -30,6 +34,7 @@ export function CoverLetter({ accessToken, onBack, onOpenResume }: { accessToken
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [notice, setNotice] = useState("");
   const [tab, setTab] = useState<"guide" | "review">("guide");
   const [emailOpen, setEmailOpen] = useState(false);
@@ -114,8 +119,21 @@ export function CoverLetter({ accessToken, onBack, onOpenResume }: { accessToken
   const newLetter = () => void safely(async () => {
     await save(); revision.current += 1; activeId.current = null; setActive(null); setBody(""); setRoleTitle(""); setCompanyName(""); setHiringManagerName(""); setTargetJdText(""); setTone("Professional"); saved.current = ""; setSavedPayload(""); setNotice("");
   });
+  const problems = {
+    role: roleTitle.trim().length < 2 ? "Enter the role you are applying for." : "",
+    company: companyName.trim().length < 2 ? "Enter the company name." : "",
+    manager: hiringManagerName.trim() ? nameProblem(hiringManagerName, "hiring manager’s name") : "",
+    jd: targetJdText.trim() && targetJdText.trim().length < 40 ? "Paste the full job description, or leave this blank." : "",
+  };
+  const shown = (key: keyof typeof problems) => (touched[key] ? problems[key] : "");
+  const touch = (key: string) => setTouched(current => ({ ...current, [key]: true }));
   const generate = () => void safely(async () => {
     if (!resumeId) return;
+    if (Object.values(problems).some(Boolean)) {
+      setTouched({ role: true, company: true, manager: true, jd: true });
+      if (problems.manager && !advanced) setAdvanced(true);
+      throw new Error("Fix the highlighted fields, then try again.");
+    }
     await save(); setGenerating(true);
     try {
       const { job } = await api<{ job: Job }>("/cover-letters/generate", accessToken, { method: "POST", body: JSON.stringify({ resumeId, roleTitle, companyName, hiringManagerName, targetJdText, tone }) });
@@ -158,11 +176,11 @@ export function CoverLetter({ accessToken, onBack, onOpenResume }: { accessToken
     {!context ? <div className="ls-unavailable"><h2>We couldn’t load your workspace.</h2><button className="ls-button" onClick={() => void safely(load)}>Try again</button></div> : !context.resumes.length ? <div className="ls-unavailable"><FileText size={36} /><h2>A great letter starts with your story.</h2><p>Create or import your resume to get started.</p><button className="ls-button ls-primary" onClick={onOpenResume}>Open resume builder <ArrowRight size={16} /></button></div> : <div className="ls-workspace">
       <aside className="ls-setup"><div className="ls-panel-title"><span>01</span><h2>Make it personal</h2><button className="ls-icon" onClick={newLetter} aria-label="Create a new letter"><Plus size={17} /></button></div><p className="ls-panel-subtitle">A few details. A letter that sounds like you.</p>
         <label className="ls-label">Your resume<div className="ls-resume"><FileText size={22} /><select value={resumeId} onChange={event => setResumeId(event.target.value)}>{context.resumes.map(item => <option key={item._id} value={item._id}>{item.title}{item.isCurrent ? " · Current" : ` · v${item.versionNumber}`}</option>)}</select><ChevronDown size={14} /></div></label><p className="ls-source"><ShieldCheck size={12} /> Grounded in your saved experience</p>
-        <label className="ls-label">Target role<input value={roleTitle} onChange={event => setRoleTitle(event.target.value)} placeholder="e.g. Product Designer" maxLength={180} /></label>
-        <label className="ls-label">Company<input value={companyName} onChange={event => setCompanyName(event.target.value)} placeholder="Where would you love to work?" maxLength={180} /></label>
-        <label className="ls-label"><span>Job description <small>Optional, recommended</small></span><textarea value={targetJdText} onChange={event => setTargetJdText(event.target.value)} placeholder="Paste the role description. We’ll help connect your experience to what matters." maxLength={30000} /><small className="ls-character-count">{targetJdText.length.toLocaleString()} / 30,000</small></label>
+        <label className="ls-label">Target role<input value={roleTitle} onChange={event => setRoleTitle(cleanRole(event.target.value))} onBlur={() => touch("role")} aria-invalid={Boolean(shown("role"))} placeholder="e.g. Product Designer" maxLength={120} required />{shown("role") && <small className="ls-field-error" role="alert">{shown("role")}</small>}</label>
+        <label className="ls-label">Company<input value={companyName} onChange={event => setCompanyName(cleanCompany(event.target.value))} onBlur={() => touch("company")} aria-invalid={Boolean(shown("company"))} placeholder="Where would you love to work?" maxLength={120} required />{shown("company") && <small className="ls-field-error" role="alert">{shown("company")}</small>}</label>
+        <label className="ls-label"><span>Job description <small>Optional, recommended</small></span><textarea value={targetJdText} onChange={event => setTargetJdText(event.target.value)} onBlur={() => touch("jd")} aria-invalid={Boolean(shown("jd"))} placeholder="Paste the role description. We’ll help connect your experience to what matters." maxLength={30000} /><small className="ls-character-count">{targetJdText.length.toLocaleString()} / 30,000</small>{shown("jd") && <small className="ls-field-error" role="alert">{shown("jd")}</small>}</label>
         <fieldset className="ls-tones"><legend>Find your voice</legend><p>Choose how you’d like to come across.</p><div>{tones.map(item => <button key={item} aria-pressed={tone === item} className={tone === item ? "selected" : ""} onClick={() => setTone(item)}>{tone === item && <Check size={12} />}{item}</button>)}</div></fieldset>
-        <button className="ls-advanced" aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}><ChevronDown size={14} className={advanced ? "rotated" : ""} /> Recipient details</button>{advanced && <label className="ls-label">Hiring manager<input value={hiringManagerName} onChange={event => setHiringManagerName(event.target.value)} placeholder="Name, if known" maxLength={180} /></label>}
+        <button className="ls-advanced" aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}><ChevronDown size={14} className={advanced ? "rotated" : ""} /> Recipient details</button>{advanced && <label className="ls-label">Hiring manager<input value={hiringManagerName} onChange={event => setHiringManagerName(cleanNameInput(event.target.value))} onBlur={() => touch("manager")} aria-invalid={Boolean(shown("manager"))} placeholder="Name, if known" maxLength={80} />{shown("manager") && <small className="ls-field-error" role="alert">{shown("manager")}</small>}</label>}
         <button className="ls-button ls-primary ls-generate" onClick={generate} disabled={generating || saving || !resumeId}>{generating ? <LoaderCircle size={17} /> : <Sparkles size={17} />}{generating ? "Writing your letter…" : active ? "Generate a fresh draft" : "Generate my letter"}<ArrowRight size={16} /></button><p className="ls-generation-note">{active ? "Creates a new letter. Your current draft stays saved." : "Built from your resume. Refined by you."}</p>
         <details className="ls-history"><summary>Saved letters <span>{context.letters.length}</span></summary>{context.letters.length ? context.letters.map(letter => <button key={letter._id} className={active?._id === letter._id ? "selected" : ""} onClick={() => switchLetter(letter)}><FileText size={16} /><span><strong>{letter.companyName || letter.roleTitle || "General application"}</strong><small>{letter.status === "final" ? "Final" : "Draft"} · {new Date(letter.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</small></span></button>) : <p>Your first letter will appear here.</p>}</details>
       </aside>

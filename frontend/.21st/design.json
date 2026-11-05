@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "project": {
+    "name": "@placeble/frontend",
+    "productType": null,
+    "stack": [
+      "react",
+      "vite"
+    ]
+  },
+  "sources": {
+    "tokens": [],
+    "components": [
+      "src/components/ui"
+    ],
+    "assets": [],
+    "instructions": []
+  },
+  "design": {
+    "colorMode": "unknown",
+    "colors": {},
+    "typography": {},
+    "spacing": {},
+    "radius": {},
+    "shadows": {},
+    "motion": {},
+    "density": "unknown"
+  },
+  "components": {
+    "installed": [
+      "pagination",
+      "readiness-score-ring"
+    ],
+    "preferredPrimitives": [],
+    "patterns": []
+  },
+  "constraints": {
+    "must": [],
+    "avoid": []
+  },
+  "decisions": [],
+  "evidence": [
+    {
+      "fact": "components.installed",
+      "source": "src/components/ui"
+    },
+    {
+      "fact": "project.stack:react",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:vite",
+      "source": "package.json"
+    }
+  ],
+  "generatedAt": "2026-10-31T17:51:34.657Z"
+}

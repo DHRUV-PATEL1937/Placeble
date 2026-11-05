@@ -6,7 +6,7 @@ type Block = { kind: "heading" | "entry" | "meta" | "body" | "bullet"; text: str
 function blocksFor(resume: Resume): Block[] {
   const blocks: Block[] = [];
   for (const section of [...resume.sections].sort((a, b) => a.order - b.order)) {
-    if (section.content.hidden) continue;
+    if (section.content?.hidden) continue;
     const content: Block[] = [];
     if (section.content.text?.trim()) content.push({ kind: "body", text: section.content.text });
     if (section.content.items?.length) content.push({ kind: "body", text: section.content.items.join("  ·  ") });

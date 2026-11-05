@@ -1,0 +1,14 @@
+.ob-mark { display: inline-grid; flex: none; place-items: center; overflow: hidden; border-radius: 10px; background: color-mix(in srgb, var(--tp-accent, #3a4a9a) 16%, var(--surface)); color: var(--tp-accent, #3a4a9a); font-weight: 700; letter-spacing: 0.02em; }
+.ob-mark.has-logo { background: #fff; border: 1px solid var(--border); }
+.ob-mark img { width: 100%; height: 100%; object-fit: contain; padding: 3px; }
+.ob-brand { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 12px; margin: 18px 0 2px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft, var(--surface)); }
+.ob-brand > span:last-child { display: grid; flex: 1; gap: 2px; min-width: 0; line-height: 1.3; }
+.ob-brand b { display: -webkit-box; overflow: hidden; color: var(--text-primary); font-size: 14px; font-weight: 650; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.ob-brand small { overflow: hidden; color: var(--text-secondary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.ob-brand + nav { padding-top: 0; }
+.ob-uploader { display: flex; align-items: flex-start; gap: 16px; }
+.ob-uploader > div { min-width: 0; }
+.ob-uploader p { margin: 2px 0 10px; color: var(--text-secondary); font-size: 13.5px; line-height: 1.45; }
+.ob-uploader-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ob-uploader .ob-uploader-error { margin: 8px 0 0; color: var(--pb-danger, #c0392b); font-weight: 500; }
+.ob-brand small.ob-pilot { color: var(--pb-amber-500, #d99a00); font-weight: 600; }

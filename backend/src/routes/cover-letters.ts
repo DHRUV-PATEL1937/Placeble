@@ -9,6 +9,7 @@ import { User } from "../models/User";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { generateCoverLetter } from "../services/cover-letter-service";
 import { getResumeJob, queueResumeJob, renderSimpleTextPdf, type ResumeSection } from "../services/resume-service";
+import { meter } from "../middleware/usage-limit";
 
 const router = Router();
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Select a valid item.");
@@ -32,7 +33,7 @@ router.get("/jobs/:jobId", (request, response) => {
   return job ? response.json({ job }) : response.status(404).json({ message: "That writing job was not found." });
 });
 
-router.post("/generate", async (request, response) => {
+router.post("/generate", meter("cover_letter"), async (request, response) => {
   const input = z.object({
     resumeId: objectId,
     tone: toneSchema.default("Professional"),

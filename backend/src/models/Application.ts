@@ -12,6 +12,7 @@ const applicationSchema = new Schema({
   notes: { type: String, maxlength: 4000, default: "" },
 }, { timestamps: true });
 applicationSchema.index({ studentId: 1, jobId: 1 }, { unique: true });
+applicationSchema.post("findOneAndUpdate", document => { if (document) void import("../services/readiness-service").then(({ scheduleReadiness }) => scheduleReadiness(String(document.studentId), "application_updated")).catch(console.error); });
 applicationSchema.post("save", document => { void import("../services/readiness-service").then(({ recomputeReadiness }) => recomputeReadiness(String(document.studentId), "application_updated")).catch(console.error); });
 type ApplicationShape = InferSchemaType<typeof applicationSchema>;
 export const Application = (models.Application as Model<ApplicationShape> | undefined) ?? model<ApplicationShape>("Application", applicationSchema);

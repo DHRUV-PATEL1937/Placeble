@@ -1,0 +1,11 @@
+/* Text fields never draw the browser/outline ring. Each field shows exactly one focus
+   indicator of its own (border colour, or its wrapper's border), so nothing ever doubles up.
+   Loaded last so it wins over every page stylesheet. Checkboxes, radios and buttons keep their outline. */
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"]):is(:focus, :focus-visible),
+textarea:is(:focus, :focus-visible),
+select:is(:focus, :focus-visible) { outline: none !important; outline-offset: 0 !important; }
+
+/* Fields that sit inside a bordered wrapper: the wrapper shows the focus line, the field shows none. */
+.ic-composer textarea:is(:focus, :focus-visible),
+.ic-search input:is(:focus, :focus-visible) { box-shadow: none !important; }
+.ic-composer textarea:is(:focus, :focus-visible) { border: 0 !important; }

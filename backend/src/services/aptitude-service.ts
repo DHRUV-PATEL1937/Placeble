@@ -4,7 +4,7 @@ import { env } from "../config/env";
 import { AptitudeAttempt } from "../models/AptitudeAttempt";
 import { AptitudeQuestion, aptitudeCategories, aptitudeDifficulties } from "../models/AptitudeQuestion";
 import { aptitudeQuestionSeeds, ensureAptitudeQuestionBank, getDynamicQuestionBankStatus, refreshDynamicAptitudeQuestionBank } from "./aptitude-question-bank";
-import { callTextAi } from "./interview-ai-service";
+import { executeCodeAgainstCases } from "./coding-service";
 
 export type AptitudeCategory = typeof aptitudeCategories[number];
 export type AptitudeDifficulty = typeof aptitudeDifficulties[number];
@@ -220,29 +220,27 @@ async function judgeOne(code: string, language: string, testCase: { input: strin
   return { passed: payload.status?.id === 3, status: payload.status?.description ?? "Unknown", output: payload.stdout ? Buffer.from(payload.stdout, "base64").toString().trim() : "", error: payload.stderr || payload.compile_output ? Buffer.from(payload.stderr ?? payload.compile_output ?? "", "base64").toString().slice(0, 500) : "" };
 }
 
-async function aiEvaluateCoding(input: { code: string; language: string; prompt: string; cases: Array<{ input: string; expectedOutput: string }> }) {
-  const prompt = `You are a careful coding-practice evaluator. There is no code execution runtime available, so provide a cautious AI estimate only.
-Problem: ${input.prompt}
-Language: ${input.language}
-Student code:\n${input.code}
-Visible tests: ${JSON.stringify(input.cases)}
-Return strict JSON only: {"results":[{"passed":boolean,"status":string,"output":string}],"estimatedRuntimeMs":number,"extraTests":[{"input":string,"expectedOutput":string}]}. Add 3 to 5 useful edge-case tests not already visible. Estimate runtime in milliseconds as a rough static-analysis guess, never claim it is measured. Do not invent a passing result when the code is clearly invalid.`;
-  const raw = await callTextAi(prompt, 900);
-  const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] ?? raw) as { results?: Array<{ passed?: boolean; status?: string; output?: string }>; estimatedRuntimeMs?: number; extraTests?: Array<{ input?: string; expectedOutput?: string }> };
-  const results = (parsed.results ?? []).slice(0, input.cases.length).map(result => ({ passed: Boolean(result.passed), status: result.status ?? "AI estimate", output: result.output ?? "" }));
-  return { passed: results.filter(result => result.passed).length, total: results.length, results, estimatedRuntimeMs: Math.max(1, Math.round(parsed.estimatedRuntimeMs ?? 0)), extraTests: (parsed.extraTests ?? []).filter(test => typeof test.input === "string" && typeof test.expectedOutput === "string").slice(0, 5), aiEstimated: true };
-}
-
 export async function runCodingQuestion(input: { questionId: string; language: string; code: string; visibleOnly: boolean }) {
   const question = await AptitudeQuestion.findById(input.questionId).lean() as unknown as PlainQuestion | null;
   if (!question || question.category !== "coding") throw new Error("That coding question was not found.");
   if (!languageIds[input.language]) throw new Error("Choose a supported language.");
   const cases = (question.testCases ?? []).filter(testCase => !input.visibleOnly || !testCase.hidden);
-  if (!env.JUDGE0_ENDPOINT) return aiEvaluateCoding({ code: input.code, language: input.language, prompt: question.prompt, cases });
-  const results = [];
-  const startedAt = Date.now();
-  for (const testCase of cases) results.push(await judgeOne(input.code, input.language, testCase));
-  return { passed: results.filter(result => result.passed).length, total: results.length, results: input.visibleOnly ? results : results.map(result => ({ passed: result.passed, status: result.status })), estimatedRuntimeMs: Date.now() - startedAt, aiEstimated: false };
+
+  const report = await executeCodeAgainstCases({
+    code: input.code,
+    language: input.language,
+    testCases: cases,
+    problemTitle: question.title ? String(question.title) : (question.prompt ? question.prompt.slice(0, 60) : undefined),
+    problemPrompt: question.prompt,
+  });
+
+  return {
+    passed: report.passed,
+    total: report.total,
+    results: input.visibleOnly
+      ? report.results
+      : report.results.map(result => ({ passed: result.passed, status: result.status })),
+  };
 }
 
 export async function gradeCodingAndCompleteAttempt(attemptId: string, userId: string) {

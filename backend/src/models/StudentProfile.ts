@@ -14,6 +14,19 @@ const studentProfileSchema = new Schema({
   embeddingProfileVersion: { type: Number, min: 0, default: 0 },
   dismissedJobIds: [{ type: Schema.Types.ObjectId, ref: "Job" }],
   onboardingCompleted: { type: Boolean, default: false },
+  dateOfBirth: { type: Date, default: null },
+  programCode: { type: String, default: null },
+  admissionYear: { type: Number, default: null },
+  // Students under 18 need a parent or guardian to agree before they can use Placeble.
+  guardianConsent: {
+    status: { type: String, enum: ["not_required", "pending", "granted", "declined"], default: "not_required" },
+    guardianName: { type: String, default: "" },
+    guardianEmail: { type: String, default: "" },
+    tokenHash: { type: String, default: null },
+    tokenExpiresAt: { type: Date, default: null },
+    requestedAt: { type: Date, default: null },
+    respondedAt: { type: Date, default: null },
+  },
 }, { timestamps: true });
 
 type StudentProfileShape = InferSchemaType<typeof studentProfileSchema>;

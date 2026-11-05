@@ -128,7 +128,8 @@ router.get("/candidates", requireAuth, requireRole("recruiter"), async (request,
   }
   const institutionIds = [driveGrant.institutionId.toString()];
   const cohorts = await Promise.all(institutionIds.map(institutionReadiness));
-  const students = cohorts.flatMap(cohort => cohort.students);
+  // Recruiters only see students who have used every required agent, so every score they see is a full one.
+  const students = cohorts.flatMap(cohort => cohort.students).filter(student => student.complete);
   await ConsentAccessLog.insertMany(students.map(student => ({ studentId: student.id, actorId: request.auth!.userId, actorRole: "recruiter", action: "candidate_profile_viewed", purpose: "Approved placement drive candidate review", driveId: requestedDrive })), { ordered: false });
   const shortlisted = await RecruiterShortlist.find({ recruiterId: request.auth!.userId, candidateId: { $in: students.map(student => student.id) } }).select("candidateId").lean();
   const scores = students.map(student => student.readiness);

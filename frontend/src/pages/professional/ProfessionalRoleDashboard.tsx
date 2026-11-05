@@ -41,6 +41,7 @@ import { CSSProperties, FormEvent, useCallback, useEffect, useMemo, useState } f
 import { DriveWorkflowPanel, InterventionQueue, NotificationCentre } from "@/components/workflow/workflow-panels";
 import { useWorkspaceRoute } from "@/hooks/use-workspace-route";
 import { Pagination } from "@/components/ui/pagination";
+import { InstitutionChat } from "@/pages/chat/InstitutionChat";
 import "./roster-upload.css";
 
 type Role = "tpo" | "recruiter" | "faculty";
@@ -59,20 +60,21 @@ type Student = {
   skills: string[];
 };
 
-const API_URL = import.meta.env.VITE_API_URL ?? "/api/v1";
+const API_URL = import.meta.env.VITE_API_URL || (typeof window !== "undefined" && window.location.hostname === "localhost" ? "/api/v1" : "https://api.placeble.in/api/v1");
 
 type InvitationRow = { email: string; role: string; sent: string; status: string; activationUrl?: string };
 const initialInvites: InvitationRow[] = [];
 
 const navByRole: Record<Role, string[]> = {
-  tpo: ["Overview", "Students", "Interventions", "Roster", "Pending students", "Access requests", "Settings"],
+  tpo: ["Overview", "Students", "Messages", "Interventions", "Roster", "Pending students", "Access requests", "Settings"],
   recruiter: ["Overview", "My Institutes", "Marketplace", "My requests", "Candidates", "Drive access", "Shortlist", "Interviews", "Progress"],
-  faculty: ["Cohort", "Interventions", "At risk", "Progress"],
+  faculty: ["Cohort", "Messages", "Interventions", "At risk", "Progress"],
 };
 
 const navIcons: Record<string, typeof LayoutDashboard> = {
   Overview: LayoutDashboard,
   Students: UsersRound,
+  Messages: MessageSquareText,
   Interventions: AlertTriangle,
   Roster: FileSpreadsheet,
   "Pending students": CalendarDays,
@@ -90,10 +92,10 @@ const navIcons: Record<string, typeof LayoutDashboard> = {
   "At risk": TrendingDown,
 };
 
-const navLabels: Record<string, string> = { Overview: "Home", Interventions: "Students needing help", Roster: "Upload student list", "Pending students": "Students waiting", "My Institutes": "My colleges", Marketplace: "Find colleges", "My requests": "My access requests", Candidates: "Students", "Drive access": "Hiring drive access", Shortlist: "Saved students", Progress: "Results", Cohort: "My students", "At risk": "Students needing help" };
+const navLabels: Record<string, string> = { Overview: "Home", Students: "Students", Messages: "Student Messages", Interventions: "Students needing help", Roster: "Upload student list", "Pending students": "Students waiting", "My Institutes": "My colleges", Marketplace: "Find colleges", "My requests": "My access requests", Candidates: "Students", "Drive access": "Hiring drive access", Shortlist: "Saved students", Progress: "Results", Cohort: "My students", "At risk": "Students needing help" };
 
 function Brand() {
-  return <div className="prd-brand"><span><img src="/placeble-symbol-color.svg" alt="" /></span><strong>placeble</strong></div>;
+  return <div className="prd-brand"><span><img src="/placeble-logo.png" alt="" /></span><strong>placeble</strong></div>;
 }
 
 function initials(name: string) {
@@ -248,8 +250,8 @@ function FacultyProgress({ students, onView }: { students: Student[]; onView: (s
   return <section className="prd-progress-grid"><article className="prd-panel"><header className="prd-panel-head"><div><h2>Priority students</h2><p>Based on current persisted readiness status</p></div></header>{priority.length ? <div className="prd-followups">{priority.map(student => <button key={student.id} onClick={() => onView(student)}><span>{initials(student.name)}</span><p><strong>{student.name}</strong><small>Current status: {student.status}</small></p><em>{student.readiness}</em><ChevronRight size={16} /></button>)}</div> : <div className="prd-data-state"><UserCheck size={24} /><strong>No current priority students</strong><span>No student in scope is marked stalled or at risk.</span></div>}</article><article className="prd-panel prd-mentor-notes"><header className="prd-panel-head"><div><h2>Suggested conversation</h2><p>General mentoring prompt</p></div></header><span><MessageSquareText size={20} /></span><h3>“What is one preparation task that feels unclear right now?”</h3><p>This is a reusable coaching prompt, not a claim about student activity.</p><button onClick={() => navigator.clipboard?.writeText("What is one preparation task that feels unclear right now?")}>Copy prompt</button></article></section>;
 }
 
-function StudentModal({ student, onClose, role, shortlisted, onShortlist }: { student: Student; onClose: () => void; role: Role; shortlisted: boolean; onShortlist: (student: Student) => void }) {
-  return <div className="prd-modal-layer"><button className="prd-modal-scrim" onClick={onClose} aria-label="Close profile" /><section className="prd-profile-modal" role="dialog" aria-modal="true"><header><div className="prd-profile-avatar">{initials(student.name)}</div><div><span>{student.branch}</span><h2>{student.name}</h2><p>{student.email}</p></div><button onClick={onClose} aria-label="Close profile"><X size={19} /></button></header><div className="prd-profile-score"><div className="prd-profile-ring"><span>{student.readiness}</span></div><div><small>Overall readiness</small><h3>{student.status === "Ready" ? "Strong placement readiness" : student.status === "At risk" ? "Focused support recommended" : "Current evidence snapshot"}</h3><StatusPill status={student.status} /></div></div><div className="prd-subscore-grid">{[["Resume",student.resume],["Aptitude",student.aptitude],["Interview",student.interview]].map(([label,value]) => <div key={label}><span>{label}<strong>{value}</strong></span><i><b style={{ width: `${value}%` }} /></i></div>)}</div><div className="prd-profile-section"><span>Demonstrated skills</span><div>{student.skills.length ? student.skills.map(skill => <em key={skill}>{skill}</em>) : <small>No skills recorded.</small>}</div></div><div className="prd-profile-section"><span>Activity detail</span><p><CheckCircle2 size={15} /> The cohort API provides current evidence scores, not a timestamped activity narrative.</p></div><footer>{role === "faculty" ? <button className="prd-secondary" onClick={() => window.location.href = `mailto:${student.email}`}><Mail size={15} /> Email student</button> : role === "recruiter" ? <button className="prd-primary" onClick={() => onShortlist(student)}>{shortlisted ? <><Check size={15} /> Shortlisted</> : <><Plus size={15} /> Add to shortlist</>}</button> : <button className="prd-primary" onClick={() => window.location.href = `mailto:${student.email}`}><MessageSquareText size={15} /> Contact student</button>}<button className="prd-secondary" onClick={onClose}>Close</button></footer></section></div>;
+function StudentModal({ student, onClose, role, shortlisted, onShortlist, onMessageStudent }: { student: Student; onClose: () => void; role: Role; shortlisted: boolean; onShortlist: (student: Student) => void; onMessageStudent?: (student: Student) => void }) {
+  return <div className="prd-modal-layer"><button className="prd-modal-scrim" onClick={onClose} aria-label="Close profile" /><section className="prd-profile-modal" role="dialog" aria-modal="true"><header><div className="prd-profile-avatar">{initials(student.name)}</div><div><span>{student.branch}</span><h2>{student.name}</h2><p>{student.email}</p></div><button onClick={onClose} aria-label="Close profile"><X size={19} /></button></header><div className="prd-profile-score"><div className="prd-profile-ring"><span>{student.readiness}</span></div><div><small>Overall readiness</small><h3>{student.status === "Ready" ? "Strong placement readiness" : student.status === "At risk" ? "Focused support recommended" : "Current evidence snapshot"}</h3><StatusPill status={student.status} /></div></div><div className="prd-subscore-grid">{[["Resume",student.resume],["Aptitude",student.aptitude],["Interview",student.interview]].map(([label,value]) => <div key={label}><span>{label}<strong>{value}</strong></span><i><b style={{ width: `${value}%` }} /></i></div>)}</div><div className="prd-profile-section"><span>Demonstrated skills</span><div>{student.skills.length ? student.skills.map(skill => <em key={skill}>{skill}</em>) : <small>No skills recorded.</small>}</div></div><div className="prd-profile-section"><span>Activity detail</span><p><CheckCircle2 size={15} /> The cohort API provides current evidence scores, not a timestamped activity narrative.</p></div><footer>{role === "faculty" ? <button className="prd-secondary" onClick={() => onMessageStudent ? onMessageStudent(student) : window.location.href = `mailto:${student.email}`}><MessageSquareText size={15} /> Message student</button> : role === "recruiter" ? <button className="prd-primary" onClick={() => onShortlist(student)}>{shortlisted ? <><Check size={15} /> Shortlisted</> : <><Plus size={15} /> Add to shortlist</>}</button> : <button className="prd-primary" onClick={() => onMessageStudent ? onMessageStudent(student) : window.location.href = `mailto:${student.email}`}><MessageSquareText size={15} /> Message student</button>}<button className="prd-secondary" onClick={onClose}>Close</button></footer></section></div>;
 }
 
 type RosterEntry = { _id: string; email: string; fullName: string; rollNumber: string; branch: string; batchYear?: number | null; status: "matched" | "unmatched"; uploadedAt: string };
@@ -470,6 +472,7 @@ export function ProfessionalRoleDashboard({ user, accessToken, onLogout }: { use
   };
 
   const renderView = () => {
+    if (["tpo", "faculty"].includes(role) && active === "Messages") return <InstitutionChat role="tpo" accessToken={accessToken} />;
     if (role === "tpo" && active === "Roster") return <RosterView accessToken={accessToken} onToast={showToast} />;
     if (role === "tpo" && active === "Pending students") return <PendingStudentsView accessToken={accessToken} onToast={showToast} />;
     if (role === "tpo" && active === "Access requests") return <div className="tenancy-stack"><MarketplaceRequestQueue accessToken={accessToken} onToast={showToast} /><AccessRequestsView accessToken={accessToken} onToast={showToast} /></div>;
@@ -500,7 +503,7 @@ export function ProfessionalRoleDashboard({ user, accessToken, onLogout }: { use
     <button className={`prd-sidebar-scrim ${mobileOpen ? "show" : ""}`} onClick={() => setMobileOpen(false)} aria-label="Close navigation" />
     <aside className={`prd-sidebar ${mobileOpen ? "open" : ""}`}><div className="prd-side-head"><Brand /><button onClick={() => setMobileOpen(false)} aria-label="Close navigation"><X size={18} /></button></div><span className="prd-nav-label">Workspace</span><nav>{navItems.map(item => { const Icon = navIcons[item] ?? LayoutDashboard; return <button key={item} className={active === item ? "active" : ""} onClick={() => { setActive(item); setMobileOpen(false); }}><Icon size={18} /><span>{navLabels[item] ?? item}</span>{item === "Shortlist" && <em>{shortlisted.length}</em>}</button>; })}</nav><div className="prd-access"><ShieldCheck size={17} /><div><strong>{role === "faculty" ? "View-only access" : role === "recruiter" ? "Approved drive access" : "College access"}</strong><span>{role === "faculty" ? "You can view information, but cannot change it." : "Access is limited to your approved account."}</span></div></div><button className="prd-user" onClick={() => setSignOutOpen(true)}><i>{initials(user.name)}</i><span><strong>{user.name}</strong><small>{user.email}</small></span><em>Sign out</em></button></aside>
     <main className="prd-main"><header className="prd-topbar"><button className="prd-menu" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={19} /></button><div className="prd-toolbar-actions"><div className="prd-search"><Search size={17} /><input value={search} onChange={event => { const value = event.target.value; setSearch(value); if (value.trim()) setActive(role === "recruiter" ? "Candidates" : role === "faculty" ? "Cohort" : "Students"); }} placeholder={`Search ${role === "recruiter" ? "candidates and skills" : "students and activity"}`} /></div><NotificationCentre accessToken={accessToken} onOpen={setActive} /><button className="prd-icon-button prd-theme-toggle" onClick={() => setDark(value => !value)} aria-label={dark ? "Use light mode" : "Use dark mode"} title={dark ? "Use light mode" : "Use dark mode"}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button></div></header><div className="prd-content"><section className="prd-page-head"><div><p>{role === "faculty" ? "Teacher view" : role === "tpo" ? "Placement team" : "Hiring team"}</p><h1>{title}</h1><span>{subtitle}</span></div>{role === "recruiter" && <button onClick={() => { setActive("Shortlist"); showToast("Showing your current shortlist."); }}><UserCheck size={16} /> View shortlist</button>}</section>{role === "faculty" && <div className="prd-readonly"><Eye size={16} /><span><strong>View-only page.</strong> You can view student progress and contact students, but cannot change their records.</span></div>}{renderView()}</div></main>
-    {selectedStudent && <StudentModal student={selectedStudent} onClose={() => setSelectedStudent(null)} role={role} shortlisted={shortlisted.includes(selectedStudent.id)} onShortlist={student => void toggleShortlist(student)} />}
+    {selectedStudent && <StudentModal student={selectedStudent} onClose={() => setSelectedStudent(null)} role={role} shortlisted={shortlisted.includes(selectedStudent.id)} onShortlist={student => void toggleShortlist(student)} onMessageStudent={() => { setActive("Messages"); setSelectedStudent(null); }} />}
 
     {signOutOpen && <div className="prd-modal-layer" role="dialog" aria-modal="true" aria-labelledby="signout-title"><button className="prd-modal-scrim" onClick={() => setSignOutOpen(false)} aria-label="Cancel sign out" /><section className="prd-signout-dialog"><span className="prd-modal-icon"><LogOut size={20} /></span><p>Account session</p><h2 id="signout-title">Sign out of Placeble?</h2><small>You will need to sign in again to return to this workspace.</small><div><button type="button" onClick={() => setSignOutOpen(false)}>Stay signed in</button><button type="button" className="danger" onClick={onLogout}>Sign out</button></div></section></div>}
     {toast && <div className="prd-toast"><CheckCircle2 size={17} /><span>{toast}</span><button onClick={() => setToast("")}><X size={15} /></button></div>}

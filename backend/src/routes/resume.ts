@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomUUID } from "node:crypto";
 import multer from "multer";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../middleware/auth";
@@ -16,11 +17,14 @@ import {
   renderResumePdf,
   scoreResumeWithEmbeddings,
   storeExport,
+  storePersistentExport,
   type ResumeSection,
 } from "../services/resume-service";
 import { runResumeCopilot } from "../services/resume-copilot-service";
 import { fitResumeToOnePage } from "../services/resume-renderer";
 import { markStudentMatchingProfileChanged } from "../services/matching-service";
+import { cloudinaryEnabled, privateDownloadUrl, uploadPrivateRaw, type StoredCloudinaryFile } from "../services/cloudinary-service";
+import { meter } from "../middleware/usage-limit";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 }, fileFilter: (_request, file, callback) => callback(null, /\.(pdf|docx)$/i.test(file.originalname)) });
@@ -74,7 +78,7 @@ router.get("/jobs/:jobId", (request, response) => {
   return job ? response.json({ job }) : response.status(404).json({ message: "That resume job was not found." });
 });
 
-router.post("/generate", async (request, response) => {
+router.post("/generate", meter("resume_ai"), async (request, response) => {
   const input = z.object({ targetJdText: z.string().max(30000).optional().default("") }).parse(request.body);
   const [profile, user] = await Promise.all([
     StudentProfile.findOne({ userId: request.auth!.userId }).lean(),
@@ -119,22 +123,28 @@ router.post("/upload", upload.single("resume"), async (request, response) => {
   if (!request.file) return response.status(400).json({ message: "Choose a PDF or DOCX resume to continue." });
   const file = request.file;
   const userId = request.auth!.userId;
+  // A LinkedIn profile link the student pasted alongside their LinkedIn PDF export. Only real profile links are kept.
+  const linkedinMatch = String(request.body?.linkedinUrl ?? "").trim().match(/^(?:https?:\/\/)?(?:[a-z]{2,3}\.|www\.)?linkedin\.com\/in\/([A-Za-z0-9_%-]{3,100})\/?(?:\?.*)?$/i);
+  const linkedinUrl = linkedinMatch ? `https://www.linkedin.com/in/${linkedinMatch[1]}` : "";
+  if (String(request.body?.linkedinUrl ?? "").trim() && !linkedinUrl) return response.status(400).json({ message: "That doesn’t look like a LinkedIn profile link. It should look like linkedin.com/in/your-name." });
   const job = queueResumeJob(userId, "resume:parseUpload", "Reading sections from your existing resume", async () => {
     const parsed = await parseResumeUpload(file);
-    const previous = await Resume.findOne({ studentId: userId }).sort({ versionNumber: -1 }).select("versionNumber _id").lean();
-    await Resume.updateMany({ studentId: userId, isCurrent: true }, { isCurrent: false });
-    const resume = await Resume.create({
-      studentId: userId,
+    const originalFile = cloudinaryEnabled() ? await uploadPrivateRaw(file.buffer, { publicId: `${userId}/original-${randomUUID()}` }) : null;
+    const current = await Resume.findOne({ studentId: userId, isCurrent: true }).select("_id").lean();
+    const payload = {
       title: parsed.title,
-      personalDetails: parsed.personalDetails,
+      personalDetails: linkedinUrl ? { ...parsed.personalDetails, linkedin: linkedinUrl } : parsed.personalDetails,
       sections: parsed.sections,
-      sourceType: "uploaded",
+      sourceType: "uploaded" as const,
       atsScore: parsed.atsScore,
       atsBreakdown: { keywordOverlap: parsed.keywordOverlap, semanticSimilarity: parsed.semanticSimilarity, missingKeywords: parsed.missingKeywords },
-      versionNumber: (previous?.versionNumber ?? 0) + 1,
-      parentVersionId: previous?._id ?? null,
-      isCurrent: true,
-    });
+      fileUrl: "",
+      originalFile: originalFile ? { ...originalFile, originalName: file.originalname, mimeType: file.mimetype } : null,
+    };
+    const resume = current
+      ? await Resume.findByIdAndUpdate(current._id, payload, { returnDocument: "after", runValidators: true })
+      : await Resume.create({ ...payload, studentId: userId, versionNumber: 1, parentVersionId: null, isCurrent: true });
+    if (!resume) throw new Error("The uploaded resume could not be saved.");
     await markStudentMatchingProfileChanged(userId);
     return { resume, found: { sections: parsed.sections.filter(section => Object.values(section.content).some(value => Array.isArray(value) ? value.length : Boolean(value))).length, characters: parsed.rawTextLength } };
   });
@@ -164,7 +174,7 @@ router.post("/score", async (request, response) => {
   return response.status(202).json({ job });
 });
 
-router.post("/copilot", async (request, response) => {
+router.post("/copilot", meter("resume_ai"), async (request, response) => {
   const input = z.object({
     message: z.string().trim().min(1).max(2400),
     conversation: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string().max(2400) })).max(20).default([]),
@@ -172,6 +182,12 @@ router.post("/copilot", async (request, response) => {
       title: z.string().max(140),
       sections: z.array(sectionSchema).min(1).max(20),
       targetJdText: z.string().max(30000).optional().default(""),
+      design: resumeDesignSchema,
+      personalDetails: z.object({
+        hasPhoto: z.boolean().default(false),
+        professionalTitle: z.string().max(180).default(""),
+        location: z.string().max(180).default(""),
+      }).default({ hasPhoto: false, professionalTitle: "", location: "" }),
     }),
   }).parse(request.body);
   const [profile, user] = await Promise.all([
@@ -204,6 +220,7 @@ router.post("/versions", async (request, response) => {
     template: current.template,
     personalDetails: current.personalDetails,
     design: current.design,
+    originalFile: current.originalFile,
     versionNumber: current.versionNumber + 1,
     parentVersionId: current._id,
     isCurrent: true,
@@ -229,6 +246,7 @@ router.post("/versions/:versionId/restore", async (request, response) => {
     template: source.template,
     personalDetails: source.personalDetails,
     design: source.design,
+    originalFile: source.originalFile,
     versionNumber: (latest?.versionNumber ?? 0) + 1,
     parentVersionId: source._id,
     isCurrent: true,
@@ -242,7 +260,14 @@ router.post("/new", async (request, response) => {
   return response.json({ ok: true });
 });
 
-router.post("/fit", async (request, response) => {
+router.get("/original", async (request, response) => {
+  const resume = await Resume.findOne({ studentId: request.auth!.userId, isCurrent: true }).select("originalFile").lean();
+  const originalFile = resume?.originalFile as (StoredCloudinaryFile & { originalName?: string; mimeType?: string }) | null;
+  if (!originalFile?.publicId || !cloudinaryEnabled()) return response.status(404).json({ message: "There is no stored original resume." });
+  return response.json({ fileUrl: privateDownloadUrl(originalFile, originalFile.originalName || `resume.${originalFile.format || "pdf"}`), filename: originalFile.originalName || "resume" });
+});
+
+router.post("/fit", meter("resume_ai"), async (request, response) => {
   const [resume, user] = await Promise.all([
     Resume.findOne({ studentId: request.auth!.userId, isCurrent: true }),
     User.findById(request.auth!.userId).select("name email").lean(),
@@ -273,8 +298,9 @@ router.post("/export/:format", async (request, response) => {
     const buffer = format === "pdf" ? await renderResumePdf(user.name, resume.title, sections, options) : await renderResumeDocx(user.name, resume.title, sections, options);
     const filename = `${user.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "")}-resume.${format}`;
     const mimeType = format === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    const exportId = storeExport(userId, filename, mimeType, buffer);
-    const fileUrl = `/api/v1/resume/download/${exportId}`;
+    const persistent = await storePersistentExport(userId, filename, buffer);
+    const exportId = persistent ? "" : storeExport(userId, filename, mimeType, buffer);
+    const fileUrl = persistent?.fileUrl || `/api/v1/resume/download/${exportId}`;
     await Resume.updateOne({ _id: resume._id }, { fileUrl });
     return { fileUrl, filename, format };
   });

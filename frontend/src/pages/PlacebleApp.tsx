@@ -1,90 +1,30 @@
 import {
   AlertCircle,
-  ArrowLeft,
   ArrowRight,
-  BookOpenCheck,
-  BriefcaseBusiness,
   Building2,
   CheckCircle2,
-  ChevronRight,
   CircleUserRound,
   Clock3,
   Eye,
   EyeOff,
-  GraduationCap,
   LockKeyhole,
-  Mail,
-  Moon,
   ShieldCheck,
-  Sparkles,
-  Sun,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { PlacebleDashboard } from "@/pages/student/PlacebleDashboard";
+import { StudentDashboard } from "@/pages/student/StudentDashboard";
+import { BlogReaderPage } from "@/pages/shared/BlogReaderPage";
+import { TpoDashboard } from "@/pages/tpo/TpoDashboard";
+import { UniversityDashboard } from "@/pages/university/UniversityDashboard";
+import { PrincipalDashboard } from "@/pages/principal/PrincipalDashboard";
 import { ProfessionalRoleDashboard } from "@/pages/professional/ProfessionalRoleDashboard";
-import { PlatformAdminConsole } from "@/pages/admin/PlatformAdminConsole";
-
-type Role = "student" | "tpo" | "recruiter" | "faculty" | "platform_admin";
-type AuthUser = {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-  status: "pending" | "active" | "suspended";
-  emailVerified: boolean;
-  institutionId: string | null;
-  recruiterOrgId?: string | null;
-  studentVerificationStatus?: "pending_tpo_approval" | "approved" | "rejected" | "roster_matched" | "pending_domain_approval" | null;
-  onboardingCompleted: boolean;
-  destination: string;
-};
-
-const API_URL = import.meta.env.VITE_API_URL ?? "/api/v1";
-const DEMO_PASSWORD = "Placeble@2026";
-const demoAccounts: { role: Role; label: string; email: string; icon: typeof GraduationCap }[] = [
-  { role: "student", label: "Student", email: "student@placeble.local", icon: GraduationCap },
-  { role: "tpo", label: "TPO / Admin", email: "tpo@placeble.local", icon: Building2 },
-  { role: "recruiter", label: "Recruiter", email: "recruiter@placeble.local", icon: BriefcaseBusiness },
-  { role: "faculty", label: "Faculty", email: "faculty@placeble.local", icon: BookOpenCheck },
-];
-
-function Brand() {
-  return <div className="auth-brand"><img className="placeble-logo-image" src="/placeble-symbol-color.svg" alt="" /><strong>placeble</strong></div>;
-}
-
-function ThemeToggle() {
-  const [dark, setDark] = useState(false);
-  useEffect(() => {
-    const saved = window.localStorage.getItem("placeble-theme");
-    const next = saved === "dark" || (!saved && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    setDark(next);
-    document.documentElement.dataset.theme = next ? "dark" : "light";
-  }, []);
-  const toggle = () => {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.dataset.theme = next ? "dark" : "light";
-    window.localStorage.setItem("placeble-theme", next ? "dark" : "light");
-  };
-  return <button className="auth-theme-toggle" type="button" onClick={toggle} aria-label={dark ? "Use light mode" : "Use dark mode"} title={dark ? "Use light mode" : "Use dark mode"}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button>;
-}
-
-async function apiRequest(path: string, options: RequestInit = {}) {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...options.headers },
-  });
-  const payload = response.status === 204 ? null : await response.json().catch(() => null);
-  if (!response.ok && response.status !== 202) {
-    const fieldMessage = Object.values(payload?.fields ?? {}).flat().find(value => typeof value === "string");
-    const error = new Error(fieldMessage ?? payload?.message ?? "Something went wrong. Please try again.") as Error & { code?: string; status?: number };
-    error.code = payload?.code;
-    error.status = response.status;
-    throw error;
-  }
-  return { response, payload };
-}
+import { AdminConsole } from "@/pages/admin/AdminConsole";
+import { AuthScreen } from "@/pages/auth/AuthScreen";
+import { EmailActionScreen } from "@/pages/auth/EmailActionScreen";
+import { FirstLoginPasswordScreen } from "@/pages/auth/FirstLoginPasswordScreen";
+import { OnboardingScreen } from "@/pages/auth/OnboardingScreen";
+import { GuardianConsentScreen } from "@/pages/auth/GuardianConsentScreen";
+import { LegalPage } from "@/pages/legal/LegalPage";
+import { API_URL, Brand, ThemeToggle, apiRequest, type AuthUser } from "@/pages/auth/auth-shared";
 
 function PasswordStrength({ password }: { password: string }) {
   const checks = [password.length >= 8, /[A-Z]/.test(password), /[a-z]/.test(password), /[0-9]/.test(password)];
@@ -93,7 +33,9 @@ function PasswordStrength({ password }: { password: string }) {
 }
 
 type ActivationState = "checking" | "valid" | "expired" | "already_used" | "invalid";
-type ActivationInvite = { email: string; name?: string; role: "tpo" | "faculty"; institutionId: string; institutionName: string; expiresAt: string };
+const ROLE_NAME = { tpo: "Institute TPO", faculty: "Faculty", principal: "Principal", university_admin: "University TPO" } as const;
+const ROLE_BADGE = { tpo: "Institution administrator", faculty: "Read-only faculty", principal: "Read-only reports", university_admin: "University administrator" } as const;
+type ActivationInvite = { email: string; name?: string; role: "tpo" | "faculty" | "principal" | "university_admin"; institutionId: string | null; institutionName: string; expiresAt: string };
 
 function ActivationScreen({ token, onAuthenticated, onReturnToSignIn }: { token: string; onAuthenticated: (user: AuthUser, accessToken: string) => void; onReturnToSignIn: () => void }) {
   const [state, setState] = useState<ActivationState>(() => token.length < 20 ? "invalid" : "checking");
@@ -162,8 +104,8 @@ function ActivationScreen({ token, onAuthenticated, onReturnToSignIn }: { token:
     <section className="activation-form-side">
       <div className="activation-mobile-brand"><Brand /></div>
       {state === "checking" ? <div className="activation-loading" aria-live="polite"><span className="button-spinner" /><p className="auth-form-kicker">Checking invitation</p><h2>Verifying your secure link…</h2><p>This should take only a moment.</p></div> : state === "valid" && invite ? <div className="activation-form-wrap">
-        <header className="auth-heading"><span className="auth-form-kicker">{invite.role} invitation</span><h2>Activate your account.</h2><p>Create the credentials you will use for {invite.institutionName}.</p></header>
-        <div className="activation-context"><Building2 size={19} /><div><strong>{invite.institutionName}</strong><span>{invite.email}</span></div><em>{invite.role === "faculty" ? "Read-only faculty" : "Institution administrator"}</em></div>
+        <header className="auth-heading"><span className="auth-form-kicker">{ROLE_NAME[invite.role]} invitation</span><h2>Activate your account.</h2><p>Create the credentials you will use for {invite.institutionName}.</p></header>
+        <div className="activation-context"><Building2 size={19} /><div><strong>{invite.institutionName}</strong><span>{invite.email}</span></div><em>{ROLE_BADGE[invite.role]}</em></div>
         <form className="auth-form" onSubmit={activate}>
           <label><span>Full name</span><div className="auth-input"><CircleUserRound size={18} /><input value={name} onChange={event => setName(event.target.value)} placeholder="Your full name" required autoComplete="name" /></div></label>
           <label><span>Create password</span><div className="auth-input"><LockKeyhole size={18} /><input type={showPassword ? "text" : "password"} value={password} onChange={event => setPassword(event.target.value)} placeholder="At least 8 characters" required autoComplete="new-password" /><button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div><PasswordStrength password={password} /></label>
@@ -175,142 +117,6 @@ function ActivationScreen({ token, onAuthenticated, onReturnToSignIn }: { token:
       </div> : <div className={`activation-state ${state}`}><span>{stateCopy.icon}</span><p className="auth-form-kicker">{stateCopy.kicker}</p><h2>{stateCopy.title}</h2><p>{stateCopy.body}</p><button className="button button-primary" onClick={onReturnToSignIn}>{state === "already_used" ? "Go to sign in" : "Return to sign in"}<ArrowRight size={16} /></button></div>}
     </section>
   </main>;
-}
-
-function AccessRequestScreen({ mode, onBack, onAuthenticated, onPending }: { mode: "institution" | "recruiter"; onBack: () => void; onAuthenticated: (user: AuthUser, accessToken: string) => void; onPending: () => void }) {
-  const [name, setName] = useState(""); const [organizationName, setOrganizationName] = useState(""); const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [note, setNote] = useState(""); const [showPassword, setShowPassword] = useState(false); const [loading, setLoading] = useState(false); const [error, setError] = useState(""); const [notice, setNotice] = useState("");
-  const submit = async (event: FormEvent) => { event.preventDefault(); setLoading(true); setError(""); setNotice(""); try { if (mode === "institution") { const { payload } = await apiRequest("/auth/institution-leads", { method: "POST", body: JSON.stringify({ institutionName: organizationName, contactName: name, workEmail: email, note }) }); setNotice(payload.message); } else { const { response, payload } = await apiRequest("/auth/recruiter-register", { method: "POST", body: JSON.stringify({ name, companyName: organizationName, email, password }) }); if (response.status === 202) onPending(); else onAuthenticated(payload.user, payload.accessToken); } } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not submit this request."); } finally { setLoading(false); } };
-  return <main className="auth-page"><section className="auth-story"><Brand /><div className="auth-story-copy"><span className="auth-kicker"><ShieldCheck size={14} /> {mode === "institution" ? "Manual tenant onboarding" : "Verified recruiter network"}</span><h1>{mode === "institution" ? "Bring your institution into a workspace of its own." : "Verify once. Build trusted campus relationships."}</h1><p>{mode === "institution" ? "Every college receives a fully isolated tenant, configured with approved domains and a secure first-admin activation." : "Register with your company email. Placeble verifies the organization once; each institution still controls access to every drive."}</p></div><div className="auth-story-footer"><span><ShieldCheck size={15} /> Tenant-safe by design</span><span>© 2026 Placeble</span></div></section><section className="auth-form-side"><div className="auth-mobile-head"><Brand /></div><div className="auth-form-wrap"><button className="auth-back" onClick={onBack}><ArrowLeft size={16} /> Back to sign in</button><header className="auth-heading"><span className="auth-form-kicker">{mode === "institution" ? "Institution enquiry" : "Recruiter registration"}</span><h2>{mode === "institution" ? "Talk to our institution team." : "Register your company."}</h2><p>{mode === "institution" ? "This form starts a conversation; it never creates a tenant automatically." : "Use your work email so the company domain can be reviewed securely."}</p></header><form className="auth-form" onSubmit={submit}><label><span>Your full name</span><div className="auth-input"><CircleUserRound size={18} /><input required value={name} onChange={event => setName(event.target.value)} /></div></label><label><span>{mode === "institution" ? "Institution name" : "Company name"}</span><div className="auth-input"><Building2 size={18} /><input required value={organizationName} onChange={event => setOrganizationName(event.target.value)} /></div></label><label><span>Work email</span><div className="auth-input"><Mail size={18} /><input required type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder={mode === "institution" ? "you@college.edu" : "you@company.com"} /></div></label>{mode === "institution" ? <label><span>What should we know? <em>optional</em></span><textarea className="access-note" value={note} onChange={event => setNote(event.target.value)} placeholder="Student count, placement team size, or preferred timeline" /></label> : <label><span>Create password</span><div className="auth-input"><LockKeyhole size={18} /><input required type={showPassword ? "text" : "password"} value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password" /><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div><PasswordStrength password={password} /></label>}{error && <div className="auth-message error"><AlertCircle size={17} /><span>{error}</span></div>}{notice && <div className="auth-message success"><CheckCircle2 size={17} /><span>{notice}</span></div>}<button className="auth-submit" disabled={loading || Boolean(notice)}>{loading ? <><span className="button-spinner" /> Submitting securely</> : <>{mode === "institution" ? "Request institution onboarding" : "Submit company registration"}<ArrowRight size={17} /></>}</button></form></div></section></main>;
-}
-
-function AuthScreen({ onAuthenticated, onCompanyPending, onStudentPending, sessionExpired = false }: { onAuthenticated: (user: AuthUser, accessToken: string) => void; onCompanyPending: () => void; onStudentPending: () => void; sessionExpired?: boolean }) {
-  const initialPath = window.location.pathname;
-  const [view, setView] = useState<"login" | "signup" | "forgot">(() => initialPath === "/signup/student" ? "signup" : initialPath === "/forgot-password" ? "forgot" : "login");
-  const [portal, setPortal] = useState<"student" | "institution">(() => initialPath === "/login/staff" ? "institution" : "student");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [errorCode, setErrorCode] = useState("");
-
-  useEffect(() => { if (sessionExpired) setNotice("Your session ended due to inactivity. Please sign in again."); }, [sessionExpired]);
-  const [accessMode, setAccessMode] = useState<"institution" | "recruiter" | null>(() => initialPath === "/request/institution" ? "institution" : initialPath === "/register/recruiter" ? "recruiter" : null);
-  const navigateAccess = (mode: "institution" | "recruiter" | null) => {
-    const path = mode === "institution" ? "/request/institution" : mode === "recruiter" ? "/register/recruiter" : portal === "institution" ? "/login/staff" : "/login/student";
-    window.history.pushState({ accessMode: mode }, "", path); setAccessMode(mode); setError(""); setNotice("");
-  };
-  const navigateAuth = (nextView: "login" | "signup" | "forgot", nextPortal = portal) => {
-    const path = nextView === "signup" ? "/signup/student" : nextView === "forgot" ? "/forgot-password" : nextPortal === "institution" ? "/login/staff" : "/login/student";
-    window.history.pushState({ view: nextView, portal: nextPortal }, "", path); setView(nextView); setPortal(nextPortal); setError(""); setNotice("");
-  };
-  useEffect(() => {
-    if (window.location.pathname === "/") window.history.replaceState({}, "", "/login/student");
-    const onPopState = () => { const path = window.location.pathname; setView(path === "/signup/student" ? "signup" : path === "/forgot-password" ? "forgot" : "login"); setPortal(path === "/login/staff" ? "institution" : "student"); setAccessMode(path === "/request/institution" ? "institution" : path === "/register/recruiter" ? "recruiter" : null); };
-    window.addEventListener("popstate", onPopState); return () => window.removeEventListener("popstate", onPopState);
-  }, []);
-
-  const title = view === "signup" ? "Make your next move." : view === "forgot" ? "Let’s get you back in." : portal === "student" ? "Your future is in progress." : "Welcome to your workspace.";
-  const helper = view === "signup" ? "Create your student profile and build a preparation plan that moves with you." : view === "forgot" ? "Share the email on your account and we’ll send a secure reset link." : portal === "student" ? "Pick up where you left off and keep your career momentum going." : "Sign in with the email invited by your institution.";
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setLoading(true); setError(""); setErrorCode(""); setNotice("");
-    try {
-      if (view === "forgot") {
-        const { payload } = await apiRequest("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) });
-        setNotice(payload.message + (payload.delivery === "provider_not_configured" ? " Email delivery will activate when a provider is configured." : ""));
-      } else {
-        const path = view === "signup" ? "/auth/register" : "/auth/login";
-        const body = view === "signup" ? { name, email, password } : { email, password, portal };
-        const { response, payload } = await apiRequest(path, { method: "POST", body: JSON.stringify(body) });
-        if (response.status === 202 && payload.code === "ACCOUNT_PENDING") {
-          onStudentPending();
-          return;
-        }
-        onAuthenticated(payload.user, payload.accessToken);
-      }
-    } catch (submitError) {
-      setErrorCode((submitError as Error & { code?: string }).code ?? "");
-      setError(submitError instanceof Error ? submitError.message : "Something went wrong. Please try again.");
-    } finally { setLoading(false); }
-  };
-
-  const fillDemo = (account: typeof demoAccounts[number]) => {
-    navigateAuth("login", account.role === "student" ? "student" : "institution");
-    setEmail(account.email);
-    setPassword(DEMO_PASSWORD);
-    setError("");
-  };
-
-  if (accessMode) return <AccessRequestScreen mode={accessMode} onBack={() => navigateAccess(null)} onAuthenticated={onAuthenticated} onPending={onCompanyPending} />;
-  return <main className="auth-page">
-    <ThemeToggle />
-    <section className="auth-story">
-      <Brand />
-      <div className="auth-story-copy">
-        <span className="auth-kicker"><Sparkles size={14} /> Your career, with a clear next step</span>
-        <h1>Small steps today. A stronger start tomorrow.</h1>
-        <p>Practice what matters, see how far you’ve come, and get ready for the opportunity that fits you.</p>
-        <div className="auth-score-preview">
-          <div className="auth-score-ring"><span>72</span></div>
-          <div><small>Your progress, at a glance</small><strong>A plan built around your goals.</strong><p>Skills, practice, and opportunities—all moving in one direction.</p></div>
-        </div>
-      </div>
-      <div className="auth-story-footer"><span><ShieldCheck size={15} /> Secure, role-aware access</span><span>© 2026 Placeble</span></div>
-    </section>
-
-    <section className="auth-form-side">
-      <div className="auth-mobile-head"><Brand /></div>
-      <div className="auth-form-wrap">
-        {view !== "login" && <button className="auth-back" onClick={() => navigateAuth("login")}><ArrowLeft size={16} /> Back to sign in</button>}
-        <header className="auth-heading"><span className="auth-form-kicker">{view === "signup" ? "Student account" : view === "forgot" ? "Account recovery" : portal === "student" ? "Student workspace" : "Invited accounts"}</span><h2>{title}</h2><p>{helper}</p></header>
-        <form className="auth-form" onSubmit={submit}>
-          {view === "signup" && <label><span>Full name</span><div className="auth-input"><CircleUserRound size={18} /><input value={name} onChange={event => setName(event.target.value)} placeholder="Your full name" required autoComplete="name" /></div></label>}
-          <label><span>Email address</span><div className="auth-input"><Mail size={18} /><input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder={portal === "student" ? "you@example.com" : "you@institution.edu"} required autoComplete="email" /></div></label>
-          {view !== "forgot" && <label><span>Password</span><div className="auth-input"><LockKeyhole size={18} /><input type={showPassword ? "text" : "password"} value={password} onChange={event => setPassword(event.target.value)} placeholder="Enter your password" required autoComplete={view === "signup" ? "new-password" : "current-password"} /><button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>{view === "signup" && <PasswordStrength password={password} />}</label>}
-          {view === "login" && <div className="auth-row"><label className="remember"><input type="checkbox" /> <span>Keep me signed in</span></label><button type="button" className="auth-link" onClick={() => navigateAuth("forgot")}>Forgot password?</button></div>}
-          {error && <div className="auth-message error"><AlertCircle size={17} /><span>{error}</span></div>}
-          {errorCode === "DOMAIN_NOT_RECOGNIZED" && <button type="button" className="auth-domain-help" onClick={() => navigateAccess("institution")}><Building2 size={15} /> Ask your institution to contact Placeble</button>}
-          {notice && <div className="auth-message success"><CheckCircle2 size={17} /><span>{notice}</span></div>}
-          <button className="auth-submit" disabled={loading}>{loading ? <><span className="button-spinner" /> Please wait</> : <>{view === "signup" ? "Create student account" : view === "forgot" ? "Send recovery email" : "Sign in securely"}<ArrowRight size={17} /></>}</button>
-        </form>
-
-        {view === "login" && <button className="portal-toggle" onClick={() => navigateAuth("login", portal === "student" ? "institution" : "student")}>
-          {portal === "student" ? <><Building2 size={16} /> Sign in as institution, recruiter, or faculty</> : <><GraduationCap size={16} /> Return to student sign in</>}<ChevronRight size={15} />
-        </button>}
-
-        {view === "login" && portal === "student" && <p className="auth-switch">New to Placeble? <button onClick={() => navigateAuth("signup", "student")}>Create your student account</button></p>}
-        {view === "signup" && <p className="auth-switch">Already have an account? <button onClick={() => navigateAuth("login", "student")}>Sign in</button></p>}
-
-        {view === "login" && <div className="access-entry-grid"><button onClick={() => navigateAccess("institution")}><Building2 size={17} /><span><strong>New institution?</strong><small>Contact our onboarding team</small></span><ChevronRight size={15} /></button><button onClick={() => navigateAccess("recruiter")}><BriefcaseBusiness size={17} /><span><strong>Recruiter company?</strong><small>Register for verification</small></span><ChevronRight size={15} /></button></div>}
-
-        {view === "login" && <details className="demo-access"><summary><strong>Local demo access</strong><span>Choose a role to fill the login safely.</span><ChevronRight size={16} /></summary><div className="demo-grid">{demoAccounts.map(account => { const Icon = account.icon; return <button key={account.role} onClick={() => fillDemo(account)} className={email === account.email ? "selected" : ""}><Icon size={16} /><span>{account.label}</span></button>; })}</div></details>}
-      </div>
-      <p className="auth-terms">By continuing, you agree to Placeble’s Terms and Privacy Policy.</p>
-    </section>
-  </main>;
-}
-
-function Onboarding({ user, accessToken, onComplete, onLogout }: { user: AuthUser; accessToken: string; onComplete: (user: AuthUser) => void; onLogout: () => void }) {
-  const [step, setStep] = useState(1);
-  const [degree, setDegree] = useState("");
-  const [year, setYear] = useState("2027");
-  const [skills, setSkills] = useState("React, JavaScript, SQL");
-  const [roles, setRoles] = useState("Software Engineer, Product Analyst");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const complete = async () => {
-    setLoading(true); setError("");
-    try {
-      const { payload } = await apiRequest("/auth/onboarding", { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ degree, graduationYear: Number(year), skills: skills.split(",").map(item => item.trim()).filter(Boolean), preferredRoles: roles.split(",").map(item => item.trim()).filter(Boolean) }) });
-      onComplete(payload.user);
-    } catch (submitError) { setError(submitError instanceof Error ? submitError.message : "Could not save your profile."); }
-    finally { setLoading(false); }
-  };
-  return <main className="onboarding-page"><header><Brand /><button onClick={onLogout}>Sign out</button></header><section className="onboarding-shell"><div className="onboarding-progress"><span>Step {step} of 3</span><div>{[1,2,3].map(item => <i key={item} className={item <= step ? "active" : ""} />)}</div></div><div className="onboarding-copy"><span className="auth-form-kicker">Welcome, {user.name.split(" ")[0]}</span><h1>{step === 1 ? "Start with your education." : step === 2 ? "Add the skills you can show." : "What kind of work interests you?"}</h1><p>{step === 1 ? "This helps Placeble set the right preparation level." : step === 2 ? "Use commas to separate skills. You can refine these later." : "Your preferences shape job matches and interview practice."}</p></div><div className="onboarding-fields">{step === 1 && <><label><span>Degree or programme</span><input value={degree} onChange={event => setDegree(event.target.value)} placeholder="B.Tech Computer Science" /></label><label><span>Graduation year</span><input type="number" value={year} onChange={event => setYear(event.target.value)} /></label></>}{step === 2 && <label><span>Your current skills</span><textarea value={skills} onChange={event => setSkills(event.target.value)} /></label>}{step === 3 && <label><span>Preferred roles</span><textarea value={roles} onChange={event => setRoles(event.target.value)} /></label>}</div>{error && <div className="auth-message error"><AlertCircle size={17} />{error}</div>}<div className="onboarding-actions">{step > 1 && <button className="button button-secondary" onClick={() => setStep(step - 1)}>Back</button>}<button className="button button-primary" disabled={(step === 1 && !degree) || loading} onClick={() => step < 3 ? setStep(step + 1) : complete()}>{loading ? "Saving…" : step < 3 ? "Continue" : "Complete profile"}<ArrowRight size={16} /></button></div></section></main>;
 }
 
 function SessionScreen({ type, pendingReason, onLogout }: { type: "pending" | "suspended"; pendingReason: "institution" | "company"; onLogout: () => void }) {
@@ -378,11 +184,20 @@ export function PlacebleApp() {
       return () => window.clearTimeout(timer);
     }
     let active = true;
+    const safetyTimer = window.setTimeout(() => {
+      if (active) setChecking(false);
+    }, 10000);
     apiRequest("/auth/refresh", { method: "POST", body: "{}" })
       .then(({ payload }) => { if (active) { setUser(payload.user); setAccessToken(payload.accessToken); } })
       .catch(() => undefined)
-      .finally(() => { if (active) setChecking(false); });
-    return () => { active = false; };
+      .finally(() => {
+        window.clearTimeout(safetyTimer);
+        if (active) setChecking(false);
+      });
+    return () => {
+      active = false;
+      window.clearTimeout(safetyTimer);
+    };
   }, []);
 
   useEffect(() => {
@@ -400,6 +215,20 @@ export function PlacebleApp() {
     };
   }, [accessToken, renewAccessToken]);
 
+  // Inside the Android app the shell exposes its push token; hand it to the API so this user gets phone notifications.
+  useEffect(() => {
+    if (!accessToken) return;
+    const register = (info?: { token?: string | null; platform?: string }) => {
+      if (!info?.token) return;
+      void apiRequest("/push/register", { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ token: info.token, platform: info.platform === "ios" ? "ios" : "android" }) }).catch(() => undefined);
+    };
+    const app = (window as unknown as { __PLACEBLE_APP__?: { token?: string | null; platform?: string } }).__PLACEBLE_APP__;
+    register(app);
+    const onReady = (event: Event) => register((event as CustomEvent).detail);
+    window.addEventListener("placeble-app-ready", onReady);
+    return () => window.removeEventListener("placeble-app-ready", onReady);
+  }, [accessToken]);
+
   useEffect(() => {
     const nativeFetch = window.fetch.bind(window);
     const isApiRequest = (input: RequestInfo | URL) => {
@@ -410,6 +239,8 @@ export function PlacebleApp() {
     window.fetch = async (input, init) => {
       const response = await nativeFetch(input, init);
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      // A free-plan limit was hit: let the student dashboard show the upgrade prompt, wherever the request came from.
+      if (response.status === 402 && isApiRequest(input)) void response.clone().json().then(payload => { if (payload?.code === "LIMIT_REACHED") window.dispatchEvent(new CustomEvent("placeble:limit", { detail: payload })); }).catch(() => undefined);
       if (!isApiRequest(input) || url.includes("/auth/refresh") || response.status !== 401) return response;
       const payload = await response.clone().json().catch(() => null);
       if (payload?.code !== "ACCESS_EXPIRED") return response;
@@ -439,12 +270,20 @@ export function PlacebleApp() {
     setActivationRoute({ active: false, token: "" });
   };
 
-  if (checking) return <main className="auth-loading"><Brand /><div className="placeble-loading-logo"><span className="loading-orbit-dot" aria-hidden="true" /><img src="/placeble-symbol-color.svg" alt="" /></div><div className="placeble-loading-wordmark"><img src="/placeble-logo-horizontal-reversed.svg" alt="Placeble" /></div><span className="placeble-loading-orbit" aria-hidden="true" /><p>Preparing your workspace…</p></main>;
+  if (window.location.pathname === "/guardian-consent") return <GuardianConsentScreen />;
+  if (window.location.pathname === "/terms" || window.location.pathname === "/privacy") return <LegalPage kind={window.location.pathname === "/terms" ? "terms" : "privacy"} />;
+  if (checking) return <main className="auth-loading"><Brand /><span /><p>Preparing your workspace…</p></main>;
+  if (["/reset-password", "/verify-email"].includes(window.location.pathname)) return <EmailActionScreen verify={window.location.pathname === "/verify-email"} onReturn={returnToSignIn} />;
   if (activationRoute.active) return <ActivationScreen token={activationRoute.token} onAuthenticated={(nextUser, token) => { setActivationRoute({ active: false, token: "" }); authenticated(nextUser, token); }} onReturnToSignIn={returnToSignIn} />;
   if (sessionState) return <SessionScreen type={sessionState} pendingReason={pendingReason} onLogout={logout} />;
   if (!user) return <AuthScreen sessionExpired={sessionExpired} onAuthenticated={authenticated} onCompanyPending={() => { setPendingReason("company"); setSessionState("pending"); }} onStudentPending={() => { setPendingReason("institution"); setSessionState("pending"); }} />;
-  if (user.role === "student" && !user.onboardingCompleted) return <Onboarding user={user} accessToken={accessToken} onComplete={setUser} onLogout={logout} />;
-  if (user.role === "student") return <PlacebleDashboard user={user} accessToken={accessToken} onLogout={logout} />;
-  if (user.role === "platform_admin") return <PlatformAdminConsole user={user} accessToken={accessToken} onLogout={logout} />;
+  if (user.mustChangePassword) return <FirstLoginPasswordScreen user={user} accessToken={accessToken} onDone={authenticated} onLogout={logout} />;
+  if (window.location.pathname === "/blog" || window.location.pathname.startsWith("/blog/")) return <BlogReaderPage accessToken={accessToken} />;
+  if (user.role === "student" && !user.onboardingCompleted) return <OnboardingScreen user={user} accessToken={accessToken} onComplete={setUser} onLogout={logout} />;
+  if (user.role === "student") return <StudentDashboard user={user} accessToken={accessToken} onLogout={logout} />;
+  if (user.role === "platform_admin") return <AdminConsole user={user} accessToken={accessToken} onLogout={logout} />;
+  if (user.role === "university_admin") return <UniversityDashboard user={{ name: user.name, email: user.email }} accessToken={accessToken} onLogout={logout} branding={user.branding} />;
+  if (user.role === "principal") return <PrincipalDashboard user={{ name: user.name, email: user.email }} accessToken={accessToken} onLogout={logout} branding={user.branding} />;
+  if (user.role === "tpo") return <TpoDashboard user={{ name: user.name, email: user.email, role: user.role }} accessToken={accessToken} onLogout={logout} branding={user.branding} />;
   return <ProfessionalRoleDashboard user={{ name: user.name, email: user.email, role: user.role }} accessToken={accessToken} onLogout={logout} />;
 }

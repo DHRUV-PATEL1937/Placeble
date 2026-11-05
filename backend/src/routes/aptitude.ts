@@ -1,3 +1,6 @@
+import { StudentProfile } from "../models/StudentProfile";
+import { programByCode, programHasCoding } from "../services/program-service";
+import { meter } from "../middleware/usage-limit";
 import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../middleware/auth";
@@ -40,7 +43,7 @@ router.post("/question-bank/refresh", (request, response) => {
   return response.status(202).json({ job });
 });
 
-router.post("/attempts", async (request, response) => {
+router.post("/attempts", meter("aptitude"), async (request, response) => {
   await expireElapsedAptitudeAttempts(request.auth!.userId);
   const input = z.object({
     sections: z.array(z.enum(practiceCategories)).min(1).max(3),
@@ -98,4 +101,96 @@ router.post("/attempts/:attemptId/abandon", async (request, response) => {
   return attempt ? response.json({ ok: true }) : response.status(404).json({ message: "This attempt is no longer active." });
 });
 
+import {
+  getCodingProblemById,
+  getCodingProblemsCatalog,
+  runVisibleCode,
+  saveCodingWorkspace,
+  submitFullSolution,
+} from "../services/coding-service";
+
+// ============================================================================
+// CODING SUB-AGENT ROUTES (LeetCode-style Arena & Multi-Language IDE)
+// ============================================================================
+
+/** Coding practice is its own tool, offered only to programmes that include it. */
+router.use("/coding", async (request, response, next) => {
+  const profile = await StudentProfile.findOne({ userId: request.auth!.userId }).select("programCode").lean();
+  if (!programHasCoding(await programByCode(profile?.programCode))) return response.status(403).json({ code: "TOOL_NOT_IN_PROGRAMME", message: "Coding practice isn’t part of your programme." });
+  return next();
+});
+
+router.get("/coding/problems", async (request, response) => {
+  const filter = {
+    topic: typeof request.query.topic === "string" ? request.query.topic : undefined,
+    difficulty: typeof request.query.difficulty === "string" ? request.query.difficulty : undefined,
+    search: typeof request.query.search === "string" ? request.query.search : undefined,
+    status: (typeof request.query.status === "string" && ["all", "solved", "attempted", "todo"].includes(request.query.status))
+      ? (request.query.status as "all" | "solved" | "attempted" | "todo")
+      : undefined,
+  };
+  const catalog = await getCodingProblemsCatalog(request.auth!.userId, filter);
+  return response.json(catalog);
+});
+
+router.get("/coding/problems/:id", async (request, response) => {
+  try {
+    const problem = await getCodingProblemById(request.params.id, request.auth!.userId);
+    return response.json({ problem });
+  } catch (err) {
+    return response.status(404).json({ message: err instanceof Error ? err.message : "Problem not found" });
+  }
+});
+
+router.put("/coding/problems/:id/workspace", async (request, response) => {
+  const input = z.object({
+    language: z.enum(["javascript", "python", "java", "cpp", "typescript", "c", "go"]),
+    codePerLanguage: z.partialRecord(z.enum(["javascript", "python", "java", "cpp", "typescript", "c", "go"]), z.string().max(60000)),
+  }).parse(request.body);
+  try {
+    return response.json(await saveCodingWorkspace({ ...input, codePerLanguage: input.codePerLanguage as Record<string, string>, problemId: request.params.id, userId: request.auth!.userId }));
+  } catch (error) {
+    return response.status(400).json({ message: error instanceof Error ? error.message : "Could not save workspace" });
+  }
+});
+
+router.post("/coding/run", async (request, response) => {
+  const input = z.object({
+    problemId: z.string().min(12),
+    language: z.enum(["javascript", "python", "java", "cpp", "typescript", "c", "go"]),
+    code: z.string().min(1).max(60000),
+    customInput: z.string().max(20000).optional(),
+  }).parse(request.body);
+
+  try {
+    const report = await runVisibleCode(input);
+    return response.json({ report });
+  } catch (err) {
+    return response.status(400).json({
+      message: err instanceof Error ? err.message : "Failed to run code.",
+    });
+  }
+});
+
+router.post("/coding/submit", async (request, response) => {
+  const input = z.object({
+    problemId: z.string().min(12),
+    language: z.enum(["javascript", "python", "java", "cpp", "typescript", "c", "go"]),
+    code: z.string().min(1).max(60000),
+  }).parse(request.body);
+
+  try {
+    const submission = await submitFullSolution({
+      ...input,
+      userId: request.auth!.userId,
+    });
+    return response.json(submission);
+  } catch (err) {
+    return response.status(400).json({
+      message: err instanceof Error ? err.message : "Submission failed.",
+    });
+  }
+});
+
 export { router as aptitudeRouter };
+

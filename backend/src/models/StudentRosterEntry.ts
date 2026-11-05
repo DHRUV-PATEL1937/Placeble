@@ -7,6 +7,8 @@ const studentRosterEntrySchema = new Schema({
   fullName: { type: String, required: true, trim: true },
   rollNumber: { type: String, default: "", trim: true },
   branch: { type: String, default: "", trim: true },
+  branchId: { type: Schema.Types.ObjectId, ref: "Branch", default: null, index: true },
+  batchId: { type: Schema.Types.ObjectId, ref: "Batch", default: null, index: true },
   batchYear: { type: Number, default: null },
   uploadBatchId: { type: Schema.Types.ObjectId, ref: "RosterUploadBatch", required: true, index: true },
   matchedUserId: { type: Schema.Types.ObjectId, ref: "User", default: null },

@@ -1,5 +1,5 @@
 import { Bell, BriefcaseBusiness, Check, ChevronRight, Eye, ShieldAlert, Target, UsersRound } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "/api/v1";
 async function workflowApi(path: string, token: string, init: RequestInit = {}) {
@@ -18,13 +18,31 @@ export function StudentActionPlanPanel({ accessToken, onOpen }: { accessToken: s
   return <section className="workflow-panel"><header><span><Target size={19} /></span><div><p>Your next steps</p><h3>What to work on next</h3></div></header>{error ? <div className="workflow-empty">{error}</div> : <div className="workflow-list">{items.map(item => <article className={item.status} key={item._id}><button className="workflow-check" onClick={() => void complete(item)} aria-label={`Complete ${item.title}`}><Check size={15} /></button><div><strong>{item.title}</strong><p>{item.detail}</p></div><button onClick={() => onOpen(item.href)}>Open <ChevronRight size={15} /></button></article>)}</div>}</section>;
 }
 
-type Notice = { _id: string; title: string; body: string; href?: string; readAt?: string | null; createdAt: string };
+type Notice = { _id: string; title: string; body: string; href?: string; ctaLabel?: string; priority?: "info" | "important" | "urgent"; readAt?: string | null; createdAt: string };
 export function NotificationCentre({ accessToken, onOpen }: { accessToken: string; onOpen?: (view: string) => void }) {
   const [open, setOpen] = useState(false); const [items, setItems] = useState<Notice[]>([]);
+  const box = useRef<HTMLDivElement>(null);
+  // Close when the user clicks or taps anywhere else, or presses Escape (the bell is no longer the only way out).
+  useEffect(() => {
+    if (!open) return;
+    const away = (event: Event) => { if (box.current && !box.current.contains(event.target as Node)) setOpen(false); };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", escape); };
+  }, [open]);
   const load = useCallback(() => workflowApi("/notifications", accessToken).then(data => setItems(data.notifications ?? [])).catch(() => setItems([])), [accessToken]);
   useEffect(() => { void load(); }, [load]); const unread = items.filter(item => !item.readAt).length;
-  const read = async (item: Notice) => { if (!item.readAt) await workflowApi(`/notifications/${item._id}/read`, accessToken, { method: "PATCH" }); if (item.href) onOpen?.(item.href); await load(); };
-  return <div className="workflow-notifications"><button className="icon-button" onClick={() => setOpen(value => !value)} aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}><Bell size={18} />{unread > 0 && <i>{unread}</i>}</button>{open && <div className="workflow-notification-menu"><header><strong>Notifications</strong><span>{unread} unread</span></header>{items.length ? items.slice(0, 8).map(item => <button className={item.readAt ? "" : "unread"} key={item._id} onClick={() => void read(item)}><Bell size={15} /><span><strong>{item.title}</strong><small>{item.body}</small></span></button>) : <p>You’re all caught up.</p>}</div>}</div>;
+  // Open the destination straight away; marking it read happens in the background so a slow or failed request can never block the click.
+  const read = (item: Notice) => {
+    setOpen(false);
+    if (item.href?.startsWith("https://")) window.open(item.href, "_blank", "noopener,noreferrer"); else if (item.href) onOpen?.(item.href);
+    if (!item.readAt) {
+      setItems(current => current.map(entry => entry._id === item._id ? { ...entry, readAt: new Date().toISOString() } : entry));
+      void workflowApi(`/notifications/${item._id}/read`, accessToken, { method: "PATCH" }).catch(() => undefined).finally(() => { void load(); });
+    }
+  };
+  return <div className="workflow-notifications" ref={box}><button className="icon-button" onClick={() => { if (!open) void load(); setOpen(value => !value); }} aria-expanded={open} aria-haspopup="true" aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}><Bell size={18} />{unread > 0 && <i>{unread}</i>}</button>{open && <div className="workflow-notification-menu"><header><strong>Notifications</strong><span>{unread} unread</span></header>{items.length ? items.slice(0, 8).map(item => <button className={item.readAt ? "" : "unread"} key={item._id} type="button" onClick={() => read(item)}><Bell size={15} /><span><strong>{item.priority && item.priority !== "info" && <em className={`notice-priority ${item.priority}`}>{item.priority === "urgent" ? "Urgent" : "Important"}</em>}{item.title}</strong><small>{item.body}</small>{item.ctaLabel && item.href && <b className="notice-cta">{item.ctaLabel} →</b>}</span>{item.href && <ChevronRight className="notice-go" size={15} aria-hidden="true" />}</button>) : <p>You’re all caught up.</p>}</div>}</div>;
 }
 
 type Intervention = { student: { _id: string; name: string; email: string }; score: number; priority: string; reasons: string[] };

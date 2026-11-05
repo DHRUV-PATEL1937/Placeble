@@ -1,0 +1,28 @@
+.ru { margin-top: 28px; }
+.ru > header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.ru > header > span { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 9px; background: color-mix(in srgb, var(--pb-navy-500) 12%, var(--surface)); color: var(--pb-navy-500); }
+.ru h2 { font-size: 17px; }
+.ru > header small { margin-left: auto; color: var(--text-secondary); font-size: 13px; }
+.ru-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.ru-card { display: flex; flex-direction: column; overflow: hidden; padding: 0; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: inherit; font: inherit; text-align: left; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s; }
+.ru-card:hover { border-color: var(--pb-navy-500); box-shadow: 0 8px 22px rgba(15, 23, 42, 0.1); transform: translateY(-2px); }
+.ru-card:focus-visible { outline: 2px solid var(--pb-navy-500); outline-offset: 2px; }
+.ru-noimg, .ru-frame { display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--surface-soft, #f1f3f6); }
+/* Whole picture over a soft blurred copy of itself: nothing is cropped or enlarged, whatever shape was uploaded. */
+.ru-frame { position: relative; overflow: hidden; }
+.ru-frame img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.ru-frame-bg { object-fit: cover; filter: blur(22px) saturate(1.15); transform: scale(1.2); opacity: 0.55; }
+.ru-frame-img { object-fit: scale-down; }
+.ru-noimg { display: grid; place-items: center; color: var(--text-secondary); }
+.ru-body { display: grid; gap: 4px; padding: 14px 16px 16px; }
+.ru-body em { color: var(--pb-navy-500); font-size: 11.5px; font-style: normal; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.ru-body b { font-size: 15.5px; line-height: 1.3; }
+.ru-body small { display: -webkit-box; overflow: hidden; color: var(--text-secondary); font-size: 13.5px; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.ru-body time { margin-top: 4px; color: var(--text-secondary); font-size: 12.5px; }
+.ru-hero { display: block; width: 100%; max-height: 320px; margin-bottom: 14px; border-radius: 12px; object-fit: cover; }
+.ru-text { display: grid; gap: 12px; color: var(--text-primary); font-size: 15px; line-height: 1.65; }
+.ru-text p { margin: 0; white-space: pre-wrap; }
+@media (prefers-reduced-motion: reduce) { .ru-card { transition: none; } .ru-card:hover { transform: none; } }
+.ru > header a { margin-left: auto; color: var(--pb-navy-500); font-size: 13.5px; font-weight: 600; }
+[data-theme="dark"] .ru > header a { color: #8da0ee; }
+.ru-card { text-decoration: none; }

@@ -6,6 +6,7 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { transcribeStudentRecording } from "../services/interview-ai-service";
 import { storeInterviewRecording } from "../services/interview-storage-service";
 import { abandonGdSession, addStudentTurn, createGdSession, enqueuePersonaTurn, enqueueSessionScore, getGdJob, getGdSummary, interruptPersona, publicGdSession } from "../services/gd-service";
+import { meter } from "../middleware/usage-limit";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 24 * 1024 * 1024 }, fileFilter: (_request, file, callback) => callback(null, /^audio\//.test(file.mimetype)) });
@@ -18,7 +19,7 @@ router.get("/sessions/:sessionId", async (request, response) => {
   return session ? response.json({ session: publicGdSession(session as unknown as Record<string, unknown>) }) : response.status(404).json({ message: "That discussion session was not found." });
 });
 
-router.post("/sessions", async (request, response) => {
+router.post("/sessions", meter("group_discussion"), async (request, response) => {
   const input = z.object({ topic: z.string().trim().min(12).max(300), turnCap: z.number().int().min(6).max(16).default(10), durationMinutes: z.number().int().min(3).max(12).default(6) }).parse(request.body);
   const existing = await GdSession.findOne({ studentId: request.auth!.userId, status: "in_progress" }).select("_id").lean();
   if (existing) return response.status(409).json({ message: "You already have a discussion in progress. Resume or abandon it first.", sessionId: existing._id });

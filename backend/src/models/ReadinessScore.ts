@@ -9,7 +9,18 @@ const componentSchema = new Schema({
   careerActivity: { type: Number, min: 0, max: 100, default: 0 },
 }, { _id: false });
 
+// Which scored agents the student has used at least once. The overall score is shown only when every required one is used.
+const agentSchema = new Schema({
+  key: { type: String, required: true },
+  label: { type: String, required: true },
+  view: { type: String, required: true },
+  used: { type: Boolean, default: false },
+  score: { type: Number, min: 0, max: 100, default: 0 },
+}, { _id: false });
+
 const readinessScoreSchema = new Schema({
+  agents: { type: [agentSchema], default: [] },
+  complete: { type: Boolean, default: false, index: true },
   studentId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
   institutionId: { type: Schema.Types.ObjectId, ref: "Institution", default: null, index: true },
   score: { type: Number, min: 0, max: 100, required: true },
