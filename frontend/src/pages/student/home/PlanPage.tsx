@@ -93,7 +93,7 @@ export function PlanPage({ accessToken, notify }: { accessToken: string; notify:
               </div>
               {upgrade.message && <div className="tp-alert warn" role="status">{upgrade.message}</div>}
               {data.paymentsEnabled === false && <p className="tp-field-hint">Online payments are being set up. Contact support to upgrade in the meantime.</p>}
-              <ul className="st-perks"><li><Check size={15} aria-hidden="true" /> Unlimited AI resume actions</li><li><Check size={15} aria-hidden="true" /> Unlimited mock interviews and aptitude tests</li><li><Check size={15} aria-hidden="true" /> Unlimited cover letters and group discussions</li></ul>
+              <ul className="st-perks"><li><Check size={15} aria-hidden="true" /> Unlimited AI resume actions</li><li><Check size={15} aria-hidden="true" /> Unlimited mock interviews and aptitude tests</li><li><Check size={15} aria-hidden="true" /> Unlimited cover letters, case studies and HR simulations</li></ul>
             </>
           )}
         </Card>

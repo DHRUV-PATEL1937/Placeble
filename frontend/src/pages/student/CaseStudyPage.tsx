@@ -1,5 +1,6 @@
 import { ArrowLeft, ArrowRight, Briefcase, Coins, Cog, RotateCcw, Target, TrendingUp, type LucideIcon } from "lucide-react";
 import { useState } from "react";
+import { AgentHistory } from "./AgentHistory";
 import { ThinkingBot } from "./ThinkingBot";
 import "./case-study.css";
 
@@ -35,6 +36,7 @@ export function CaseStudyLab({ accessToken, onBack }: { accessToken: string; onB
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [results, setResults] = useState(0);
 
   const generate = async (nextFocus: string) => {
     setFocus(nextFocus); setBusy(true); setError("");
@@ -50,7 +52,7 @@ export function CaseStudyLab({ accessToken, onBack }: { accessToken: string; onB
     setBusy(true); setError("");
     try {
       const { evaluation: next } = await api<{ evaluation: Evaluation }>("/case-studies/evaluate", accessToken, { caseStudy, answers });
-      setEvaluation(next); setStage("result");
+      setEvaluation(next); setStage("result"); setResults(count => count + 1);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not review your answers."); }
     finally { setBusy(false); }
   };
@@ -88,6 +90,8 @@ export function CaseStudyLab({ accessToken, onBack }: { accessToken: string; onB
           <p className="cs-note">Every case is newly written by AI, so no two attempts are the same.</p>
         </section>
       )}
+
+      {!busy && (stage === "choose" || stage === "result") && <AgentHistory path="/case-studies/history" accessToken={accessToken} refreshKey={results} empty="Solve your first case and your scores will show up here." />}
 
       {!busy && stage === "preview" && caseStudy && (
         <section className="cs-card">

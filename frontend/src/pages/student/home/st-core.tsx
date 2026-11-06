@@ -1,3 +1,4 @@
+import { useCountUp, useDrawIn } from "@/hooks/use-motion";
 import { BookOpenCheck, Briefcase, Code2, FileText, MessageSquareText, Mic2, UserRoundSearch, UsersRound, type LucideIcon } from "lucide-react";
 
 export type View =
@@ -11,7 +12,7 @@ export const STUDENT_VIEWS: readonly View[] = [
   "Opportunities", "Applications", "Plan", "Coding Practice", "Case Study", "HR Simulator",
 ];
 
-/** Tools that live under "Practice tools" for navigation highlighting and the back button. */
+/** Tools that live under the Career Studio page (Career Studio) for navigation highlighting and the back button. */
 export const TOOL_VIEWS: readonly View[] = ["Resume Maker", "Aptitude Test", "Mock Interview", "Job Matching", "Cover Letter", "Group Discussion", "Coding Practice", "Case Study", "HR Simulator"];
 
 // Product flags
@@ -24,6 +25,8 @@ export type ReadinessPayload = {
   history: Array<{ score: number; calculatedAt: string; reason?: string }>;
   /** Every scored agent, whether the student has used it, and its own score. */
   agents?: Agent[];
+  /** Tools the student can use that don't count for their programme (e.g. the Case Solver outside MBA/BBA). Own score only, no effect on the overall score. */
+  optionalAgents?: Agent[];
   /** How much each area counts for this student (0 to 1). Business programmes weigh differently from IT ones. */
   weights?: Partial<Record<keyof Components, number>>;
   /** True once every required agent has been used at least once. Until then there is no overall score. */
@@ -32,10 +35,19 @@ export type ReadinessPayload = {
   totalCount?: number;
   overall?: number | null;
 };
-export type Agent = { key: string; label: string; view: View; used: boolean; score: number };
+export type Agent = { key: string; label: string; view: View; used: boolean; score: number; /** Percent of the overall score (0 for optional agents). Set per programme. */ weight?: number };
 
+export type ToolCategory = "interviews" | "resume" | "aptitude" | "business" | "jobs";
 export type Tool = {
-  view: View; name: string; description: string; icon: LucideIcon; cta: string; minutes: string; metric: string; done: boolean;
+  view: View; name: string; description: string; icon: LucideIcon; cta: string; minutes: string; metric: string; done: boolean; category: ToolCategory;
+};
+/** Filter chips on the Career Studio page, in display order. */
+export const TOOL_CATEGORIES: Array<{ id: ToolCategory; label: string }> = [
+  { id: "interviews", label: "Interviews" }, { id: "resume", label: "Resume & letters" }, { id: "aptitude", label: "Aptitude & coding" }, { id: "business", label: "Business skills" }, { id: "jobs", label: "Jobs" },
+];
+const CATEGORY_OF: Partial<Record<View, ToolCategory>> = {
+  "Mock Interview": "interviews", "Group Discussion": "interviews", "Resume Maker": "resume", "Cover Letter": "resume",
+  "Aptitude Test": "aptitude", "Coding Practice": "aptitude", "Case Study": "business", "HR Simulator": "business", "Job Matching": "jobs",
 };
 
 export type Guidance = { programCode: string | null; programName: string; interviewStyle: "technical" | "business" | "mixed"; roles: string[]; tools?: { coding: boolean; caseStudy?: boolean; hrSimulator?: boolean } } | null | undefined;
@@ -49,7 +61,7 @@ const ORDER: Record<string, View[]> = {
 
 export function buildTools(readiness: ReadinessPayload | null, guidance?: Guidance): Tool[] {
   const c = readiness?.current?.components;
-  const tools: Tool[] = [
+  const tools: Array<Omit<Tool, "category">> = [
     { view: "Resume Maker", name: "Resume builder", description: "Shape a focused, ATS-ready resume from your profile.", icon: FileText, cta: c?.resume ? "Improve resume" : "Build resume", minutes: "~10 min", metric: c?.resume ? `ATS score ${c.resume}` : "Not started", done: Boolean(c?.resume) },
     { view: "Aptitude Test", name: "Aptitude practice", description: "Strengthen the topics that are holding your score back.", icon: BookOpenCheck, cta: c?.aptitude ? "Practice again" : "Start practice", minutes: "~15 min", metric: c?.aptitude ? `${c.aptitude}% latest` : "Not started", done: Boolean(c?.aptitude) },
     { view: "Mock Interview", name: "Interview Room", description: "Practise role-specific answers and get measured feedback.", icon: Mic2, cta: c?.interview ? "Interview again" : "Start interview", minutes: "~20 min", metric: c?.interview ? `${c.interview}% score` : "Not started", done: Boolean(c?.interview) },
@@ -61,7 +73,7 @@ export function buildTools(readiness: ReadinessPayload | null, guidance?: Guidan
     { view: "Group Discussion", name: "Group discussion", description: "Build clarity, confidence and leadership in a live room.", icon: UsersRound, cta: "Start discussion", minutes: "~15 min", metric: c?.groupDiscussion ? `${c.groupDiscussion}% score` : "Not started", done: Boolean(c?.groupDiscussion) },
   ];
   const order = ORDER[guidance?.interviewStyle ?? "mixed"] ?? ORDER.mixed;
-  return tools.filter(tool => (SHOW_JOB_MATCHING || tool.view !== "Job Matching") && (SHOW_GROUP_DISCUSSION || tool.view !== "Group Discussion") && (tool.view !== "Coding Practice" || guidance?.tools?.coding !== false) && (tool.view !== "Case Study" || guidance?.tools?.caseStudy === true) && (tool.view !== "HR Simulator" || guidance?.tools?.hrSimulator === true)).sort((a, b) => order.indexOf(a.view) - order.indexOf(b.view));
+  return tools.filter(tool => (SHOW_JOB_MATCHING || tool.view !== "Job Matching") && (SHOW_GROUP_DISCUSSION || tool.view !== "Group Discussion") && (tool.view !== "Coding Practice" || guidance?.tools?.coding !== false) && (tool.view !== "Case Study" || guidance?.tools?.caseStudy === true) && (tool.view !== "HR Simulator" || guidance?.tools?.hrSimulator === true)).sort((a, b) => order.indexOf(a.view) - order.indexOf(b.view)).map(tool => ({ ...tool, category: CATEGORY_OF[tool.view] ?? "resume" }));
 }
 
 export function nextBestAction(readiness: ReadinessPayload | null, guidance?: Guidance): { title: string; text: string; view: View; cta: string; tag: string } {
@@ -99,20 +111,24 @@ export function AgentRing({ used, total, size = 148 }: { used: number; total: nu
   const stroke = Math.round(size * 0.08);
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
-  const share = total ? Math.min(1, used / total) : 0;
+  const drawn = useDrawIn(used);
+  const counted = useCountUp(used, 600);
+  const share = total ? Math.min(1, drawn / total) : 0;
   return (
     <div className="st-ring" style={{ width: size, height: size }} role="img" aria-label={`${used} of ${total} agents used`}>
       <svg viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
         <circle cx={size / 2} cy={size / 2} r={radius} strokeWidth={stroke} className="track" />
         <circle cx={size / 2} cy={size / 2} r={radius} strokeWidth={stroke} className="bar" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - share)} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
       </svg>
-      <div><strong style={{ fontSize: size * 0.26 }}>{used}/{total}</strong><small>agents used</small></div>
+      <div><strong style={{ fontSize: size * 0.26 }}>{counted}/{total}</strong><small>agents used</small></div>
     </div>
   );
 }
 
 export function ScoreRing({ score, size = 148, label = "Readiness" }: { score: number; size?: number; label?: string }) {
   const value = Math.max(0, Math.min(100, Math.round(score)));
+  const drawn = useDrawIn(value);
+  const counted = useCountUp(value);
   const stroke = Math.round(size * 0.08);
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -120,9 +136,9 @@ export function ScoreRing({ score, size = 148, label = "Readiness" }: { score: n
     <div className="st-ring" style={{ width: size, height: size }} role="img" aria-label={`${label}: ${value} out of 100`}>
       <svg viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
         <circle cx={size / 2} cy={size / 2} r={radius} strokeWidth={stroke} className="track" />
-        <circle cx={size / 2} cy={size / 2} r={radius} strokeWidth={stroke} className="bar" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - value / 100)} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+        <circle cx={size / 2} cy={size / 2} r={radius} strokeWidth={stroke} className="bar" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - drawn / 100)} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
       </svg>
-      <div><strong style={{ fontSize: size * 0.3 }}>{value}</strong><small>{label}</small></div>
+      <div><strong style={{ fontSize: size * 0.3 }}>{counted}</strong><small>{label}</small></div>
     </div>
   );
 }

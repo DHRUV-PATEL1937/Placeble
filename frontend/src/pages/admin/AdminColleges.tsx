@@ -13,7 +13,7 @@ type Detail = {
   logins: { signedIn: number; invited: number; pending: Array<{ name: string; email: string; invitedAt: string | null }> }; institution: College;
   primaryTpo?: { _id: string; name: string; email: string; status: string; lastLoginAt?: string };
   roster: { total: number; matched: number; unmatched: number; entries: Array<{ _id: string; fullName: string; email: string; rollNumber?: string; branch?: string; batchYear?: number; status: "matched" | "unmatched" }> };
-  engagement: { resumes: number; aptitude: number; interviews: number; groupDiscussions: number; applications: number };
+  engagement: { resumes: number; aptitude: number; interviews: number; groupDiscussions: number; applications: number; coding?: number; caseStudies?: number; hrSimulations?: number };
   readiness: { summary: { studentCount: number; average: number; placementReady: number; atRisk: number; distribution: number[] } };
   drives: Array<{ _id: string; title: string; companyName: string; status: string; startsAt?: string; grants: Array<{ _id: string; status: string; recruiterOrgId?: { companyName: string } }> }>;
 };
@@ -156,7 +156,7 @@ export function CollegeDetail({ id, accessToken, notify, onBack, backLabel = "Al
 
       <div className="tp-grid two">
         <Card title="Product use" description={`How many of ${readiness.summary.studentCount} students use each tool`}>
-          <div className="ad-bars">{([["Resume builder", engagement.resumes], ["Aptitude", engagement.aptitude], ["Interview Room", engagement.interviews], ["Group discussion", engagement.groupDiscussions], ["Job applications", engagement.applications]] as Array<[string, number]>).map(([label, value]) => <div key={label}><span><b>{label}</b><small>{value}</small></span><i aria-hidden="true"><u style={{ width: `${Math.min(100, (value / total) * 100)}%` }} /></i></div>)}</div>
+          <div className="ad-bars">{([["Resume builder", engagement.resumes], ["Aptitude", engagement.aptitude], ["Interview Room", engagement.interviews], ["Coding practice", engagement.coding ?? 0], ["Business Case Solver", engagement.caseStudies ?? 0], ["HR Manager Simulator", engagement.hrSimulations ?? 0]] as Array<[string, number]>).map(([label, value]) => <div key={label}><span><b>{label}</b><small>{value}</small></span><i aria-hidden="true"><u style={{ width: `${Math.min(100, (value / total) * 100)}%` }} /></i></div>)}</div>
         </Card>
         <Card title="Readiness spread" description="Students per score band">
           <div className="tp-chart" role="img" aria-label={`Readiness distribution: ${bands.map((band, index) => `${band}: ${readiness.summary.distribution[index]}`).join(", ")}`}>{bands.map((band, index) => <div key={band}><b>{readiness.summary.distribution[index]}</b><span className={index >= 3 ? "good" : index === 0 ? "low" : ""} style={{ height: `${Math.max(4, (readiness.summary.distribution[index] / peak) * 100)}%` }} /><small>{band}</small></div>)}</div>

@@ -1,5 +1,6 @@
 import { LogOut, Menu, Moon, Sun, X, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { MobileTabBar } from "@/components/layout/MobileTabBar";
 import { Avatar, Modal, Toast, type Notify } from "@/pages/tpo/tpo-core";
 import "@/pages/tpo/tpo.css";
 
@@ -37,7 +38,7 @@ export function WorkspaceShell({ nav, active, onNavigate, user, context, brand, 
   const go = (key: string) => { onNavigate(key); setMenuOpen(false); };
 
   return (
-    <div className="tp-shell">
+    <div className="tp-shell has-tabbar">
       <a className="tp-skip" href="#ws-main">Skip to content</a>
       <div className={`tp-scrim${menuOpen ? " show" : ""}`} onClick={() => setMenuOpen(false)} aria-hidden="true" />
 
@@ -76,8 +77,10 @@ export function WorkspaceShell({ nav, active, onNavigate, user, context, brand, 
             <button type="button" className="tp-icon-btn" onClick={() => setDark(value => !value)} aria-label={dark ? "Use light mode" : "Use dark mode"} title={dark ? "Use light mode" : "Use dark mode"}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button>
           </div>
         </header>
-        <main id="ws-main" className="tp-content">{children({ notify })}</main>
+        <main key={active} id="ws-main" className="tp-content">{children({ notify })}</main>
       </div>
+
+      <MobileTabBar items={nav.flatMap(group => group.items)} active={active} onSelect={go} user={user} onSignOut={() => setSignOutOpen(true)} />
 
       {signOutOpen && (
         <Modal title="Sign out of Placeble?" description="You’ll need to sign in again to return to this workspace." onClose={() => setSignOutOpen(false)}>

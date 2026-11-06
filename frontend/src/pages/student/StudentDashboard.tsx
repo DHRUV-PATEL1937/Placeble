@@ -29,7 +29,7 @@ type StudentUser = { name: string; email: string; branding?: UserBranding; stude
 const NAV: Array<{ label: string; items: Array<{ view: View; label: string; icon: LucideIcon }> }> = [
   { label: "Learn", items: [
     { view: "Overview", label: "Home", icon: LayoutDashboard },
-    { view: "Agents", label: "Practice tools", icon: WandSparkles },
+    { view: "Agents", label: "Career Studio", icon: WandSparkles },
     { view: "Progress", label: "My progress", icon: TrendingUp },
   ] },
   { label: "Connect", items: [{ view: "Messages", label: "Messages", icon: MessageSquareText }] },
@@ -38,7 +38,7 @@ const NAV: Array<{ label: string; items: Array<{ view: View; label: string; icon
     { view: "Settings", label: "Settings", icon: Settings },
   ] },
 ];
-const TITLES: Partial<Record<View, string>> = { Overview: "Home", Agents: "Practice tools", Progress: "My progress", Messages: "Messages", Plan: "Plan", "Coding Practice": "Coding practice", "Case Study": "Business Case Solver", "HR Simulator": "HR Manager Simulator", Profile: "Profile", Settings: "Settings", "Resume Maker": "Resume builder", "Aptitude Test": "Aptitude practice", "Mock Interview": "Interview Room", "Cover Letter": "Cover letter", "Job Matching": "Job matching", "Group Discussion": "Group discussion", Opportunities: "Opportunities", Applications: "Applications" };
+const TITLES: Partial<Record<View, string>> = { Overview: "Home", Agents: "Career Studio", Progress: "My progress", Messages: "Messages", Plan: "Plan", "Coding Practice": "Coding practice", "Case Study": "Business Case Solver", "HR Simulator": "HR Manager Simulator", Profile: "Profile", Settings: "Settings", "Resume Maker": "Resume builder", "Aptitude Test": "Aptitude practice", "Mock Interview": "Interview Room", "Cover Letter": "Cover letter", "Job Matching": "Job matching", "Group Discussion": "Group discussion", Opportunities: "Opportunities", Applications: "Applications" };
 
 function NotInProgramme({ name, onBack }: { name: string; onBack: () => void }) {
   return (
@@ -75,7 +75,7 @@ export function StudentDashboard({ user, accessToken, onLogout }: { user: Studen
 
   // Phones get a bottom bar with the four places students use most; the rest live under "More".
   const bottomItems: Array<{ view: View; label: string; icon: LucideIcon }> = [
-    { view: "Overview", label: "Home", icon: House }, { view: "Agents", label: "Practice", icon: Target }, { view: "Progress", label: "Progress", icon: ChartNoAxesColumn },
+    { view: "Overview", label: "Home", icon: House }, { view: "Agents", label: "Studio", icon: Target }, { view: "Progress", label: "Progress", icon: ChartNoAxesColumn },
     direct ? { view: "Plan", label: "Plan", icon: Gem } : { view: "Messages", label: "Messages", icon: MessageCircle },
   ];
   const moreItems: Array<{ view: View; label: string; icon: LucideIcon }> = [{ view: "Profile", label: "Profile", icon: UserRound }, { view: "Settings", label: "Settings", icon: Settings }];
@@ -186,7 +186,7 @@ export function StudentDashboard({ user, accessToken, onLogout }: { user: Studen
             <button type="button" className="tp-icon-btn" onClick={() => setTheme(value => value === "dark" ? "light" : "dark")} aria-label={theme === "dark" ? "Use light mode" : "Use dark mode"} title={theme === "dark" ? "Use light mode" : "Use dark mode"}>{theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}</button>
           </div>
         </header>
-        <main id="st-main" className={`tp-content${isTool ? " st-tool-host" : ""}${current === "Messages" ? " st-chat-host" : ""}`}>{page}</main>
+        <main key={current} id="st-main" className={`tp-content${isTool ? " st-tool-host" : ""}${current === "Messages" ? " st-chat-host" : ""}`}>{page}</main>
       </div>
 
       <nav className="st-bottomnav" aria-label="Main">

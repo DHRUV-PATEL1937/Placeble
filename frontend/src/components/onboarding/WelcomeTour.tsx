@@ -32,7 +32,7 @@ const SLIDES = [
         <span><Mic2 size={22} /><b>Interview</b><small>Role-specific questions</small></span>
       </div>
     ),
-    points: ["Start with your resume or an aptitude baseline", "Coding practice and group discussion are in Practice tools too"],
+    points: ["Start with your resume or an aptitude baseline", "Coding practice, case studies and the HR simulator are in Career Studio too"],
   },
   {
     title: "Stuck? Ask Ananya",

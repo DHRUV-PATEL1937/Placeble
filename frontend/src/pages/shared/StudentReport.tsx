@@ -3,17 +3,20 @@ import { Avatar, ErrorState, Loading, Modal, StatusPill, formatDate, tpoApi, use
 
 type Report = {
   student: { id: string; name: string; email: string; emailVerified: boolean; status: string; joinedAt: string; lastLoginAt: string | null; branch: string; batchLabel?: string; batchPeriod?: string; batchYear: number | null; rollNumber: string; skills: string[]; preferredRoles: string[] };
-  readiness: { score: number; complete?: boolean; agentsUsed?: number; agentsTotal?: number; status: Student["status"]; components: { resume: number; aptitude: number; interview: number; groupDiscussion: number; careerActivity: number } | null; history: Array<{ score: number; calculatedAt: string }> };
+  readiness: { score: number; agents?: Array<{ key: string; label: string; used: boolean; score: number }>; optionalAgents?: Array<{ key: string; label: string; used: boolean; score: number }>; complete?: boolean; agentsUsed?: number; agentsTotal?: number; status: Student["status"]; components: { resume: number; aptitude: number; interview: number; groupDiscussion: number; careerActivity: number } | null; history: Array<{ score: number; calculatedAt: string }> };
   activity: {
     aptitude: Array<{ score: number; completedAt: string; mode?: string }>;
     interviews: Array<{ score: number; completedAt: string; role?: string; type?: string }>;
     resumes: Array<{ title?: string; atsScore: number; current: boolean; updatedAt: string }>;
     groupDiscussions: Array<{ topic?: string; completedAt: string }>;
+    caseStudies?: Array<{ score: number; title: string; detail: string; completedAt: string }>;
+    hrSimulations?: Array<{ score: number; title: string; detail: string; completedAt: string }>;
     applications: { total: number; byStatus: Record<string, number> };
   };
 };
 
-const PARTS = [["resume", "Resume"], ["aptitude", "Aptitude"], ["interview", "Interview"], ["groupDiscussion", "Group discussion"], ["careerActivity", "Career activity"]] as const;
+// Fallback for older reports without the agent list. Group discussion and career activity are switched off for now, so they aren't shown.
+const PARTS = [["resume", "Resume"], ["aptitude", "Aptitude"], ["interview", "Interview"]] as const;
 
 /** Full read-only report for one student. Used by principals (and any role that can read reports). */
 export function StudentReportModal({ studentId, accessToken, onClose, basePath = "/reports/students" }: { studentId: string; accessToken: string; onClose: () => void; basePath?: string }) {
@@ -39,7 +42,7 @@ export function StudentReportModal({ studentId, accessToken, onClose, basePath =
 
           <section>
             <h4>Readiness breakdown</h4>
-            <div className="sr-bars">{PARTS.map(([key, label]) => { const value = data.readiness.components?.[key] ?? 0; return <div key={key}><span>{label}<b>{value ? `${value}%` : "—"}</b></span><i><u style={{ width: `${value}%` }} /></i></div>; })}</div>
+            <div className="sr-bars">{(data.readiness.agents?.length ? [...data.readiness.agents, ...(data.readiness.optionalAgents ?? []).map(agent => ({ ...agent, label: `${agent.label} (optional)` }))].map(agent => [agent.key, agent.label, agent.used ? agent.score : 0] as const) : PARTS.map(([key, label]) => [key, label, data.readiness.components?.[key] ?? 0] as const)).map(([key, label, value]) => <div key={key}><span>{label}<b>{value ? `${value}%` : "—"}</b></span><i><u style={{ width: `${value}%` }} /></i></div>)}</div>
           </section>
 
           {data.readiness.history.length > 1 && (
@@ -53,6 +56,8 @@ export function StudentReportModal({ studentId, accessToken, onClose, basePath =
             <section><h4>Aptitude attempts</h4>{data.activity.aptitude.length ? <ul>{data.activity.aptitude.map(item => <li key={item.completedAt}><span>{item.mode ?? "Assessment"}</span><b>{item.score}%</b><small>{formatDate(item.completedAt)}</small></li>)}</ul> : <p className="sr-none">None completed.</p>}</section>
             <section><h4>Mock interviews</h4>{data.activity.interviews.length ? <ul>{data.activity.interviews.map(item => <li key={item.completedAt}><span>{item.role || item.type || "Interview"}</span><b>{item.score}%</b><small>{formatDate(item.completedAt)}</small></li>)}</ul> : <p className="sr-none">None completed.</p>}</section>
             <section><h4>Resumes</h4>{data.activity.resumes.length ? <ul>{data.activity.resumes.map(item => <li key={item.updatedAt}><span>{item.title || "Resume"}{item.current && <em> · current</em>}</span><b>ATS {item.atsScore}</b><small>{formatDate(item.updatedAt)}</small></li>)}</ul> : <p className="sr-none">No resume yet.</p>}</section>
+            {Boolean(data.activity.caseStudies?.length) && <section><h4>Business cases</h4><ul>{data.activity.caseStudies!.map(item => <li key={item.completedAt}><span>{item.title || "Case study"}</span><b>{item.score}%</b><small>{formatDate(item.completedAt)}</small></li>)}</ul></section>}
+            {Boolean(data.activity.hrSimulations?.length) && <section><h4>HR simulations</h4><ul>{data.activity.hrSimulations!.map(item => <li key={item.completedAt}><span>{item.title || "HR challenge"}</span><b>{item.score}%</b><small>{formatDate(item.completedAt)}</small></li>)}</ul></section>}
             <section><h4>Applications</h4><p className="sr-big">{data.activity.applications.total}</p><p className="sr-none">{Object.entries(data.activity.applications.byStatus).map(([status, count]) => `${count} ${status}`).join(" · ") || "No applications."}</p></section>
           </div>
 

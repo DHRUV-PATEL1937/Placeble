@@ -17,6 +17,7 @@ import { BranchesPage } from "./BranchesPage";
 import { SettingsPage } from "./SettingsPage";
 import { StudentsPage } from "./StudentsPage";
 import { UniversityPages } from "@/pages/university/UniversityPages";
+import { MobileTabBar } from "@/components/layout/MobileTabBar";
 import { Avatar, Card, Modal, Toast, errorMessage, mapStudents, tpoApi, useLoad, type CohortSummary, type Notify } from "./tpo-core";
 import "./tpo.css";
 
@@ -140,7 +141,7 @@ export function TpoDashboard({ user, accessToken: baseToken, onLogout, universit
   })();
 
   return (
-    <div className="tp-shell">
+    <div className="tp-shell has-tabbar">
       <a className="tp-skip" href="#tp-main">Skip to content</a>
       <div className={`tp-scrim${menuOpen ? " show" : ""}`} onClick={() => setMenuOpen(false)} aria-hidden="true" />
 
@@ -184,8 +185,10 @@ export function TpoDashboard({ user, accessToken: baseToken, onLogout, universit
             <button type="button" className="tp-icon-btn" onClick={() => setDark(value => !value)} aria-label={dark ? "Use light mode" : "Use dark mode"} title={dark ? "Use light mode" : "Use dark mode"}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button>
           </div>
         </header>
-        <main id="tp-main" className={`tp-content${active === "Messages" ? " flush" : ""}`}>{page}{accessToken && (active === "Overview" || active === "University") && <RecentUpdates accessToken={baseToken} />}</main>
+        <main key={active} id="tp-main" className={`tp-content${active === "Messages" ? " flush" : ""}`}>{page}{accessToken && (active === "Overview" || active === "University") && <RecentUpdates accessToken={baseToken} />}</main>
       </div>
+
+      <MobileTabBar items={navGroups.flatMap(group => group.items)} active={active} onSelect={goto} user={user} onSignOut={() => setSignOutOpen(true)} />
 
       {signOutOpen && (
         <Modal title="Sign out of Placeble?" description="You’ll need to sign in again to return to this workspace." onClose={() => setSignOutOpen(false)}>

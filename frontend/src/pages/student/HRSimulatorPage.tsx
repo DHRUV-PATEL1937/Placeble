@@ -1,5 +1,6 @@
 import { AlertTriangle, ArrowLeft, ArrowRight, Bot, Briefcase, LineChart, RotateCcw, Scale, UserPlus, Users, UsersRound, type LucideIcon } from "lucide-react";
 import { useState } from "react";
+import { AgentHistory } from "./AgentHistory";
 import { ThinkingBot } from "./ThinkingBot";
 import "./case-study.css";
 import "./hr-sim.css";
@@ -56,6 +57,7 @@ export function HRSimulator({ accessToken, onBack }: { accessToken: string; onBa
   const [busy, setBusy] = useState<Busy>("");
   const [challenge, setChallenge] = useState("");
   const [error, setError] = useState("");
+  const [results, setResults] = useState(0);
 
   const start = async (id: string) => {
     setChallenge(id); setBusy("start"); setError("");
@@ -78,7 +80,7 @@ export function HRSimulator({ accessToken, onBack }: { accessToken: string; onBa
       } else {
         setBusy("evaluate");
         const { evaluation: next } = await api<{ evaluation: Evaluation }>("/hr-sim/evaluate", accessToken, { hrCase, history: nextHistory });
-        setHistory(nextHistory); setEvaluation(next);
+        setHistory(nextHistory); setEvaluation(next); setResults(count => count + 1);
       }
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not continue. Please try again."); }
     finally { setBusy(""); }
@@ -204,6 +206,7 @@ export function HRSimulator({ accessToken, onBack }: { accessToken: string; onBa
           <button type="button" className="tp-btn primary" onClick={reset}><RotateCcw size={16} aria-hidden="true" /> Try another challenge</button>
         </section>
       )}
+      {!busy && (!hrCase || evaluation) && <AgentHistory path="/hr-sim/history" accessToken={accessToken} refreshKey={results} empty="Finish your first challenge and your scores will show up here." />}
       {!hrCase && !busy && <p className="cs-note hr-foot"><Briefcase size={14} aria-hidden="true" /> Pick a situation. Four decisions, then your mentor scores you.</p>}
     </div>
   );

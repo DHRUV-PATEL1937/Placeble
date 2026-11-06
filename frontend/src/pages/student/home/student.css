@@ -60,6 +60,15 @@
 .st-chart .area { fill: color-mix(in srgb, var(--tp-accent) 12%, transparent); }
 .st-chart circle { fill: var(--surface); stroke: var(--tp-accent); stroke-width: 2.5; }
 .st-chart figcaption { margin-top: 6px; color: var(--text-secondary); font-size: 12.5px; text-align: center; }
+.st-agent-progress { display: grid; gap: 0; padding: 0; margin: 0; list-style: none; }
+.st-agent-progress li { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(60px, 2fr) 48px auto; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); }
+.st-agent-progress li:first-child { border-top: 0; padding-top: 0; }
+.st-agent-progress span { display: grid; min-width: 0; }
+.st-agent-progress small { color: var(--text-secondary); font-size: 12.5px; }
+.st-agent-progress i { display: block; height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
+.st-agent-progress u { display: block; height: 100%; border-radius: 4px; background: var(--tp-accent); text-decoration: none; }
+.st-agent-progress strong { text-align: right; font-size: 14px; }
+@media (max-width: 560px) { .st-agent-progress li { grid-template-columns: minmax(0, 1fr) auto; } .st-agent-progress i { grid-column: 1 / -1; grid-row: 2; } .st-agent-progress strong { display: none; } }
 .st-focus { display: grid; gap: 4px; padding: 0; margin: 0; list-style: none; }
 .st-focus li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); }
 .st-focus li:first-child { border-top: 0; padding-top: 0; }
@@ -272,3 +281,48 @@ html[data-reduced-motion="true"] .st-tool, html[data-reduced-motion="true"] .st-
 .st-agent-chips button.used b { color: var(--pb-success); }
 .st-agent-chips button:hover { border-color: var(--tp-accent); }
 @media (max-width: 640px) { .st-locked-score .st-agent-chips button { flex: 1 1 100%; justify-content: space-between; } }
+
+/* ───────── Career Studio (AI agents page) ───────── */
+.cs-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.cs-studio-bar { display: flex; align-items: center; gap: 16px; padding: 14px 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.cs-studio-bar > div { white-space: nowrap; font-size: 14px; }
+.cs-studio-bar > div span { color: var(--text-secondary); }
+.cs-studio-track { display: block; flex: 1; height: 8px; border-radius: 999px; background: var(--surface-soft); overflow: hidden; }
+.cs-studio-track u { display: block; height: 100%; border-radius: 999px; background: var(--tp-accent); text-decoration: none; transition: width .5s ease; }
+
+.cs-studio-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.cs-studio-search { position: relative; display: flex; align-items: center; flex: 0 1 260px; min-width: 200px; }
+.cs-studio-search svg { position: absolute; left: 12px; color: var(--text-secondary); pointer-events: none; }
+.cs-studio-search input { width: 100%; min-height: 42px; padding: 0 12px 0 36px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); color: var(--text-primary); font: inherit; font-size: 14px; }
+.cs-studio-search input:focus { border-color: var(--tp-accent); outline: 0; box-shadow: 0 0 0 4px var(--tp-ring); }
+.cs-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.cs-chips button { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: 999px; background: transparent; color: var(--text-secondary); font: inherit; font-size: 14px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.cs-chips button small { padding: 1px 7px; border-radius: 999px; background: var(--surface-soft); font-size: 12px; }
+.cs-chips button:hover { border-color: var(--tp-accent); color: var(--text-primary); }
+.cs-chips button.on { border-color: var(--tp-accent); background: var(--tp-accent-soft); color: var(--tp-accent); font-weight: 600; }
+
+.cs-studio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.cs-agent { --hue: #4f7cff; display: flex; flex-direction: column; gap: 10px; padding: 20px; border: 1px solid var(--border); border-radius: 18px; background: linear-gradient(180deg, color-mix(in srgb, var(--hue) 9%, var(--surface)), var(--surface) 55%); box-shadow: var(--shadow-card); transition: border-color .15s, transform .15s; }
+.cs-agent:hover { border-color: color-mix(in srgb, var(--hue) 60%, var(--border)); transform: translateY(-2px); }
+.cs-agent.cat-interviews { --hue: #4f7cff; } .cs-agent.cat-resume { --hue: #8b5cf6; } .cs-agent.cat-aptitude { --hue: #e0902c; } .cs-agent.cat-business { --hue: #14b8a6; } .cs-agent.cat-jobs { --hue: #22a35a; }
+.cs-agent header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.cs-agent-ic { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: color-mix(in srgb, var(--hue) 18%, transparent); color: var(--hue); }
+.cs-agent-tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.cs-agent-tags em { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; background: var(--surface-soft); color: var(--text-secondary); font-size: 12px; font-style: normal; font-weight: 600; }
+.cs-agent-tags em.done { background: color-mix(in srgb, var(--pb-success) 14%, transparent); color: var(--pb-success); }
+.cs-agent-tags em.rec { background: var(--tp-accent); color: #fff; }
+.cs-agent h3 { margin: 4px 0 0; font-size: 18px; letter-spacing: -0.01em; }
+.cs-agent p { flex: 1; margin: 0; color: var(--text-secondary); font-size: 14.5px; line-height: 1.55; }
+.cs-agent-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0 0; padding: 0; list-style: none; color: var(--text-secondary); font-size: 13px; }
+.cs-agent-meta li { display: inline-flex; align-items: center; gap: 5px; }
+.cs-agent > .tp-btn { width: 100%; margin-top: 6px; min-height: 44px; }
+
+@media (max-width: 640px) {
+  .cs-studio-bar { flex-wrap: wrap; gap: 10px; }
+  .cs-studio-search { flex: 1 1 100%; }
+  .cs-chips { flex-wrap: nowrap; overflow-x: auto; margin-inline: -14px; padding: 2px 14px 6px; scrollbar-width: none; }
+  .cs-chips::-webkit-scrollbar { display: none; }
+  .cs-chips button { flex: none; }
+  .cs-studio-grid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .cs-agent, .cs-studio-track u { transition: none; } .cs-agent:hover { transform: none; } }

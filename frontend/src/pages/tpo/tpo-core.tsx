@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, X, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { API_URL } from "@/pages/auth/auth-shared";
+import { prefersReducedMotion, useCountUp, useSheetDrag } from "@/hooks/use-motion";
 
 export type Notify = (message: string, tone?: "success" | "error") => void;
 
@@ -111,7 +112,13 @@ export function Card({ title, description, actions, children, className = "", fl
 }
 
 export function StatCard({ icon: Icon, label, value, note, tone = "navy" }: { icon: LucideIcon; label: string; value: string | number; note?: string; tone?: "navy" | "green" | "amber" | "red" }) {
-  return <article className={`tp-stat tone-${tone}`}><span aria-hidden="true"><Icon size={20} /></span><div><small>{label}</small><strong>{value}</strong>{note && <p>{note}</p>}</div></article>;
+  return <article className={`tp-stat tone-${tone}`}><span aria-hidden="true"><Icon size={20} /></span><div><small>{label}</small><strong>{typeof value === "number" ? <CountUp value={value} /> : value}</strong>{note && <p>{note}</p>}</div></article>;
+}
+
+/** A whole number that counts up to its value the first time it appears. */
+export function CountUp({ value }: { value: number }) {
+  const shown = useCountUp(Number.isFinite(value) ? value : 0);
+  return <>{Number.isInteger(value) ? shown : value}</>;
 }
 
 export function EmptyState({ icon: Icon, title, text, action }: { icon: LucideIcon; title: string; text?: string; action?: ReactNode }) {
@@ -146,20 +153,33 @@ export function ScoreBar({ value }: { value: number }) {
 
 export function Modal({ title, description, onClose, children, wide = false }: { title: string; description?: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [closing, setClosing] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  // Close with a short exit animation (the sheet slides away on phones); skipped when the user prefers reduced motion.
+  const dismissRef = useRef(() => {});
+  dismissRef.current = () => {
+    if (timer.current !== undefined) return;
+    if (prefersReducedMotion()) { onClose(); return; }
+    setClosing(true);
+    timer.current = window.setTimeout(onClose, 190);
+  };
+  const dismiss = useCallback(() => dismissRef.current(), []);
+  const drag = useSheetDrag(ref, dismiss);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     const first = ref.current?.querySelector<HTMLElement>("input, select, textarea, button:not([data-close])");
     first?.focus();
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") dismiss(); };
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
-    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = ""; previous?.focus(); };
-  }, [onClose]);
+    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = ""; window.clearTimeout(timer.current); previous?.focus(); };
+  }, [dismiss]);
   return (
-    <div className="tp-modal-layer">
-      <div className="tp-modal-scrim" onClick={onClose} aria-hidden="true" />
+    <div className={`tp-modal-layer${closing ? " closing" : ""}`}>
+      <div className="tp-modal-scrim" onClick={dismiss} aria-hidden="true" />
       <div className={`tp-modal${wide ? " wide" : ""}`} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
-        <header><div><h2>{title}</h2>{description && <p>{description}</p>}</div><button type="button" data-close className="tp-icon-btn" onClick={onClose} aria-label="Close"><X size={18} /></button></header>
+        <span className="tp-sheet-grab" aria-hidden="true" {...drag} />
+        <header><div><h2>{title}</h2>{description && <p>{description}</p>}</div><button type="button" data-close className="tp-icon-btn" onClick={dismiss} aria-label="Close"><X size={18} /></button></header>
         {children}
       </div>
     </div>

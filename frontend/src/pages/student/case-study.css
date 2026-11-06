@@ -80,3 +80,28 @@
   .cs-bot, .cs-bot-ring, .cs-eye, .cs-arc, .cs-dots i, .cs-think-msg { animation: none; }
   .cs-arc { opacity: 1; }
 }
+
+/* Your progress panel (Case Solver and HR Simulator) */
+.ah { gap: 14px; }
+.ah-head { display: flex; align-items: center; gap: 8px; color: var(--tp-accent); }
+.ah-head h3 { color: var(--text-primary); flex: 1; }
+.ah-score { display: grid; justify-items: end; }
+.ah-score small { color: var(--text-secondary); font-size: 12px; }
+.ah-score strong { font-size: 30px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ah-score strong span { font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-left: 2px; }
+.ah-score em { font-style: normal; font-size: 12px; color: var(--text-secondary); }
+.cs-card p.ah-note { color: var(--text-secondary); font-size: 13px; }
+.ah-empty { color: var(--text-secondary); font-size: 14px; }
+.ah-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.ah-stats div { display: grid; gap: 2px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; }
+.ah-stats small { color: var(--text-secondary); font-size: 12.5px; }
+.ah-stats strong { font-size: 22px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.cs-card ul.ah-list { padding: 0; list-style: none; gap: 0; }
+.ah-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+.ah-list li:first-child { border-top: 0; }
+.ah-list span { display: grid; min-width: 0; }
+.ah-list b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.ah-list small { color: var(--text-secondary); font-size: 12.5px; }
+.ah-list em { font-style: normal; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ah .good { color: #22a35a; } .ah .mid { color: #d99a1c; } .ah .low { color: #ef6b6b; }
+@media (max-width: 560px) { .ah-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

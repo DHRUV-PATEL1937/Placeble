@@ -1,12 +1,12 @@
 import { DeleteAccountRequest } from "@/components/account/DeleteAccountRequest";
 import { GettingStarted } from "@/components/onboarding/GettingStarted";
 import { RecentUpdates } from "@/components/ui/recent-updates";
-import { AlertTriangle, ArrowRight, Check, CheckCircle2, Clock3, LineChart, LockKeyhole, Monitor, Moon, Sun, Target, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, CheckCircle2, Clock3, LineChart, LockKeyhole, Monitor, Moon, Search, Sun, Target, TrendingUp } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { PASSWORD_RULES, passwordMeetsRules } from "@/pages/auth/auth-ui";
 import { Card, EmptyState, Loading, PageHeader, StatCard, errorMessage, formatDate, tpoApi, type Notify } from "@/pages/tpo/tpo-core";
 import { AccessHistoryPanel, StudentActionPlanPanel } from "@/components/workflow/workflow-panels";
-import { type Guidance, COMPONENT_META, SHOW_GROUP_DISCUSSION, SHOW_JOB_MATCHING, AgentRing, ScoreRing, bandLabel, buildTools, greeting, nextBestAction, type ReadinessPayload, type View } from "./st-core";
+import { type Guidance, type ToolCategory, TOOL_CATEGORIES, AgentRing, ScoreRing, bandLabel, buildTools, greeting, nextBestAction, type ReadinessPayload, type View } from "./st-core";
 
 type Go = (view: View) => void;
 
@@ -79,7 +79,7 @@ export function HomePage({ name, readiness, loaded, accessToken, go, guidance, g
       </div>
 
       <div className="tp-grid two">
-        <Card title="Practice tools" description="Pick up where you left off." actions={<button type="button" className="tp-btn ghost sm" onClick={() => go("Agents")}>View all <ArrowRight size={14} aria-hidden="true" /></button>} flush>
+        <Card title="Career Studio" description="Pick up where you left off." actions={<button type="button" className="tp-btn ghost sm" onClick={() => go("Agents")}>View all <ArrowRight size={14} aria-hidden="true" /></button>} flush>
           <ul className="st-tool-list">
             {tools.slice(0, 4).map(tool => { const Icon = tool.icon; return (
               <li key={tool.view}>
@@ -102,19 +102,55 @@ export function HomePage({ name, readiness, loaded, accessToken, go, guidance, g
 /* ───────── Practice tools ───────── */
 export function ToolsPage({ readiness, go, guidance }: { readiness: ReadinessPayload | null; go: Go; guidance?: Guidance }) {
   const tools = buildTools(readiness, guidance);
+  const [filter, setFilter] = useState<"all" | ToolCategory>("all");
+  const [query, setQuery] = useState("");
+  const started = tools.filter(tool => tool.done).length;
+  // The first tool the student hasn't tried yet, in the order that suits their programme.
+  const recommended = tools.find(tool => !tool.done)?.view;
+  const q = query.trim().toLowerCase();
+  const shown = tools.filter(tool => (filter === "all" || tool.category === filter) && (!q || `${tool.name} ${tool.description}`.toLowerCase().includes(q)));
+  const chips = [{ id: "all" as const, label: "All" }, ...TOOL_CATEGORIES.filter(category => tools.some(tool => tool.category === category.id))];
+  const count = (id: "all" | ToolCategory) => id === "all" ? tools.length : tools.filter(tool => tool.category === id).length;
+
   return (
     <>
-      <PageHeader title="Practice tools" description="Each one feeds your readiness score. Start anywhere." />
-      <div className="st-tools">
-        {tools.map(tool => { const Icon = tool.icon; return (
-          <article key={tool.view} className="st-tool">
-            <header><span className="tp-icon-tile"><Icon size={22} aria-hidden="true" /></span><em className={tool.done ? "done" : ""}>{tool.done ? <><Check size={12} aria-hidden="true" /> Started</> : "New"}</em></header>
-            <h3>{tool.name}</h3>
-            <p>{tool.description}</p>
-            <footer><div><small>{tool.metric}</small><small><Clock3 size={12} aria-hidden="true" /> {tool.minutes}</small></div><button type="button" className="tp-btn primary sm" onClick={() => go(tool.view)}>{tool.cta}</button></footer>
-          </article>
-        ); })}
+      <PageHeader title="Career Studio" description="Your AI coaches for placements. Pick one, practise for real, and get scored feedback." />
+
+      <section className="cs-studio-bar" aria-label="Your progress">
+        <div><b>{started} of {tools.length}</b><span> coaches tried</span></div>
+        <i className="cs-studio-track" role="progressbar" aria-valuemin={0} aria-valuemax={tools.length} aria-valuenow={started} aria-label="Coaches tried"><u style={{ width: `${tools.length ? (started / tools.length) * 100 : 0}%` }} /></i>
+      </section>
+
+      <div className="cs-studio-filters">
+        <label className="cs-studio-search"><Search size={16} aria-hidden="true" /><span className="cs-sr">Search coaches</span><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search coaches" /></label>
+        <div className="cs-chips" role="group" aria-label="Filter by skill">
+          {chips.map(chip => (
+            <button key={chip.id} type="button" className={filter === chip.id ? "on" : ""} aria-pressed={filter === chip.id} onClick={() => setFilter(chip.id)}>{chip.label}<small>{count(chip.id)}</small></button>
+          ))}
+        </div>
       </div>
+
+      {shown.length === 0 ? (
+        <EmptyState icon={Search} title="No coach matches that" text="Try a different word or clear the filter." action={<button type="button" className="tp-btn secondary" onClick={() => { setFilter("all"); setQuery(""); }}>Show all coaches</button>} />
+      ) : (
+        <div className="cs-studio-grid" aria-live="polite">
+          {shown.map(tool => { const Icon = tool.icon; return (
+            <article key={tool.view} className={`cs-agent cat-${tool.category}`}>
+              <header>
+                <span className="cs-agent-ic"><Icon size={22} aria-hidden="true" /></span>
+                <span className="cs-agent-tags">
+                  {tool.view === recommended && <em className="rec">Recommended</em>}
+                  <em className={tool.done ? "done" : ""}>{tool.done ? <><Check size={12} aria-hidden="true" /> Tried</> : "Not tried"}</em>
+                </span>
+              </header>
+              <h3>{tool.name}</h3>
+              <p>{tool.description}</p>
+              <ul className="cs-agent-meta"><li><Clock3 size={13} aria-hidden="true" /> {tool.minutes}</li>{tool.done && <li>{tool.metric}</li>}<li>{TOOL_CATEGORIES.find(category => category.id === tool.category)?.label}</li></ul>
+              <button type="button" className={`tp-btn ${tool.view === recommended ? "primary" : "secondary"}`} onClick={() => go(tool.view)}>{tool.cta} <ArrowRight size={16} aria-hidden="true" /></button>
+            </article>
+          ); })}
+        </div>
+      )}
     </>
   );
 }
@@ -124,13 +160,13 @@ export function ProgressPage({ readiness, loaded, go }: { readiness: ReadinessPa
   const history = readiness?.history ?? [];
   const unlocked = Boolean(readiness?.unlocked);
   const score = readiness?.overall ?? 0;
-  const components = readiness?.current?.components;
-  // Business programmes weigh and show the Case Solver and HR Simulator; IT programmes don't see them at all. The server says which apply.
-  const agentKeys = new Set((readiness?.agents ?? []).map(agent => agent.key));
-  const weightOf = (item: (typeof COMPONENT_META)[number]) => Math.round((readiness?.weights?.[item.key] ?? item.weight / 100) * 100);
-  const ranked = COMPONENT_META.map(item => ({ ...item, weight: weightOf(item), value: components?.[item.key] ?? 0 })).sort((a, b) => a.value * a.weight - b.value * b.weight);
-  const available = (key: string) => (key !== "groupDiscussion" || SHOW_GROUP_DISCUSSION) && (key !== "careerActivity" || SHOW_JOB_MATCHING) && (key !== "caseStudy" || agentKeys.has("case_study")) && (key !== "hrSimulation" || agentKeys.has("hr_simulation"));
-  const focus = ranked.filter(item => item.value < 60 && available(item.key)).slice(0, 3);
+  // Which agents count, and how much, is set per programme on the server. Each counting agent carries its weight (percent).
+  const agents = readiness?.agents ?? [];
+  const legacy = agents.length > 0 && agents.every(agent => agent.weight === undefined);
+  const weightOf = (agent: (typeof agents)[number]) => legacy ? Math.round(100 / agents.length) : agent.weight ?? 0;
+  const counted = agents.filter(agent => weightOf(agent) > 0);
+  const focus = [...counted].filter(agent => agent.score < 60).sort((x, y) => (100 - y.score) * weightOf(y) - (100 - x.score) * weightOf(x)).slice(0, 3);
+  const progressAgents = [...agents.map(agent => ({ ...agent, optional: false })), ...(readiness?.optionalAgents ?? []).map(agent => ({ ...agent, optional: true }))];
 
   const width = 640, height = 200, padX = 28, padY = 20;
   const points = history.map((item, index) => ({ x: padX + (history.length === 1 ? 0.5 : index / (history.length - 1)) * (width - padX * 2), y: padY + (1 - item.score / 100) * (height - padY * 2), item }));
@@ -161,7 +197,7 @@ export function ProgressPage({ readiness, loaded, go }: { readiness: ReadinessPa
         <Card title="Where to focus" description="Biggest gains first.">
           {focus.length ? (
             <ul className="st-focus">{focus.map(item => (
-              <li key={item.key}><span><b>{item.label}</b><small>{item.value ? `${item.value}% now` : "Not started"} · counts for {item.weight}%</small></span><button type="button" className="tp-btn secondary sm" onClick={() => go(item.view)}>Improve</button></li>
+              <li key={item.key}><span><b>{item.label}</b><small>{item.used ? `${item.score}% now` : "Not started"} · counts for {weightOf(item)}%</small></span><button type="button" className="tp-btn secondary sm" onClick={() => go(item.view)}>Improve</button></li>
             ))}</ul>
           ) : <EmptyState icon={CheckCircle2} title="Strong across the board" text="Every area is at 60% or above. Keep practising to stay sharp." />}
         </Card>
@@ -169,14 +205,27 @@ export function ProgressPage({ readiness, loaded, go }: { readiness: ReadinessPa
 
       <Card title="Score breakdown" description="Your readiness is a weighted mix of these areas.">
         <div className="st-breakdown">
-          {COMPONENT_META.filter(item => (item.key !== "caseStudy" && item.key !== "hrSimulation") || available(item.key)).map(item => { const value = components?.[item.key] ?? 0; return (
-            <div key={item.key}>
-              <span><b>{item.label}</b><small>{weightOf(item)}% of score</small></span>
+          {counted.map(agent => { const value = agent.used ? agent.score : 0; return (
+            <div key={agent.key}>
+              <span><b>{agent.label}</b><small>{weightOf(agent)}% of score</small></span>
               <i aria-hidden="true"><u style={{ width: `${value}%` }} /></i>
               <strong>{value ? `${value}%` : "—"}</strong>
             </div>
           ); })}
         </div>
+      </Card>
+
+      <Card title="Agent progress" description={agents.length ? `${agents.filter(agent => agent.used).length} of ${agents.length} agents used` : "Your agents and their scores."}>
+        {progressAgents.length ? (
+          <ul className="st-agent-progress">{progressAgents.map(agent => (
+            <li key={agent.key}>
+              <span><b>{agent.label}</b><small>{[agent.used ? bandLabel(agent.score) : "Not started yet", agent.optional && "Optional, not in your overall score"].filter(Boolean).join(" · ")}</small></span>
+              <i aria-hidden="true"><u style={{ width: `${agent.used ? agent.score : 0}%` }} /></i>
+              <strong>{agent.used ? `${agent.score}%` : "—"}</strong>
+              <button type="button" className="tp-btn secondary sm" onClick={() => go(agent.view)}>{agent.used ? "Practise" : "Start"}</button>
+            </li>
+          ))}</ul>
+        ) : <EmptyState icon={Target} title="No agents yet" text="Your agents will appear here once your programme is set." action={<button type="button" className="tp-btn primary" onClick={() => go("Agents")}>See the agents</button>} />}
       </Card>
     </>
   );

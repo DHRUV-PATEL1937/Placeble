@@ -81,7 +81,7 @@ function buildAgents(readiness: ReadinessPayload | null) {
     image: "/aptitude.png",
     status: components?.aptitude ? "Completed assessment available" : "No completed assessment",
     action: "Start practice",
-    metric: components?.aptitude ? `${components.aptitude}% latest` : "Not started",
+    metric: components?.aptitude ? `${components.aptitude}% recent` : "Not started",
     tone: "amber",
   },
   {
@@ -444,7 +444,7 @@ function Overview({ setCurrent, readiness, user }: { setCurrent: (view: View) =>
   }> = [
     {
       title: "Aptitude & Coding Practice",
-      detail: components?.aptitude ? `Scored ${components.aptitude}% on latest test` : "Complete your first timed assessment",
+      detail: components?.aptitude ? `Scored ${components.aptitude}% across recent tests` : "Complete your first timed assessment",
       view: "Aptitude Test",
       icon: BookOpenCheck,
       tag: components?.aptitude ? "In Progress" : "Action Needed",
@@ -550,7 +550,7 @@ function Overview({ setCurrent, readiness, user }: { setCurrent: (view: View) =>
           <div className="kpi-card-header">
             <span className="kpi-label">Aptitude & Coding</span>
             <span className={`kpi-tag ${components?.aptitude ? "active" : ""}`}>
-              {components?.aptitude ? `${components.aptitude}% Latest` : "Untested"}
+              {components?.aptitude ? `${components.aptitude}% Recent` : "Untested"}
             </span>
           </div>
           <div className="kpi-card-body">
