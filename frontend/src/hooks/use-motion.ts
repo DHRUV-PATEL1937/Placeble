@@ -66,11 +66,17 @@ export function useSheetDrag(sheet: React.RefObject<HTMLElement | null>, onClose
   return handlers;
 }
 
-/** Marks the page once it has scrolled, so the top bar can gain a soft shadow. */
+/** Marks the page once it has scrolled (for the top bar shadow) and which way it is moving (so floating buttons can step aside while reading). */
 export function installScrollFlag() {
   const root = document.documentElement;
   let ticking = false;
-  const update = () => { ticking = false; root.dataset.scrolled = window.scrollY > 4 ? "true" : "false"; };
+  let lastY = window.scrollY;
+  const update = () => {
+    ticking = false;
+    const y = window.scrollY;
+    root.dataset.scrolled = y > 4 ? "true" : "false";
+    if (Math.abs(y - lastY) > 6) { root.dataset.scrollDir = y > lastY && y > 80 ? "down" : "up"; lastY = y; }
+  };
   window.addEventListener("scroll", () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
   update();
 }

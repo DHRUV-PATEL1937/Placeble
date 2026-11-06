@@ -1,4 +1,4 @@
-import { Download, MessageSquareText, Search, UsersRound } from "lucide-react";
+import { Download, MessageSquareText, Search, SlidersHorizontal, UsersRound } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Avatar, Card, EmptyState, ErrorState, Loading, Modal, PageHeader, Pager, ReadinessCell, StatusPill, downloadFile, toCsv, type Notify, type Student } from "./tpo-core";
 
@@ -10,6 +10,8 @@ export function StudentsPage({ students, loading, error, search, onSearch, notif
   const [band, setBand] = useState("all");
   const [batch, setBatch] = useState("all");
   const [login, setLogin] = useState("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilters = [branch, status, band, batch, login].filter(value => value !== "all").length;
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Student | null>(null);
 
@@ -40,12 +42,15 @@ export function StudentsPage({ students, loading, error, search, onSearch, notif
       <Card flush>
         <div className="tp-toolbar">
           <label className="tp-search"><Search size={16} aria-hidden="true" /><input value={search} onChange={event => { onSearch(event.target.value); setPage(1); }} placeholder="Search by name, email, branch or skill" aria-label="Search students" /></label>
+          <button type="button" className={`tp-filter-toggle${activeFilters ? " has" : ""}`} aria-expanded={filtersOpen} onClick={() => setFiltersOpen(open => !open)}><SlidersHorizontal size={16} aria-hidden="true" />Filters{activeFilters ? <em>{activeFilters}</em> : null}</button>
+          <div className={`tp-filters${filtersOpen ? " open" : ""}`}>
           <select className="tp-select" value={branch} onChange={event => { setBranch(event.target.value); setPage(1); }} aria-label="Filter by branch"><option value="all">All branches</option>{branches.map(item => <option key={item}>{item}</option>)}</select>
           <select className="tp-select" value={status} onChange={event => { setStatus(event.target.value); setPage(1); }} aria-label="Filter by status"><option value="all">Any status</option>{["Ready", "On track", "Stalled", "At risk", "In progress"].map(item => <option key={item}>{item}</option>)}</select>
           <select className="tp-select" value={login} onChange={event => { setLogin(event.target.value); setPage(1); }} aria-label="Filter by sign-in"><option value="all">Everyone</option><option value="active">Signed in</option><option value="invited">Not signed in yet</option></select>
           <select className="tp-select" value={batch} onChange={event => { setBatch(event.target.value); setPage(1); }} aria-label="Filter by batch"><option value="all">All batches</option>{batches.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select>
           <select className="tp-select" value={band} onChange={event => { setBand(event.target.value); setPage(1); }} aria-label="Filter by readiness"><option value="all">Any readiness</option><option value="75">75 and above</option><option value="60">Below 60</option></select>
           {filtered && <button type="button" className="tp-btn ghost sm" onClick={() => { setBranch("all"); setStatus("all"); setBand("all"); setBatch("all"); setLogin("all"); onSearch(""); setPage(1); }}>Clear</button>}
+          </div>
         </div>
 
         {loading ? <Loading label="Loading students…" /> : error ? <ErrorState message={error} /> : !students.length ? (

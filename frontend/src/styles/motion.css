@@ -236,3 +236,9 @@ body:has(.tp-modal-layer, .prd-modal-layer, .st-sheet-layer, .gd-layer) .sa-fab 
   *, *::before, *::after { scroll-behavior: auto !important; }
   :where(*):not([class*="spin"]):not(.tp-skeleton):not(.st-skeleton) { animation-duration: 0.01ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* The assistant button steps aside while the page scrolls down, and returns on the way back up, so it never sits on top of what is being read. */
+@media (max-width: 760px) {
+  .sa-fab { transition: transform 260ms var(--mo-ease-out), opacity 200ms ease; }
+  html[data-scroll-dir="down"] .sa-fab { opacity: 0; transform: translateY(80px) scale(0.9); pointer-events: none; }
+}

@@ -74,3 +74,16 @@
   .my-institutes > header p { font-size: 11px; }
   .my-institutes > header span { font-size: 13px; line-height: 1.45; }
 }
+
+/* Filters: a row of selects on desktop; behind a Filters button on phones so the list stays on screen. */
+.tp-filters { display: contents; }
+.tp-filter-toggle { display: none; }
+@media (max-width: 760px) {
+  .tp-toolbar .tp-search { flex: 1 1 0; min-width: 0; }
+  .tp-filter-toggle { display: inline-flex; flex: none; align-items: center; gap: 7px; min-height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text-primary); font-size: 14px; font-weight: 600; cursor: pointer; }
+  .tp-filter-toggle em { display: grid; min-width: 20px; height: 20px; place-items: center; border-radius: 999px; background: var(--tp-accent, #1d4ed8); color: #fff; font-size: 11.5px; font-style: normal; }
+  .tp-filter-toggle.has { border-color: var(--tp-accent, #1d4ed8); }
+  .tp-filters { display: none; flex: 1 1 100%; grid-template-columns: 1fr 1fr; gap: 8px; animation: mo-rise 240ms var(--mo-ease-out, ease) both; }
+  .tp-filters.open { display: grid; }
+  .tp-filters .tp-btn { grid-column: 1 / -1; }
+}
