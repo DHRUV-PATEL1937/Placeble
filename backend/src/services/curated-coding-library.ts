@@ -74,7 +74,8 @@ int main(void) {
 }`,
 };
 
-export const curatedCodingQuestions = library.problems.map(p => ({
+// Mongoose casts plain arrays and objects into document arrays and Maps on write, so the model's strict types are loosened here.
+export const curatedCodingQuestions: Array<Record<string, unknown> & { seedKey: string }> = library.problems.map(p => ({
   seedKey: librarySeedKey(p.slug), title: p.title, category: 'coding', topic: p.topic,
   difficulty: p.difficulty, source: 'curated', isActive: true,
   generationBatchId: CODING_LIBRARY_VERSION,

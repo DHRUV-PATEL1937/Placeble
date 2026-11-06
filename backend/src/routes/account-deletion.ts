@@ -3,6 +3,18 @@ import mongoose from "mongoose";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { AccountDeletionRequest } from "../models/AccountDeletionRequest";
+import { AgentResult } from "../models/AgentResult";
+import { Application } from "../models/Application";
+import { AptitudeAttempt } from "../models/AptitudeAttempt";
+import { CodingSubmission } from "../models/CodingSubmission";
+import { CodingWorkspace } from "../models/CodingWorkspace";
+import { CoverLetter } from "../models/CoverLetter";
+import { GdSession } from "../models/GdSession";
+import { Interview } from "../models/Interview";
+import { MatchScore } from "../models/MatchScore";
+import { ReadinessScore } from "../models/ReadinessScore";
+import { Resume } from "../models/Resume";
+import { StudentActionPlan } from "../models/StudentActionPlan";
 import { Notification } from "../models/Notification";
 import { PushDevice } from "../models/PushDevice";
 import { RefreshSession } from "../models/RefreshSession";
@@ -87,6 +99,8 @@ accountDeletionAdminRouter.patch("/:id", async (request, response, next) => {
         PushDevice.deleteMany({ userId: changed.userId }),
         Notification.deleteMany({ userId: changed.userId }),
         StudentProfile.deleteOne({ userId: changed.userId }),
+        // Everything the student created. Payments and subscriptions stay, as accounting records.
+        ...[AgentResult, Application, AptitudeAttempt, CodingSubmission, CodingWorkspace, CoverLetter, GdSession, Interview, MatchScore, ReadinessScore, Resume, StudentActionPlan].map(model => (model as unknown as { deleteMany: (filter: object) => Promise<unknown> }).deleteMany({ studentId: changed.userId })),
       ]);
     }
     await writeAdminAudit({ platformAdminId: request.auth!.userId, action: input.decision === "approve" ? "account_deletion_approved" : "account_deletion_rejected", targetType: "user", targetId: changed.userId, metadata: { email: changed.email, role: changed.role, note: input.note } });

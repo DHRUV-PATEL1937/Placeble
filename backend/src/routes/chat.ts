@@ -153,15 +153,19 @@ router.get("/students/:studentId/profile", requireRole("tpo"), async (request, r
     StudentRosterEntry.findOne({ institutionId: request.institutionScope, matchedUserId: studentId }).select("rollNumber branch batchYear").lean(),
     InstitutionMessage.countDocuments({ institutionId: request.institutionScope, studentId, deletedAt: null }),
   ]);
-  const score = latest?.score ?? 0;
+  // The overall score exists only once every required agent has been used; until then the card shows progress instead.
+  const complete = Boolean(latest?.complete);
+  const agents = latest?.agents ?? [];
+  const score = complete ? latest?.score ?? 0 : 0;
   const components = (latest?.components ?? {}) as Record<string, number>;
   return response.json({
     profile: {
       id: String(user._id), name: user.name, email: user.email, emailVerified: Boolean(user.emailVerified), joinedAt: user.createdAt,
       branch: roster?.branch || profile?.degree || "", batchYear: roster?.batchYear ?? profile?.graduationYear ?? null, rollNumber: roster?.rollNumber || "",
       skills: profile?.skills ?? [], preferredRoles: profile?.preferredRoles ?? [],
-      readiness: score, trend: score - (previous?.score ?? score),
-      status: score >= 75 ? "Ready" : score >= 60 ? "On track" : score >= 45 ? "Stalled" : "At risk",
+      readiness: score, trend: complete && previous?.complete ? score - previous.score : 0,
+      complete, agentsUsed: agents.filter(agent => agent.used).length, agentsTotal: agents.length,
+      status: !complete ? "In progress" : score >= 75 ? "Ready" : score >= 60 ? "On track" : score >= 45 ? "Stalled" : "At risk",
       components: { resume: components.resume ?? 0, aptitude: components.aptitude ?? 0, interview: components.interview ?? 0 },
       messageCount,
     },

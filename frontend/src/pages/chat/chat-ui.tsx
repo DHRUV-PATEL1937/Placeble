@@ -25,7 +25,7 @@ export type Person = { id: string; name: string; email: string; branch: string; 
 export type MessageHit = { id: string; studentId: string; studentName: string; body: string; senderRole: "student" | "tpo"; createdAt: string };
 export type StudentProfile = {
   id: string; name: string; email: string; emailVerified: boolean; joinedAt: string; branch: string; batchYear: number | null; rollNumber: string;
-  skills: string[]; preferredRoles: string[]; readiness: number; trend: number; status: "Ready" | "On track" | "Stalled" | "At risk";
+  skills: string[]; preferredRoles: string[]; readiness: number; trend: number; complete?: boolean; agentsUsed?: number; agentsTotal?: number; status: "Ready" | "On track" | "Stalled" | "At risk" | "In progress";
   components: { resume: number; aptitude: number; interview: number }; messageCount: number;
 };
 export type ActiveStudent = { id: string; name: string; email: string; branch?: string; batchYear?: number | null };
@@ -70,7 +70,7 @@ export function highlight(text: string, term: string): ReactNode {
   return <>{start > 0 && "…"}{text.slice(start, index)}<mark>{text.slice(index, index + needle.length)}</mark>{text.slice(index + needle.length, index + needle.length + 80)}</>;
 }
 
-const STATUS_CLASS: Record<StudentProfile["status"], string> = { Ready: "ready", "On track": "track", Stalled: "stalled", "At risk": "risk" };
+const STATUS_CLASS: Record<StudentProfile["status"], string> = { Ready: "ready", "On track": "track", Stalled: "stalled", "At risk": "risk", "In progress": "stalled" };
 
 export function ProfilePanel({ profile, loading, error, onClose, onOpenStudents, onCopy }: { profile: StudentProfile | null; loading: boolean; error: string; onClose: () => void; onOpenStudents?: () => void; onCopy: (text: string) => void }) {
   return (
@@ -93,7 +93,9 @@ export function ProfilePanel({ profile, loading, error, onClose, onOpenStudents,
 
             <section>
               <h5>Placement readiness</h5>
-              <div className="ic-score"><strong>{profile.readiness}</strong><span>out of 100{profile.trend !== 0 && <b className={profile.trend > 0 ? "up" : "down"}>{profile.trend > 0 ? "▲" : "▼"} {Math.abs(profile.trend)}</b>}</span></div>
+              {profile.complete === false
+                ? <div className="ic-score"><strong>{profile.agentsUsed ?? 0}/{profile.agentsTotal ?? 0}</strong><span>agents used. No overall score yet</span></div>
+                : <div className="ic-score"><strong>{profile.readiness}</strong><span>out of 100{profile.trend !== 0 && <b className={profile.trend > 0 ? "up" : "down"}>{profile.trend > 0 ? "▲" : "▼"} {Math.abs(profile.trend)}</b>}</span></div>}
               {([["Resume", profile.components.resume], ["Aptitude", profile.components.aptitude], ["Interview", profile.components.interview]] as const).map(([label, value]) => (
                 <div className="ic-bar" key={label}><span>{label}<b>{value}%</b></span><i><u style={{ width: `${value}%` }} /></i></div>
               ))}

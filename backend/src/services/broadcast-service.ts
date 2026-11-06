@@ -98,9 +98,10 @@ export async function resolveRecipients(sender: Sender, audience: Audience): Pro
     narrow([...direct].filter(id => audience.plan === "pro" ? pro.has(id) : !pro.has(id)));
   }
   if (studentIds.length && (audience.readinessMin !== undefined || audience.readinessMax !== undefined)) {
-    const latest = await ReadinessScore.aggregate<{ _id: Types.ObjectId; score: number }>([{ $match: { studentId: { $in: studentIds } } }, { $sort: { calculatedAt: -1 } }, { $group: { _id: "$studentId", score: { $first: "$score" } } }]);
+    // Only students who have used every required agent have an overall score, so a score filter leaves the rest out.
+    const latest = await ReadinessScore.aggregate<{ _id: Types.ObjectId; score: number }>([{ $match: { studentId: { $in: studentIds }, complete: true } }, { $sort: { calculatedAt: -1 } }, { $group: { _id: "$studentId", score: { $first: "$score" } } }]);
     const score = new Map(latest.map(item => [String(item._id), item.score]));
-    narrow(studentIds.filter(id => { const value = score.get(String(id)) ?? 0; return value >= (audience.readinessMin ?? 0) && value <= (audience.readinessMax ?? 100); }));
+    narrow(studentIds.filter(id => { const value = score.get(String(id)); return value !== undefined && value >= (audience.readinessMin ?? 0) && value <= (audience.readinessMax ?? 100); }));
   }
   users = users.filter(user => user.role !== "student" || keep.has(String(user._id)));
 
