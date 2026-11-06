@@ -14,8 +14,19 @@ type Setup = {
   programs: Program[];
   profile: { dateOfBirth: string; programCode: string; admissionYear: number | null; graduationYear: number | null; roles: string[]; skills: string[] };
   guardian: { status: string; name: string; email: string };
-  limits: { minAge: number; adultAge: number; minYear: number; maxYear: number };
+  limits: { minAge: number; adultAge: number; maxAge?: number; minYear: number; maxYear: number };
 };
+
+const MAX_AGE_FALLBACK = 45;
+const isoDay = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+/** Earliest and latest date of birth the picker offers: someone aged at most maxAge and at least minAge today. */
+const dobRange = (minAge: number, maxAge: number) => {
+  const earliest = new Date(); earliest.setFullYear(earliest.getFullYear() - maxAge - 1); earliest.setDate(earliest.getDate() + 1);
+  const latest = new Date(); latest.setFullYear(latest.getFullYear() - minAge);
+  return { min: isoDay(earliest), max: isoDay(latest) };
+};
+/** Graduating year for an admission year and programme length, e.g. 2027 + 2 years = 2029. */
+const graduationFor = (admissionYear: string, durationYears: number | undefined) => admissionYear && durationYears ? String(Number(admissionYear) + durationYears) : "";
 
 const ageFrom = (value: string) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -30,6 +41,8 @@ export function OnboardingScreen({ user, accessToken, onComplete, onLogout }: { 
   const [setup, setSetup] = useState<Setup | null>(null);
   const [loadError, setLoadError] = useState("");
   const [step, setStep] = useState(0);
+  // The graduating year follows the admission year and programme length until the student picks one themselves.
+  const [graduationAuto, setGraduationAuto] = useState(true);
   const [form, setForm] = useState({ dateOfBirth: "", programCode: "", admissionYear: "", graduationYear: "", roles: [] as string[], skills: [] as string[], guardianName: "", guardianEmail: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -44,11 +57,11 @@ export function OnboardingScreen({ user, accessToken, onComplete, onLogout }: { 
     try {
       const { payload } = await apiRequest("/onboarding", { headers });
       setSetup(payload);
-      if (!loaded.current) { loaded.current = true; setForm(current => ({ ...current, dateOfBirth: payload.profile.dateOfBirth, programCode: payload.profile.programCode, admissionYear: payload.profile.admissionYear ? String(payload.profile.admissionYear) : "", graduationYear: payload.profile.graduationYear ? String(payload.profile.graduationYear) : "", roles: payload.profile.roles, skills: payload.profile.skills, guardianName: payload.guardian.name, guardianEmail: payload.guardian.email })); }
+      if (!loaded.current) { loaded.current = true; if (payload.profile.graduationYear && payload.profile.admissionYear) setGraduationAuto(false); setForm(current => ({ ...current, dateOfBirth: payload.profile.dateOfBirth, programCode: payload.profile.programCode, admissionYear: payload.profile.admissionYear ? String(payload.profile.admissionYear) : "", graduationYear: payload.profile.graduationYear ? String(payload.profile.graduationYear) : "", roles: payload.profile.roles, skills: payload.profile.skills, guardianName: payload.guardian.name, guardianEmail: payload.guardian.email })); }
       return payload as Setup;
     } catch (cause) { setLoadError(cause instanceof Error ? cause.message : "Could not load your setup."); return null; }
   };
-  useEffect(() => { let live = true; void apiRequest("/onboarding", { headers }).then(({ payload }) => { if (!live) return; setSetup(payload); if (loaded.current) return; loaded.current = true; setForm({ dateOfBirth: payload.profile.dateOfBirth, programCode: payload.profile.programCode, admissionYear: payload.profile.admissionYear ? String(payload.profile.admissionYear) : "", graduationYear: payload.profile.graduationYear ? String(payload.profile.graduationYear) : "", roles: payload.profile.roles, skills: payload.profile.skills, guardianName: payload.guardian.name, guardianEmail: payload.guardian.email }); }).catch(cause => { if (live) setLoadError(cause instanceof Error ? cause.message : "Could not load your setup."); }); return () => { live = false; }; }, [accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { let live = true; void apiRequest("/onboarding", { headers }).then(({ payload }) => { if (!live) return; setSetup(payload); if (loaded.current) return; loaded.current = true; if (payload.profile.graduationYear && payload.profile.admissionYear) setGraduationAuto(false); setForm({ dateOfBirth: payload.profile.dateOfBirth, programCode: payload.profile.programCode, admissionYear: payload.profile.admissionYear ? String(payload.profile.admissionYear) : "", graduationYear: payload.profile.graduationYear ? String(payload.profile.graduationYear) : "", roles: payload.profile.roles, skills: payload.profile.skills, guardianName: payload.guardian.name, guardianEmail: payload.guardian.email }); }).catch(cause => { if (live) setLoadError(cause instanceof Error ? cause.message : "Could not load your setup."); }); return () => { live = false; }; }, [accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (cooldown <= 0) return; const timer = window.setTimeout(() => setCooldown(value => value - 1), 1000); return () => window.clearTimeout(timer); }, [cooldown]);
 
   const checkAgain = async () => {
@@ -80,7 +93,7 @@ export function OnboardingScreen({ user, accessToken, onComplete, onLogout }: { 
     if (which === "about") {
       if (age === null) return "Enter your date of birth.";
       if (age < setup.limits.minAge) return `You need to be at least ${setup.limits.minAge} to use Placeble.`;
-      if (age > 100) return "Enter a valid date of birth.";
+      if (age > (setup.limits.maxAge ?? MAX_AGE_FALLBACK)) return `Enter a valid date of birth. Placeble is for students up to ${setup.limits.maxAge ?? MAX_AGE_FALLBACK}.`;
       if (age < setup.limits.adultAge) {
         const nameIssue = nameProblem(form.guardianName, "parent or guardian’s name"); if (nameIssue) return nameIssue;
         if (!EMAIL_RE.test(form.guardianEmail.trim())) return "Enter your parent or guardian’s email.";
@@ -165,7 +178,7 @@ export function OnboardingScreen({ user, accessToken, onComplete, onLogout }: { 
         {current === "about" && (<>
           <h1>Welcome, {setup.name.split(" ")[0]}</h1>
           <p className="ob-lead">First, a little about you. We use your date of birth to make sure Placeble is right for you.</p>
-          <div className="ob-field"><label htmlFor="ob-dob">Date of birth</label><div className="ob-input"><CalendarDays size={18} aria-hidden="true" /><input id="ob-dob" type="date" value={form.dateOfBirth} max={new Date().toISOString().slice(0, 10)} onChange={event => setForm({ ...form, dateOfBirth: event.target.value })} /></div></div>
+          <div className="ob-field"><label htmlFor="ob-dob">Date of birth</label><div className="ob-input"><CalendarDays size={18} aria-hidden="true" /><input id="ob-dob" type="date" value={form.dateOfBirth} min={dobRange(setup.limits.minAge, setup.limits.maxAge ?? MAX_AGE_FALLBACK).min} max={dobRange(setup.limits.minAge, setup.limits.maxAge ?? MAX_AGE_FALLBACK).max} onChange={event => setForm({ ...form, dateOfBirth: event.target.value })} /></div></div>
           {needsGuardian && !changingGuardian && age !== null && age >= setup.limits.minAge && guardianBox}
         </>)}
 
@@ -181,7 +194,7 @@ export function OnboardingScreen({ user, accessToken, onComplete, onLogout }: { 
           {setup.locked.program && <div className="ob-locked"><Lock size={14} aria-hidden="true" /><span>Programme</span><b>{setup.locked.program.name}</b><small>Set by your institute</small></div>}
           {setup.needs.program && (
             <div className="ob-field"><label htmlFor="ob-program">Programme</label>
-              <select id="ob-program" value={form.programCode} onChange={event => { const code = event.target.value; const picked = setup.programs.find(item => item.code === code); setForm(current => ({ ...current, programCode: code, graduationYear: picked && current.admissionYear && !current.graduationYear ? String(Number(current.admissionYear) + picked.durationYears) : current.graduationYear })); }}>
+              <select id="ob-program" value={form.programCode} onChange={event => { const code = event.target.value; const picked = setup.programs.find(item => item.code === code); setForm(current => ({ ...current, programCode: code, graduationYear: graduationAuto || !current.graduationYear || current.graduationYear === graduationFor(current.admissionYear, setup.programs.find(item => item.code === current.programCode)?.durationYears) ? graduationFor(current.admissionYear, picked?.durationYears) || current.graduationYear : current.graduationYear })); }}>
                 <option value="">Select your programme…</option>
                 {[...new Set(setup.programs.map(item => item.category))].map(group => <optgroup key={group} label={group}>{setup.programs.filter(item => item.category === group).map(item => <option key={item.code} value={item.code}>{item.name}</option>)}</optgroup>)}
               </select>
@@ -190,8 +203,8 @@ export function OnboardingScreen({ user, accessToken, onComplete, onLogout }: { 
           {setup.locked.batch && <div className="ob-locked"><Lock size={14} aria-hidden="true" /><span>Batch</span><b>{setup.locked.batch.label} · {setup.locked.batch.period}</b><small>Set by your institute</small></div>}
           {setup.needs.batch && (
             <div className="ob-row">
-              <div className="ob-field"><label htmlFor="ob-adm">Admission year</label><select id="ob-adm" value={form.admissionYear} onChange={event => { const year = event.target.value; setForm(current => ({ ...current, admissionYear: year, graduationYear: !current.graduationYear && year && program ? String(Number(year) + program.durationYears) : current.graduationYear })); }}><option value="">Select…</option>{Array.from({ length: setup.limits.maxYear - setup.limits.minYear + 1 }, (_, index) => setup.limits.maxYear - index).map(year => <option key={year} value={year}>{year}</option>)}</select></div>
-              <div className="ob-field"><label htmlFor="ob-grad">Graduating year</label><select id="ob-grad" value={form.graduationYear} onChange={event => setForm({ ...form, graduationYear: event.target.value })}><option value="">Select…</option>{Array.from({ length: setup.limits.maxYear - setup.limits.minYear + 1 }, (_, index) => setup.limits.maxYear - index).map(year => <option key={year} value={year}>{year}</option>)}</select></div>
+              <div className="ob-field"><label htmlFor="ob-adm">Admission year</label><select id="ob-adm" value={form.admissionYear} onChange={event => { const year = event.target.value; setForm(current => ({ ...current, admissionYear: year, graduationYear: graduationAuto || !current.graduationYear || current.graduationYear === graduationFor(current.admissionYear, program?.durationYears) ? graduationFor(year, program?.durationYears) : current.graduationYear })); }}><option value="">Select…</option>{Array.from({ length: setup.limits.maxYear - setup.limits.minYear + 1 }, (_, index) => setup.limits.maxYear - index).map(year => <option key={year} value={year}>{year}</option>)}</select></div>
+              <div className="ob-field"><label htmlFor="ob-grad">Graduating year</label><select id="ob-grad" value={form.graduationYear} onChange={event => { setGraduationAuto(!event.target.value); setForm({ ...form, graduationYear: event.target.value }); }}><option value="">Select…</option>{Array.from({ length: setup.limits.maxYear - setup.limits.minYear + 1 }, (_, index) => setup.limits.maxYear - index).map(year => <option key={year} value={year}>{year}</option>)}</select></div>
             </div>
           )}
         </>)}

@@ -1,13 +1,15 @@
-import { LogOut, Menu, Moon, Sun, X, type LucideIcon } from "lucide-react";
+import { CircleHelp, LogOut, Menu, Moon, Sun, X, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { MobileTabBar } from "@/components/layout/MobileTabBar";
+import { PageGuide, RoleTour, useGuide } from "@/components/guide/Guide";
+import type { GuideRole } from "@/components/guide/guide-content";
 import { Avatar, Modal, Toast, type Notify } from "@/pages/tpo/tpo-core";
 import "@/pages/tpo/tpo.css";
 
 export type NavGroup = { label: string; items: Array<{ key: string; label: string; icon: LucideIcon; badge?: number }> };
 
 /** Sidebar + top bar + theme + sign-out + toasts shared by the university and principal workspaces. */
-export function WorkspaceShell({ nav, active, onNavigate, user, context, brand, onLogout, topbar, banner, children }: {
+export function WorkspaceShell({ nav, active, onNavigate, user, context, brand, onLogout, topbar, banner, guideRole, children }: {
   nav: NavGroup[];
   active: string;
   onNavigate: (key: string) => void;
@@ -19,8 +21,11 @@ export function WorkspaceShell({ nav, active, onNavigate, user, context, brand, 
   onLogout: () => void;
   topbar?: ReactNode;
   banner?: ReactNode;
+  /** Turns on the first-run tour and the page tips for this role. */
+  guideRole?: Exclude<GuideRole, "student">;
   children: (tools: { notify: Notify }) => ReactNode;
 }) {
+  const guide = useGuide(guideRole ?? "principal");
   const [menuOpen, setMenuOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
@@ -74,14 +79,16 @@ export function WorkspaceShell({ nav, active, onNavigate, user, context, brand, 
           <button type="button" className="tp-icon-btn tp-only-mobile" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={19} /></button>
           <div className="tp-topbar-slot">{topbar}</div>
           <div className="tp-top-actions">
+            {guideRole && <button type="button" className="tp-icon-btn" onClick={guide.openTour} aria-label="Show me around" title="Show me around"><CircleHelp size={18} /></button>}
             <button type="button" className="tp-icon-btn" onClick={() => setDark(value => !value)} aria-label={dark ? "Use light mode" : "Use dark mode"} title={dark ? "Use light mode" : "Use dark mode"}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button>
           </div>
         </header>
-        <main key={active} id="ws-main" className="tp-content">{children({ notify })}</main>
+        <main key={active} id="ws-main" className="tp-content">{guideRole && <PageGuide role={guideRole} view={active} version={guide.tipsVersion} />}{children({ notify })}</main>
       </div>
 
-      <MobileTabBar items={nav.flatMap(group => group.items)} active={active} onSelect={go} user={user} onSignOut={() => setSignOutOpen(true)} />
+      <MobileTabBar items={nav.flatMap(group => group.items)} active={active} onSelect={go} user={user} onSignOut={() => setSignOutOpen(true)} onGuide={guideRole ? guide.openTour : undefined} />
 
+      {guideRole && guide.tourOpen && <RoleTour role={guideRole} name={user.name.split(" ")[0]} onClose={guide.closeTour} />}
       {signOutOpen && (
         <Modal title="Sign out of Placeble?" description="You’ll need to sign in again to return to this workspace." onClose={() => setSignOutOpen(false)}>
           <footer className="tp-modal-foot"><button type="button" className="tp-btn ghost" onClick={() => setSignOutOpen(false)}>Stay signed in</button><button type="button" className="tp-btn danger-solid" onClick={onLogout}>Sign out</button></footer>

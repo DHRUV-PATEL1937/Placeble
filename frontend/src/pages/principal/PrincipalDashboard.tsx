@@ -33,7 +33,7 @@ export function PrincipalDashboard({ user, accessToken, onLogout, branding }: { 
 
   return (
     <>
-    <WorkspaceShell nav={NAV} active={active} onNavigate={setActive} user={user} context={college.data || "Principal view"} brand={live?.institution || live?.university ? <OrgBrand institution={live?.institution} university={live?.university} /> : undefined} onLogout={onLogout} topbar={<span className="st-crumb"><Eye size={15} aria-hidden="true" /> Read-only access</span>}>
+    <WorkspaceShell guideRole="principal" nav={NAV} active={active} onNavigate={setActive} user={user} context={college.data || "Principal view"} brand={live?.institution || live?.university ? <OrgBrand institution={live?.institution} university={live?.university} /> : undefined} onLogout={onLogout} topbar={<span className="st-crumb"><Eye size={15} aria-hidden="true" /> Read-only access</span>}>
       {({ notify }) => active === "Overview" ? <><OverviewReport accessToken={accessToken} name={user.name} go={setActive} /><RecentUpdates accessToken={accessToken} /></> : active === "Students" ? <StudentsReport accessToken={accessToken} notify={notify} /> : active === "Branches" ? <BranchesReport accessToken={accessToken} /> : active === "Batches" ? <BatchesReport accessToken={accessToken} /> : active === "Settings" ? <><PageHeader title="Settings" description="Your account." /><SecuritySettings accessToken={accessToken} notify={notify} /></> : <OverviewReport accessToken={accessToken} name={user.name} go={setActive} />}
     </WorkspaceShell>
     <AssistantWidget accessToken={accessToken} name={user.name} audience="principal" onNavigate={setActive} views={KEYS} />

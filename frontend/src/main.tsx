@@ -13,6 +13,7 @@ import { PlacebleApp } from "./pages/PlacebleApp";
 import { installScrollFlag } from "./hooks/use-motion";
 // Last on purpose: the motion layer refines every stylesheet above and inside the app, so it must win ties.
 import "./styles/motion.css";
+import "./styles/mobile-app.css";
 
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element #root not found in index.html");

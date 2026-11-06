@@ -22,6 +22,7 @@
 @keyframes mo-slide-in { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
 @keyframes mo-sheet-up { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes mo-sheet-down { from { transform: none; } to { transform: translateY(100%); } }
+@keyframes mo-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes mo-fade-out { to { opacity: 0; } }
 @keyframes mo-modal-out { to { opacity: 0; transform: translateY(8px) scale(0.98); } }
 @keyframes mo-tab-pop { 0% { transform: scale(0.6); } 60% { transform: scale(1.12); } 100% { transform: none; } }
@@ -222,7 +223,7 @@ html[data-scrolled="true"] .tp-topbar, html[data-scrolled="true"] .prd-topbar { 
 
 /* ───────── Chat, assistant and coach marks ───────── */
 /* The assistant button never sits on top of an open dialog or sheet. */
-body:has(.tp-modal-layer, .prd-modal-layer, .st-sheet-layer) .sa-fab { opacity: 0; transform: translateY(24px) scale(0.9); pointer-events: none; }
+body:has(.tp-modal-layer, .prd-modal-layer, .st-sheet-layer, .gd-layer) .sa-fab { opacity: 0; transform: translateY(24px) scale(0.9); pointer-events: none; }
 .sa-fab { transition: transform var(--mo-base) var(--mo-ease-spring), opacity var(--mo-base) ease, box-shadow var(--mo-base) ease; }
 .sa-fab:active { transform: scale(0.92); }
 .gs { animation: mo-rise var(--mo-slow) var(--mo-ease-out) backwards; }

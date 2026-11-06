@@ -1,4 +1,4 @@
-import { LayoutGrid, LogOut, X, type LucideIcon } from "lucide-react";
+import { CircleHelp, LayoutGrid, LogOut, X, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useSheetDrag } from "@/hooks/use-motion";
 
@@ -6,11 +6,14 @@ export type TabItem = { key: string; label: string; /** A shorter name for the t
 
 const MAX_TABS = 4;
 
+/** Labels too long for a tab get a shorter name there. The full label still shows in the More sheet. */
+const SHORT: Record<string, string> = { Announcements: "Updates", "Needs support": "Support", "Student roster": "Roster", "Branches & batches": "Branches", "Access requests": "Access", "University overview": "University", "System status": "Status", "Deletion requests": "Deletions", "Activity history": "Activity", "Student Messages": "Messages", "Students needing help": "Support" };
+
 /**
  * The phone navigation for the staff workspaces: four main destinations plus a "More" sheet with everything else.
  * Hidden on larger screens, where the sidebar does this job. The student workspace has its own bar with the same look.
  */
-export function MobileTabBar({ items, active, onSelect, user, onSignOut }: { items: TabItem[]; active: string; onSelect: (key: string) => void; user: { name: string; email: string }; onSignOut: () => void }) {
+export function MobileTabBar({ items, active, onSelect, user, onSignOut, onGuide }: { items: TabItem[]; active: string; onSelect: (key: string) => void; user: { name: string; email: string }; onSignOut: () => void; /** Reopens the walkthrough. */ onGuide?: () => void }) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const sheet = useRef<HTMLElement>(null);
@@ -39,7 +42,7 @@ export function MobileTabBar({ items, active, onSelect, user, onSignOut }: { ite
         {tabs.map(({ key, label, short, icon: Icon, badge }) => (
           <button key={key} type="button" className={active === key ? "active" : ""} aria-current={active === key ? "page" : undefined} onClick={() => onSelect(key)}>
             <i className="mo-tab-ic"><Icon size={21} strokeWidth={active === key ? 2.4 : 1.9} aria-hidden="true" />{badge ? <em aria-label={`${badge} waiting`}>{badge > 9 ? "9+" : badge}</em> : null}</i>
-            <span>{short ?? label}</span>
+            <span>{short ?? SHORT[label] ?? label}</span>
           </button>
         ))}
         {items.length > MAX_TABS && (
@@ -59,6 +62,7 @@ export function MobileTabBar({ items, active, onSelect, user, onSignOut }: { ite
               {items.map(({ key, label, icon: Icon, badge }) => (
                 <li key={key}><button type="button" className={active === key ? "active" : ""} onClick={() => choose(key)}><Icon size={19} aria-hidden="true" /><b>{label}</b>{badge ? <em>{badge}</em> : null}</button></li>
               ))}
+              {onGuide && <li><button type="button" onClick={() => { close(); onGuide(); }}><CircleHelp size={19} aria-hidden="true" /><b>Show me around</b></button></li>}
               <li><button type="button" className="danger" onClick={() => { close(); onSignOut(); }}><LogOut size={19} aria-hidden="true" /><b>Sign out</b></button></li>
             </ul>
           </section>

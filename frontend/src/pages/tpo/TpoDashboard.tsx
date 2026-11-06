@@ -2,7 +2,7 @@ import { AssistantWidget } from "@/components/assistant/AssistantWidget";
 import { RecentUpdates } from "@/components/ui/recent-updates";
 import {
   AlertTriangle, FileSpreadsheet, Split, ArrowLeft, Building2, Megaphone, LayoutDashboard, LogOut, Menu, MessageSquareText,
-  Landmark, Moon, Search, Settings, ShieldCheck, Sun, UsersRound, X, type LucideIcon,
+  CircleHelp, Landmark, Moon, Search, Settings, ShieldCheck, Sun, UsersRound, X, type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LogoUploader, OrgBrand, useLiveBranding, type UserBranding } from "@/components/ui/org-brand";
@@ -18,6 +18,7 @@ import { SettingsPage } from "./SettingsPage";
 import { StudentsPage } from "./StudentsPage";
 import { UniversityPages } from "@/pages/university/UniversityPages";
 import { MobileTabBar } from "@/components/layout/MobileTabBar";
+import { PageGuide, RoleTour, useGuide } from "@/components/guide/Guide";
 import { Avatar, Card, Modal, Toast, errorMessage, mapStudents, tpoApi, useLoad, type CohortSummary, type Notify } from "./tpo-core";
 import "./tpo.css";
 
@@ -64,6 +65,8 @@ export function TpoDashboard({ user, accessToken: baseToken, onLogout, universit
   // Institute TPOs always work in their own college. University TPOs work in whichever institute they opened.
   const accessToken = university ? acting?.token ?? "" : baseToken;
   const needsInstitute = university && !acting;
+  const guideRole = university ? "university_admin" : "tpo";
+  const guide = useGuide(guideRole);
   const [menuOpen, setMenuOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -181,14 +184,16 @@ export function TpoDashboard({ user, accessToken: baseToken, onLogout, universit
           <button type="button" className="tp-icon-btn tp-only-mobile" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={19} /></button>
           <label className="tp-search"><Search size={16} aria-hidden="true" /><input value={search} onChange={event => { setSearch(event.target.value); if (event.target.value.trim() && active !== "Students") setActive("Students"); }} disabled={needsInstitute} placeholder={needsInstitute ? "Open an institute to search students" : "Search students"} aria-label="Search students" /></label>
           <div className="tp-top-actions">
+            <button type="button" className="tp-icon-btn" onClick={guide.openTour} aria-label="Show me around" title="Show me around"><CircleHelp size={18} /></button>
             {accessToken && <NotificationCentre accessToken={accessToken} onOpen={goto} />}
             <button type="button" className="tp-icon-btn" onClick={() => setDark(value => !value)} aria-label={dark ? "Use light mode" : "Use dark mode"} title={dark ? "Use light mode" : "Use dark mode"}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button>
           </div>
         </header>
-        <main key={active} id="tp-main" className={`tp-content${active === "Messages" ? " flush" : ""}`}>{page}{accessToken && (active === "Overview" || active === "University") && <RecentUpdates accessToken={baseToken} />}</main>
+        <main key={active} id="tp-main" className={`tp-content${active === "Messages" ? " flush" : ""}`}>{!needsInstitute && <PageGuide role={guideRole} view={active} version={guide.tipsVersion} />}{page}{accessToken && (active === "Overview" || active === "University") && <RecentUpdates accessToken={baseToken} />}</main>
       </div>
 
-      <MobileTabBar items={navGroups.flatMap(group => group.items)} active={active} onSelect={goto} user={user} onSignOut={() => setSignOutOpen(true)} />
+      <MobileTabBar items={navGroups.flatMap(group => group.items)} active={active} onSelect={goto} user={user} onSignOut={() => setSignOutOpen(true)} onGuide={guide.openTour} />
+      {guide.tourOpen && <RoleTour role={guideRole} name={user.name.split(" ")[0]} onClose={guide.closeTour} />}
 
       {signOutOpen && (
         <Modal title="Sign out of Placeble?" description="You’ll need to sign in again to return to this workspace." onClose={() => setSignOutOpen(false)}>

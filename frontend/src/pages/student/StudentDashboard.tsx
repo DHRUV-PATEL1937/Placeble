@@ -17,6 +17,7 @@ import { GroupDiscussion } from "./GroupDiscussionPage";
 import { JobMatching, preloadJobMatching } from "./JobMatchingPage";
 import { MockInterview } from "./MockInterviewPage";
 import { ResumeMaker } from "./ResumeMakerPage";
+import { PageGuide } from "@/components/guide/Guide";
 import { WelcomeTour } from "@/components/onboarding/WelcomeTour";
 import { HomePage, ProfilePage, ProgressPage, SettingsPage, ToolsPage } from "./home/StudentPages";
 import { LimitModal, PlanPage } from "./home/PlanPage";
@@ -186,7 +187,7 @@ export function StudentDashboard({ user, accessToken, onLogout }: { user: Studen
             <button type="button" className="tp-icon-btn" onClick={() => setTheme(value => value === "dark" ? "light" : "dark")} aria-label={theme === "dark" ? "Use light mode" : "Use dark mode"} title={theme === "dark" ? "Use light mode" : "Use dark mode"}>{theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}</button>
           </div>
         </header>
-        <main key={current} id="st-main" className={`tp-content${isTool ? " st-tool-host" : ""}${current === "Messages" ? " st-chat-host" : ""}`}>{page}</main>
+        <main key={current} id="st-main" className={`tp-content${isTool ? " st-tool-host" : ""}${current === "Messages" ? " st-chat-host" : ""}`}>{!tourOpen && <PageGuide role="student" view={current} />}{page}</main>
       </div>
 
       <nav className="st-bottomnav" aria-label="Main">

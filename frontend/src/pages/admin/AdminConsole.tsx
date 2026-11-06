@@ -45,7 +45,7 @@ export function AdminConsole({ user, accessToken, onLogout }: { user: { name: st
   const [active, setActive] = useWorkspaceRoute("admin", KEYS, "Overview");
   return (
     <>
-    <WorkspaceShell nav={NAV} active={active} onNavigate={setActive} user={user} context="Platform admin" onLogout={onLogout} topbar={<strong className="st-crumb">{active}</strong>}>
+    <WorkspaceShell guideRole="platform_admin" nav={NAV} active={active} onNavigate={setActive} user={user} context="Platform admin" onLogout={onLogout} topbar={<strong className="st-crumb">{active}</strong>}>
       {({ notify }) => {
         switch (active) {
           case "System status": return <HealthPage accessToken={accessToken} />;

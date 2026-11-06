@@ -1,0 +1,76 @@
+/*
+ * App-style structure for phones. The desktop pages were laid out for wide screens and simply stacked on a phone.
+ * Here they get what native apps have: a strong page title, compact two-up tiles, inset grouped cards,
+ * a one-thumb action row and list rows that read as cells.
+ */
+@media (max-width: 760px) {
+  .tp-content:not(.flush, .st-tool-host, .st-chat-host), .prd-content { display: grid; align-content: start; gap: 16px; padding: 16px 16px 24px; }
+  .tp-content:not(.flush, .st-tool-host, .st-chat-host) > *, .prd-content > * { margin: 0; min-width: 0; }
+
+  /* Page title: large and tight, like an iOS large title. */
+  .tp-page-head { align-items: stretch; gap: 12px; }
+  .tp-page-head h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.12; }
+  .tp-page-head p { margin-top: 4px; font-size: 14.5px; line-height: 1.45; }
+  .tp-page-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+  .tp-page-actions > :only-child { grid-column: 1 / -1; }
+  .tp-page-actions .tp-btn { width: 100%; min-height: 46px; justify-content: center; border-radius: 14px; }
+
+  /* Stat tiles: two across, icon above the number, so the first screen shows the whole picture. */
+  .tp-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .tp-stat { flex-direction: column; gap: 10px; padding: 14px; border-radius: 18px; box-shadow: none; }
+  .tp-stat > span { width: 36px; height: 36px; border-radius: 11px; }
+  .tp-stat strong { margin-top: 0; font-size: 26px; }
+  .tp-stat small { display: block; min-height: 2.7em; font-size: 12.5px; line-height: 1.35; }
+  .tp-stat p { display: -webkit-box; overflow: hidden; font-size: 11.5px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+
+  /* Cards become inset groups: softer edge, bigger radius, no heavy shadow. */
+  .tp-card { border-radius: 18px; box-shadow: none; }
+  .tp-card-head { padding-top: 16px; }
+  .tp-card-head h2 { font-size: 16px; font-weight: 700; }
+  .tp-card-head p { font-size: 13px; }
+  .tp-card-actions { width: 100%; }
+  .tp-card-actions .tp-btn { flex: 1; min-height: 42px; justify-content: center; }
+  .tp-card-body { padding: 14px 16px 18px; }
+  .tp-card-body.flush { padding: 4px 0 0; }
+
+  /* List rows read as cells: comfortable height, a hairline between them. */
+  .tp-tr:not(.head) { padding-block: 14px; }
+  .tp-tr:not(.head):active { background: var(--surface-soft); }
+  .tp-list li { min-height: 60px; }
+  .tp-toolbar { gap: 8px; padding-block: 12px; }
+  .tp-toolbar .tp-search { flex: 1 1 100%; }
+  .tp-toolbar select, .tp-toolbar .tp-select { flex: 1 1 calc(50% - 4px); min-height: 44px; }
+
+  /* Forms: fields are easy to hit, and never zoom the page on focus. */
+  .tp-content input:not([type="checkbox"], [type="radio"], [type="range"]), .tp-content select, .tp-content textarea,
+  .prd-content input:not([type="checkbox"], [type="radio"], [type="range"]), .prd-content select, .prd-content textarea { font-size: 16px; }
+  .tp-field input, .tp-field select { min-height: 46px; }
+
+  /* The top bar is quiet: icon buttons share one size and the search takes the free space. */
+  .tp-topbar { gap: 10px; padding: 10px 14px; }
+  .tp-top-actions { gap: 6px; }
+  .tp-topbar .tp-icon-btn, .prd-topbar .prd-icon-button, .prd-topbar .prd-menu { width: 42px; height: 42px; border-radius: 13px; }
+  .tp-search input { min-height: 42px; }
+  .st-crumb { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+
+  /* Tables that cannot become cells scroll sideways inside their own card, never the page. */
+  .tp-card, .prd-panel { max-width: 100%; }
+}
+
+/* Very small phones: keep the tile numbers from crowding. */
+@media (max-width: 360px) {
+  .tp-stat strong { font-size: 22px; }
+  .tp-page-head h1 { font-size: 25px; }
+}
+
+/* The page tip fits the same rhythm as the rest of the content. */
+@media (max-width: 760px) {
+  .gd-card { margin-bottom: 0; }
+}
+
+/* A section embedded in another page (such as My Institutes on the recruiter home) reads as a section, not a second page title. */
+@media (max-width: 760px) {
+  .my-institutes.compact > header h2, .my-institutes > header h2 { font-size: 19px; letter-spacing: -0.02em; }
+  .my-institutes > header p { font-size: 11px; }
+  .my-institutes > header span { font-size: 13px; line-height: 1.45; }
+}
