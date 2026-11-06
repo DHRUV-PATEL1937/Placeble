@@ -1,6 +1,6 @@
 import { AssistantWidget } from "@/components/assistant/AssistantWidget";
 import { OrgBrand, useLiveBranding, type UserBranding } from "@/components/ui/org-brand";
-import { Crown, GraduationCap, LayoutDashboard, LogOut, Menu, MessageSquareText, Moon, Settings, Sun, TrendingUp, UserRound, WandSparkles, X, type LucideIcon, Ellipsis, ChevronRight } from "lucide-react";
+import { Crown, GraduationCap, LayoutDashboard, LogOut, Menu, MessageSquareText, Moon, Settings, Sun, TrendingUp, UserRound, WandSparkles, X, type LucideIcon, ChevronRight, House, Target, ChartNoAxesColumn, Gem, MessageCircle, LayoutGrid } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { NotificationCentre } from "@/components/workflow/workflow-panels";
 import { useWorkspaceRoute } from "@/hooks/use-workspace-route";
@@ -10,6 +10,7 @@ import { Avatar, Modal, PageHeader, Toast, type Notify } from "@/pages/tpo/tpo-c
 import "@/pages/tpo/tpo.css";
 import { AptitudeTest } from "./AptitudeTestPage";
 import { CaseStudyLab } from "./CaseStudyPage";
+import { HRSimulator } from "./HRSimulatorPage";
 import { CodingPractice } from "./CodingPracticePage";
 import { CoverLetter } from "./CoverLetterPage";
 import { GroupDiscussion } from "./GroupDiscussionPage";
@@ -37,7 +38,7 @@ const NAV: Array<{ label: string; items: Array<{ view: View; label: string; icon
     { view: "Settings", label: "Settings", icon: Settings },
   ] },
 ];
-const TITLES: Partial<Record<View, string>> = { Overview: "Home", Agents: "Practice tools", Progress: "My progress", Messages: "Messages", Plan: "Plan", "Coding Practice": "Coding practice", "Case Study": "Business Case Solver", Profile: "Profile", Settings: "Settings", "Resume Maker": "Resume builder", "Aptitude Test": "Aptitude practice", "Mock Interview": "Interview Room", "Cover Letter": "Cover letter", "Job Matching": "Job matching", "Group Discussion": "Group discussion", Opportunities: "Opportunities", Applications: "Applications" };
+const TITLES: Partial<Record<View, string>> = { Overview: "Home", Agents: "Practice tools", Progress: "My progress", Messages: "Messages", Plan: "Plan", "Coding Practice": "Coding practice", "Case Study": "Business Case Solver", "HR Simulator": "HR Manager Simulator", Profile: "Profile", Settings: "Settings", "Resume Maker": "Resume builder", "Aptitude Test": "Aptitude practice", "Mock Interview": "Interview Room", "Cover Letter": "Cover letter", "Job Matching": "Job matching", "Group Discussion": "Group discussion", Opportunities: "Opportunities", Applications: "Applications" };
 
 export function StudentDashboard({ user, accessToken, onLogout }: { user: StudentUser; accessToken: string; onLogout: () => void }) {
   const branding = useLiveBranding(user.branding);
@@ -65,8 +66,8 @@ export function StudentDashboard({ user, accessToken, onLogout }: { user: Studen
 
   // Phones get a bottom bar with the four places students use most; the rest live under "More".
   const bottomItems: Array<{ view: View; label: string; icon: LucideIcon }> = [
-    { view: "Overview", label: "Home", icon: LayoutDashboard }, { view: "Agents", label: "Practice", icon: WandSparkles }, { view: "Progress", label: "Progress", icon: TrendingUp },
-    direct ? { view: "Plan", label: "Plan", icon: Crown } : { view: "Messages", label: "Messages", icon: MessageSquareText },
+    { view: "Overview", label: "Home", icon: House }, { view: "Agents", label: "Practice", icon: Target }, { view: "Progress", label: "Progress", icon: ChartNoAxesColumn },
+    direct ? { view: "Plan", label: "Plan", icon: Gem } : { view: "Messages", label: "Messages", icon: MessageCircle },
   ];
   const moreItems: Array<{ view: View; label: string; icon: LucideIcon }> = [{ view: "Profile", label: "Profile", icon: UserRound }, { view: "Settings", label: "Settings", icon: Settings }];
   const moreViews: View[] = moreItems.map(item => item.view);
@@ -126,6 +127,7 @@ export function StudentDashboard({ user, accessToken, onLogout }: { user: Studen
       case "Cover Letter": return <CoverLetter accessToken={accessToken} onBack={toolBack} onOpenResume={() => go("Resume Maker")} />;
       case "Coding Practice": return <CodingPractice accessToken={accessToken} onBack={toolBack} available={user.guidance?.tools?.coding !== false} />;
       case "Case Study": return <CaseStudyLab accessToken={accessToken} onBack={toolBack} />;
+      case "HR Simulator": return <HRSimulator accessToken={accessToken} onBack={toolBack} />;
       case "Group Discussion": return <GroupDiscussion accessToken={accessToken} onBack={toolBack} />;
       case "Job Matching": return <JobMatching accessToken={accessToken} onBack={toolBack} />;
       case "Opportunities": return <JobMatching accessToken={accessToken} initialSurface="feed" onBack={() => go("Overview")} />;
@@ -135,7 +137,7 @@ export function StudentDashboard({ user, accessToken, onLogout }: { user: Studen
   })();
 
   return (
-    <div className="tp-shell st-shell">
+    <div className={`tp-shell st-shell${moreOpen ? " st-more-open" : ""}`}>
       <a className="tp-skip" href="#st-main">Skip to content</a>
       <div className={`tp-scrim${menuOpen ? " show" : ""}`} onClick={() => setMenuOpen(false)} aria-hidden="true" />
 
@@ -179,9 +181,9 @@ export function StudentDashboard({ user, accessToken, onLogout }: { user: Studen
 
       <nav className="st-bottomnav" aria-label="Main">
         {bottomItems.map(({ view, label, icon: Icon }) => (
-          <button key={view} type="button" className={activeNav === view ? "active" : ""} aria-current={activeNav === view ? "page" : undefined} onClick={() => go(view)}><Icon size={22} aria-hidden="true" /><span>{label}</span></button>
+          <button key={view} type="button" className={activeNav === view ? "active" : ""} aria-current={activeNav === view ? "page" : undefined} onClick={() => go(view)}><i className="st-nav-ic"><Icon size={21} strokeWidth={activeNav === view ? 2.4 : 1.9} aria-hidden="true" /></i><span>{label}</span></button>
         ))}
-        <button type="button" className={moreOpen || moreViews.includes(activeNav) ? "active" : ""} aria-haspopup="dialog" aria-expanded={moreOpen} onClick={() => setMoreOpen(true)}><Ellipsis size={22} aria-hidden="true" /><span>More</span></button>
+        <button type="button" className={moreOpen || moreViews.includes(activeNav) ? "active" : ""} aria-haspopup="dialog" aria-expanded={moreOpen} onClick={() => setMoreOpen(true)}><i className="st-nav-ic"><LayoutGrid size={21} strokeWidth={moreOpen || moreViews.includes(activeNav) ? 2.4 : 1.9} aria-hidden="true" /></i><span>More</span></button>
       </nav>
       {moreOpen && (
         <div className="st-sheet-layer" role="presentation">
@@ -201,7 +203,7 @@ export function StudentDashboard({ user, accessToken, onLogout }: { user: Studen
       )}
       {direct && <LimitModal accessToken={accessToken} onSeePlans={() => go("Plan")} />}
       <AssistantWidget accessToken={accessToken} name={user.name} audience="student" onNavigate={view => go(view as View)}
-        views={["Overview", "Profile", "Progress", "Agents", "Resume Maker", "Aptitude Test", "Mock Interview", "Cover Letter", "Settings", ...(user.guidance?.tools?.coding ? ["Coding Practice"] : []), "Case Study", ...(direct ? ["Plan"] : ["Messages"]), ...(SHOW_JOB_MATCHING ? ["Job Matching"] : []), ...(SHOW_GROUP_DISCUSSION ? ["Group Discussion"] : [])]} />
+        views={["Overview", "Profile", "Progress", "Agents", "Resume Maker", "Aptitude Test", "Mock Interview", "Cover Letter", "Settings", ...(user.guidance?.tools?.coding ? ["Coding Practice"] : []), "Case Study", "HR Simulator", ...(direct ? ["Plan"] : ["Messages"]), ...(SHOW_JOB_MATCHING ? ["Job Matching"] : []), ...(SHOW_GROUP_DISCUSSION ? ["Group Discussion"] : [])]} />
       {signOutOpen && (
         <Modal title="Sign out of Placeble?" description="You’ll need to sign in again to return to your workspace." onClose={() => setSignOutOpen(false)}>
           <footer className="tp-modal-foot"><button type="button" className="tp-btn ghost" onClick={() => setSignOutOpen(false)}>Stay signed in</button><button type="button" className="tp-btn danger-solid" onClick={onLogout}>Sign out</button></footer>

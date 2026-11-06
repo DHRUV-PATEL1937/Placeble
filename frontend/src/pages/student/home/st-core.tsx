@@ -3,16 +3,16 @@ import { BookOpenCheck, Briefcase, Code2, FileText, MessageSquareText, Mic2, Use
 export type View =
   | "Overview" | "Progress" | "Agents" | "Messages" | "Profile" | "Settings"
   | "Resume Maker" | "Aptitude Test" | "Mock Interview" | "Job Matching" | "Cover Letter" | "Group Discussion"
-  | "Opportunities" | "Applications" | "Plan" | "Coding Practice" | "Case Study";
+  | "Opportunities" | "Applications" | "Plan" | "Coding Practice" | "Case Study" | "HR Simulator";
 
 export const STUDENT_VIEWS: readonly View[] = [
   "Overview", "Progress", "Agents", "Messages", "Profile", "Settings",
   "Resume Maker", "Aptitude Test", "Mock Interview", "Job Matching", "Cover Letter", "Group Discussion",
-  "Opportunities", "Applications", "Plan", "Coding Practice", "Case Study",
+  "Opportunities", "Applications", "Plan", "Coding Practice", "Case Study", "HR Simulator",
 ];
 
 /** Tools that live under "Practice tools" for navigation highlighting and the back button. */
-export const TOOL_VIEWS: readonly View[] = ["Resume Maker", "Aptitude Test", "Mock Interview", "Job Matching", "Cover Letter", "Group Discussion", "Coding Practice", "Case Study"];
+export const TOOL_VIEWS: readonly View[] = ["Resume Maker", "Aptitude Test", "Mock Interview", "Job Matching", "Cover Letter", "Group Discussion", "Coding Practice", "Case Study", "HR Simulator"];
 
 // Product flags
 export const SHOW_GROUP_DISCUSSION = false;
@@ -40,9 +40,9 @@ export type Guidance = { programCode: string | null; programName: string; interv
 
 /** Which tools lead for each kind of programme. Business programmes lean on interviews and communication; technical ones on aptitude and coding-style practice. */
 const ORDER: Record<string, View[]> = {
-  technical: ["Aptitude Test", "Case Study", "Coding Practice", "Mock Interview", "Resume Maker", "Cover Letter", "Job Matching", "Group Discussion"],
-  business: ["Mock Interview", "Case Study", "Resume Maker", "Group Discussion", "Cover Letter", "Aptitude Test", "Job Matching", "Coding Practice"],
-  mixed: ["Resume Maker", "Aptitude Test", "Case Study", "Coding Practice", "Mock Interview", "Cover Letter", "Job Matching", "Group Discussion"],
+  technical: ["Aptitude Test", "Case Study", "HR Simulator", "Coding Practice", "Mock Interview", "Resume Maker", "Cover Letter", "Job Matching", "Group Discussion"],
+  business: ["Mock Interview", "Case Study", "HR Simulator", "Resume Maker", "Group Discussion", "Cover Letter", "Aptitude Test", "Job Matching", "Coding Practice"],
+  mixed: ["Resume Maker", "Aptitude Test", "Case Study", "HR Simulator", "Coding Practice", "Mock Interview", "Cover Letter", "Job Matching", "Group Discussion"],
 };
 
 export function buildTools(readiness: ReadinessPayload | null, guidance?: Guidance): Tool[] {
@@ -53,6 +53,7 @@ export function buildTools(readiness: ReadinessPayload | null, guidance?: Guidan
     { view: "Mock Interview", name: "Interview Room", description: "Practise role-specific answers and get measured feedback.", icon: Mic2, cta: c?.interview ? "Interview again" : "Start interview", minutes: "~20 min", metric: c?.interview ? `${c.interview}% score` : "Not started", done: Boolean(c?.interview) },
     { view: "Coding Practice", name: "Coding practice", description: "Solve problems in a built-in editor and check them against real test cases.", icon: Code2, cta: "Start coding", minutes: "~30 min", metric: "Open tool", done: false },
     { view: "Case Study", name: "Business Case Solver", description: "Think like a management consultant: solve a fresh business case and get scored feedback.", icon: Briefcase, cta: "Solve a case", minutes: "~15 min", metric: "Open tool", done: false },
+    { view: "HR Simulator", name: "HR Manager Simulator", description: "Step into the HR Manager role: handle real workplace situations and get scored on your decisions.", icon: UsersRound, cta: "Start simulation", minutes: "~15 min", metric: "Open tool", done: false },
     { view: "Cover Letter", name: "Cover letter", description: "Turn a job description into a clear, personal letter.", icon: MessageSquareText, cta: "Write a letter", minutes: "~5 min", metric: "Open tool", done: false },
     { view: "Job Matching", name: "Job matching", description: "Find roles where your skills and intent line up.", icon: UserRoundSearch, cta: "See matches", minutes: "~5 min", metric: c?.careerActivity ? `${c.careerActivity}% activity` : "Explore roles", done: Boolean(c?.careerActivity) },
     { view: "Group Discussion", name: "Group discussion", description: "Build clarity, confidence and leadership in a live room.", icon: UsersRound, cta: "Start discussion", minutes: "~15 min", metric: c?.groupDiscussion ? `${c.groupDiscussion}% score` : "Not started", done: Boolean(c?.groupDiscussion) },

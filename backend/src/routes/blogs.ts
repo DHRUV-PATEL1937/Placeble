@@ -13,7 +13,7 @@ const takeImage = (request: Request, response: Response, next: NextFunction) => 
   return response.status(400).json({ message: (error as { code?: string }).code === "LIMIT_FILE_SIZE" ? "That picture is over 2 MB. Choose a smaller one." : "Could not read that picture." });
 });
 
-const present = (post: { _id: unknown; title: string; summary?: string | null; body: string; tag?: string | null; status?: string | null; publishedAt?: Date | null; authorName?: string | null; hasImage?: boolean | null; imageVersion?: number | null; updatedAt?: Date }) => ({
+export const present = (post: { _id: unknown; title: string; summary?: string | null; body: string; tag?: string | null; status?: string | null; publishedAt?: Date | null; authorName?: string | null; hasImage?: boolean | null; imageVersion?: number | null; updatedAt?: Date }) => ({
   id: String(post._id), title: post.title, summary: post.summary ?? "", body: post.body, tag: post.tag ?? "Update", status: post.status ?? "draft",
   publishedAt: post.publishedAt ?? null, updatedAt: post.updatedAt ?? null, authorName: post.authorName ?? "Placeble team",
   imagePath: post.hasImage ? `/blogs/${String(post._id)}/image?v=${post.imageVersion ?? 0}` : null,

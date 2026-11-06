@@ -10,12 +10,43 @@ export type BrowserSpeechOptions = {
 
 let speakToken = 0;
 
+/**
+ * Inside the Placeble Android app (a WebView) the browser's speechSynthesis often stays silent.
+ * The app sets `__PLACEBLE_NATIVE_TTS__` and reads the interviewer's voice with the phone's own text-to-speech instead.
+ * Older app builds don't set the flag, so they keep using the browser voice.
+ */
+type AppWindow = Window & { __PLACEBLE_NATIVE_TTS__?: boolean; ReactNativeWebView?: { postMessage: (data: string) => void } };
+const nativeTts = () => typeof window !== "undefined" && Boolean((window as AppWindow).__PLACEBLE_NATIVE_TTS__ && (window as AppWindow).ReactNativeWebView);
+const postNative = (message: object) => (window as AppWindow).ReactNativeWebView?.postMessage(JSON.stringify(message));
+let detachNative: (() => void) | null = null;
+
 export function stopBrowserSpeech() {
   speakToken += 1;
-  if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+  if (typeof window === "undefined") return;
+  detachNative?.(); detachNative = null;
+  if (nativeTts()) postNative({ type: "stop-speech" });
+  window.speechSynthesis?.cancel();
 }
 
-export const speechSupported = () => typeof window !== "undefined" && "speechSynthesis" in window;
+export const speechSupported = () => typeof window !== "undefined" && (nativeTts() || "speechSynthesis" in window);
+
+const NATIVE_LANG = { in: "en-IN", gb: "en-GB", us: "en-US" } as const;
+function speakNative(text: string, options: BrowserSpeechOptions) {
+  stopBrowserSpeech();
+  const id = speakToken;
+  const onEvent = (event: Event) => {
+    const detail = (event as CustomEvent<{ id: number; event: "start" | "end" | "error" }>).detail;
+    if (!detail || detail.id !== id) return;
+    if (detail.event === "start") options.onStart?.();
+    else { detachNative?.(); detachNative = null; if (detail.event === "end") options.onEnd?.(); else options.onError?.(); }
+  };
+  window.addEventListener("placeble-speech", onEvent);
+  detachNative = () => window.removeEventListener("placeble-speech", onEvent);
+  // The phone's voices don't say whether they are male or female, so each interviewer gets a different pitch.
+  const pitch = (options.pitch ?? 1) * (options.gender === "female" ? 1.12 : options.gender === "male" ? 0.82 : 1);
+  postNative({ type: "speak", id, text, rate: options.rate ?? 0.96, pitch, lang: NATIVE_LANG[options.accent ?? "in"] });
+  return true;
+}
 
 /** Chrome returns no voices until they've loaded, so wait briefly for them instead of falling back to the default robot voice. */
 function voicesReady(): Promise<SpeechSynthesisVoice[]> {
@@ -56,6 +87,7 @@ const sentences = (text: string) => (text.match(/[^.!?]+[.!?]*\s*/g) ?? [text]).
 
 export function speakBrowserText(text: string, options: BrowserSpeechOptions = {}) {
   if (!speechSupported() || !text.trim()) return false;
+  if (nativeTts()) return speakNative(text, options);
   stopBrowserSpeech();
   const token = speakToken;
   void voicesReady().then(voices => {

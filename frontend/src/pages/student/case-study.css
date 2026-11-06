@@ -1,5 +1,5 @@
 /* Business Case Solver: own layout so it fits any screen and follows the light/dark theme. */
-.cs-view { width: 100%; max-width: 920px; margin: 0 auto; padding: 24px clamp(16px, 3vw, 32px) 72px; }
+.cs-view { width: 100%; max-width: none; margin: 0; padding: 24px clamp(16px, 3vw, 32px) 72px; }
 .cs-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
 .cs-top-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .cs-top-title span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--tp-accent-soft); color: var(--tp-accent); flex: none; }

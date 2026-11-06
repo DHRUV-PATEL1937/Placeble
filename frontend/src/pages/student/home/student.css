@@ -102,8 +102,14 @@
   .st-hero, .st-profile { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 640px) {
-  .st-hero-score { flex-direction: column; align-items: flex-start; padding: 22px; }
-  .st-hero-next { padding: 22px; }
+  /* Phones: centre the score, its text and the recommendation so the card reads balanced. */
+  .st-hero-score { flex-direction: column; align-items: center; gap: 18px; padding: 24px 18px; text-align: center; }
+  .st-hero-score > div:last-child { width: 100%; }
+  .st-hero-score p { margin-inline: auto; }
+  .st-hero-score .st-agent-chips { justify-content: center; }
+  .st-hero-score .st-agent-chips button { text-align: left; }
+  .st-hero-next { justify-items: center; padding: 24px 18px; text-align: center; }
+  .st-hero-next .tp-btn.primary { width: 100%; justify-content: center; }
   .st-breakdown > div { grid-template-columns: minmax(0, 1fr) 48px; row-gap: 6px; }
   .st-breakdown i { grid-column: 1 / -1; grid-row: 2; }
   .st-theme { grid-template-columns: minmax(0, 1fr); }
@@ -198,13 +204,15 @@ html[data-reduced-motion="true"] .st-tool, html[data-reduced-motion="true"] .st-
   .st-top-logo { width: 30px; height: 30px; border-radius: 8px; }
   .st-shell .tp-topbar { gap: 10px; padding: 10px 14px; }
   .st-shell .st-crumb { flex: 1; min-width: 0; overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
-  .st-shell .tp-content { padding: 16px 14px calc(86px + env(safe-area-inset-bottom)); }
-  .st-shell .tp-content.st-tool-host, .st-shell .tp-content.st-chat-host { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .st-shell .tp-content { padding: 16px 14px calc(72px + env(safe-area-inset-bottom)); }
+  .st-shell .tp-content.st-tool-host, .st-shell .tp-content.st-chat-host { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 
-  .st-bottomnav { position: fixed; right: 0; bottom: 0; left: 0; z-index: 70; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(12px); }
-  .st-bottomnav button { display: grid; justify-items: center; gap: 3px; min-height: 52px; padding: 6px 2px; border: 0; border-radius: 12px; background: transparent; color: var(--text-secondary); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .st-bottomnav { position: fixed; right: 0; bottom: 0; left: 0; z-index: 70; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 4px 6px max(4px, calc(env(safe-area-inset-bottom) - 12px)); border-top: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 96%, transparent); backdrop-filter: blur(14px); }
+  .st-bottomnav button { display: grid; justify-items: center; align-content: center; gap: 2px; min-height: 48px; padding: 2px; border: 0; border-radius: 12px; background: transparent; color: var(--text-secondary); font: inherit; font-size: 10.5px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .st-bottomnav button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .st-bottomnav button.active { background: var(--tp-accent-soft); color: var(--tp-accent); }
+  .st-nav-ic { display: grid; place-items: center; width: 48px; height: 26px; border-radius: 999px; font-style: normal; transition: background .18s; }
+  .st-bottomnav button.active { color: var(--tp-accent); }
+  .st-bottomnav button.active .st-nav-ic { background: var(--tp-accent-soft); }
   .st-bottomnav button:focus-visible { outline: 2px solid var(--tp-accent); outline-offset: -2px; }
 
   .st-sheet-layer { position: fixed; inset: 0; z-index: 120; display: block; }
@@ -225,7 +233,9 @@ html[data-reduced-motion="true"] .st-tool, html[data-reduced-motion="true"] .st-
   .st-sheet li button:focus-visible { outline: 2px solid var(--tp-accent); outline-offset: -2px; }
 
   /* Keep floating helpers clear of the bottom bar. */
-  .sa-fab { bottom: calc(76px + env(safe-area-inset-bottom)); right: 14px; }
+  .sa-fab { bottom: calc(68px + env(safe-area-inset-bottom)); right: 14px; transition: opacity .15s, transform .15s; }
+  /* While the "More" sheet is open the assistant button would sit on top of it, so tuck it away. */
+  .st-more-open .sa-fab { opacity: 0; transform: translateY(24px) scale(.9); pointer-events: none; }
   .tp-toast, .tp-toast-host { bottom: calc(84px + env(safe-area-inset-bottom)); }
 }
 @keyframes st-sheet-in { from { transform: translateY(24px); opacity: 0.6; } to { transform: none; opacity: 1; } }

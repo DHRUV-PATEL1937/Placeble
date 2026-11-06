@@ -1,7 +1,7 @@
 import mongoose, { type InferSchemaType, type Model } from "mongoose";
 const { model, models, Schema } = mongoose;
 
-export const meteredFeatures = ["resume_ai", "aptitude", "interview", "cover_letter", "group_discussion", "assistant", "case_study"] as const;
+export const meteredFeatures = ["resume_ai", "aptitude", "interview", "cover_letter", "group_discussion", "assistant", "case_study", "hr_simulation"] as const;
 export type MeteredFeature = typeof meteredFeatures[number];
 
 /** One successful use of a limited feature by a B2C student. Counted per calendar month. */

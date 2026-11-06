@@ -3,12 +3,12 @@ import { Subscription } from "../models/Subscription";
 import { UsageEvent, meteredFeatures, type MeteredFeature } from "../models/UsageEvent";
 
 export const FEATURE_LABEL: Record<MeteredFeature, string> = {
-  resume_ai: "AI resume actions", aptitude: "aptitude attempts", interview: "mock interviews", cover_letter: "cover letters", group_discussion: "group discussions", assistant: "assistant messages", case_study: "case studies",
+  resume_ai: "AI resume actions", aptitude: "aptitude attempts", interview: "mock interviews", cover_letter: "cover letters", group_discussion: "group discussions", assistant: "assistant messages", case_study: "case studies", hr_simulation: "HR simulations",
 };
 
 /** Free-plan allowance per calendar month. `null` means no monthly limit. Change these numbers to change the free tier. */
-export const FREE_LIMITS: Record<MeteredFeature, number | null> = { resume_ai: 5, aptitude: 3, interview: 2, cover_letter: 3, group_discussion: 2, assistant: 20, case_study: 3 };
-export const PRO_LIMITS: Record<MeteredFeature, number | null> = { resume_ai: null, aptitude: null, interview: null, cover_letter: null, group_discussion: null, assistant: null, case_study: null };
+export const FREE_LIMITS: Record<MeteredFeature, number | null> = { resume_ai: 5, aptitude: 3, interview: 2, cover_letter: 3, group_discussion: 2, assistant: 20, case_study: 3, hr_simulation: 2 };
+export const PRO_LIMITS: Record<MeteredFeature, number | null> = { resume_ai: null, aptitude: null, interview: null, cover_letter: null, group_discussion: null, assistant: null, case_study: null, hr_simulation: null };
 
 /** Prices in rupees. Set PRO_PRICE_MONTHLY_INR / PRO_PRICE_YEARLY_INR to change them; the defaults are the live prices. */
 export const PRICES = {
