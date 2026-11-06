@@ -24,7 +24,7 @@ import { SHOW_GROUP_DISCUSSION, SHOW_JOB_MATCHING, STUDENT_VIEWS, TOOL_VIEWS, ty
 import "./home/student.css";
 
 const STUDENT_CHAT = { role: "student" } as const;
-type StudentUser = { name: string; email: string; branding?: UserBranding; studentVerificationStatus?: string | null; accountType?: "direct" | "institute" | null; plan?: { plan: "free" | "pro" } | null; graduate?: { endedAt: string; closesAt: string } | null; guidance?: { programCode: string | null; programName: string; interviewStyle: "technical" | "business" | "mixed"; roles: string[]; tools?: { coding: boolean; caseStudy?: boolean } } | null };
+type StudentUser = { name: string; email: string; branding?: UserBranding; studentVerificationStatus?: string | null; accountType?: "direct" | "institute" | null; plan?: { plan: "free" | "pro" } | null; graduate?: { endedAt: string; closesAt: string } | null; guidance?: { programCode: string | null; programName: string; interviewStyle: "technical" | "business" | "mixed"; roles: string[]; tools?: { coding: boolean; caseStudy?: boolean; hrSimulator?: boolean } } | null };
 
 const NAV: Array<{ label: string; items: Array<{ view: View; label: string; icon: LucideIcon }> }> = [
   { label: "Learn", items: [
@@ -39,6 +39,15 @@ const NAV: Array<{ label: string; items: Array<{ view: View; label: string; icon
   ] },
 ];
 const TITLES: Partial<Record<View, string>> = { Overview: "Home", Agents: "Practice tools", Progress: "My progress", Messages: "Messages", Plan: "Plan", "Coding Practice": "Coding practice", "Case Study": "Business Case Solver", "HR Simulator": "HR Manager Simulator", Profile: "Profile", Settings: "Settings", "Resume Maker": "Resume builder", "Aptitude Test": "Aptitude practice", "Mock Interview": "Interview Room", "Cover Letter": "Cover letter", "Job Matching": "Job matching", "Group Discussion": "Group discussion", Opportunities: "Opportunities", Applications: "Applications" };
+
+function NotInProgramme({ name, onBack }: { name: string; onBack: () => void }) {
+  return (
+    <>
+      <PageHeader title="Not part of your programme" description={`${name} is built for business programmes (MBA, BBA and related courses).`} />
+      <button type="button" className="tp-btn primary" onClick={onBack}>Back to practice tools</button>
+    </>
+  );
+}
 
 export function StudentDashboard({ user, accessToken, onLogout }: { user: StudentUser; accessToken: string; onLogout: () => void }) {
   const branding = useLiveBranding(user.branding);
@@ -126,8 +135,9 @@ export function StudentDashboard({ user, accessToken, onLogout }: { user: Studen
       case "Mock Interview": return <MockInterview accessToken={accessToken} onBack={toolBack} onOpenResume={() => go("Resume Maker")} />;
       case "Cover Letter": return <CoverLetter accessToken={accessToken} onBack={toolBack} onOpenResume={() => go("Resume Maker")} />;
       case "Coding Practice": return <CodingPractice accessToken={accessToken} onBack={toolBack} available={user.guidance?.tools?.coding !== false} />;
-      case "Case Study": return <CaseStudyLab accessToken={accessToken} onBack={toolBack} />;
-      case "HR Simulator": return <HRSimulator accessToken={accessToken} onBack={toolBack} />;
+      // Business tools belong to business programmes (MBA, BBA, ...). Anyone else who lands here by a stale link is sent back.
+      case "Case Study": return user.guidance?.tools?.caseStudy ? <CaseStudyLab accessToken={accessToken} onBack={toolBack} /> : <NotInProgramme name="The Business Case Solver" onBack={toolBack} />;
+      case "HR Simulator": return user.guidance?.tools?.hrSimulator ? <HRSimulator accessToken={accessToken} onBack={toolBack} /> : <NotInProgramme name="The HR Manager Simulator" onBack={toolBack} />;
       case "Group Discussion": return <GroupDiscussion accessToken={accessToken} onBack={toolBack} />;
       case "Job Matching": return <JobMatching accessToken={accessToken} onBack={toolBack} />;
       case "Opportunities": return <JobMatching accessToken={accessToken} initialSurface="feed" onBack={() => go("Overview")} />;
@@ -203,7 +213,7 @@ export function StudentDashboard({ user, accessToken, onLogout }: { user: Studen
       )}
       {direct && <LimitModal accessToken={accessToken} onSeePlans={() => go("Plan")} />}
       <AssistantWidget accessToken={accessToken} name={user.name} audience="student" onNavigate={view => go(view as View)}
-        views={["Overview", "Profile", "Progress", "Agents", "Resume Maker", "Aptitude Test", "Mock Interview", "Cover Letter", "Settings", ...(user.guidance?.tools?.coding ? ["Coding Practice"] : []), "Case Study", "HR Simulator", ...(direct ? ["Plan"] : ["Messages"]), ...(SHOW_JOB_MATCHING ? ["Job Matching"] : []), ...(SHOW_GROUP_DISCUSSION ? ["Group Discussion"] : [])]} />
+        views={["Overview", "Profile", "Progress", "Agents", "Resume Maker", "Aptitude Test", "Mock Interview", "Cover Letter", "Settings", ...(user.guidance?.tools?.coding ? ["Coding Practice"] : []), ...(user.guidance?.tools?.caseStudy ? ["Case Study"] : []), ...(user.guidance?.tools?.hrSimulator ? ["HR Simulator"] : []), ...(direct ? ["Plan"] : ["Messages"]), ...(SHOW_JOB_MATCHING ? ["Job Matching"] : []), ...(SHOW_GROUP_DISCUSSION ? ["Group Discussion"] : [])]} />
       {signOutOpen && (
         <Modal title="Sign out of Placeble?" description="You’ll need to sign in again to return to your workspace." onClose={() => setSignOutOpen(false)}>
           <footer className="tp-modal-foot"><button type="button" className="tp-btn ghost" onClick={() => setSignOutOpen(false)}>Stay signed in</button><button type="button" className="tp-btn danger-solid" onClick={onLogout}>Sign out</button></footer>

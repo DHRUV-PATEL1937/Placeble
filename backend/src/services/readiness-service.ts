@@ -10,7 +10,8 @@ import { ReadinessScore } from "../models/ReadinessScore";
 import { Resume } from "../models/Resume";
 import { StudentProfile } from "../models/StudentProfile";
 import { User } from "../models/User";
-import { programByCode, programHasCoding } from "./program-service";
+import { AgentResult } from "../models/AgentResult";
+import { programByCode, programHasCoding, programIsBusiness } from "./program-service";
 
 const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 const average = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
@@ -27,6 +28,17 @@ export function aptitudeComponent(testScore: number, solvedProblems: number) {
   return clamp(test * 0.7 + Math.max(test, coding) * 0.3);
 }
 
+/**
+ * How much each area counts. Areas with no activity are left out and the rest are rescaled.
+ * IT and general programmes: resume, aptitude (with coding) and interview, 25 each.
+ * Business programmes (MBA, BBA, ...): resume, aptitude, interview, Case Solver and HR Simulator, 20 each.
+ */
+export function readinessWeights(business: boolean) {
+  return business
+    ? { resume: 0.2, aptitude: 0.2, interview: 0.2, caseStudy: 0.2, hrSimulation: 0.2, groupDiscussion: 0.15, careerActivity: 0.1 }
+    : { resume: 0.25, aptitude: 0.25, interview: 0.25, caseStudy: 0, hrSimulation: 0, groupDiscussion: 0.15, careerActivity: 0.1 };
+}
+
 const pending = new Map<string, { timer: NodeJS.Timeout; reason: string }>();
 /** Recompute shortly after the last activity, so a burst of saves (editing a resume, several submissions) writes one score, not one per event. */
 export function scheduleReadiness(studentId: string, reason: string, delayMs = 1500) {
@@ -40,7 +52,7 @@ export function scheduleReadiness(studentId: string, reason: string, delayMs = 1
 
 export async function recomputeReadiness(studentId: string, reason = "activity") {
   if (!Types.ObjectId.isValid(studentId)) return null;
-  const [user, resume, aptitude, interviews, discussions, applications, solvedProblems, codingTried, profile] = await Promise.all([
+  const [user, resume, aptitude, interviews, discussions, applications, solvedProblems, codingTried, profile, caseResults, hrResults] = await Promise.all([
     User.findById(studentId).select("institutionId").lean(),
     Resume.findOne({ studentId, isCurrent: true }).sort({ updatedAt: -1 }).select("atsScore").lean(),
     AptitudeAttempt.findOne({ studentId, status: "completed" }).sort({ completedAt: -1 }).select("scoreTotal").lean(),
@@ -50,9 +62,14 @@ export async function recomputeReadiness(studentId: string, reason = "activity")
     CodingSubmission.distinct("questionId", { studentId, status: "accepted" }),
     CodingSubmission.exists({ studentId }),
     StudentProfile.findOne({ userId: studentId }).select("programCode").lean(),
+    AgentResult.find({ studentId, agent: "case_study" }).sort({ createdAt: -1 }).limit(3).select("score").lean(),
+    AgentResult.find({ studentId, agent: "hr_simulation" }).sort({ createdAt: -1 }).limit(3).select("score").lean(),
   ]);
   if (!user) return null;
-  const codingRequired = programHasCoding(await programByCode(profile?.programCode ?? null));
+  const program = await programByCode(profile?.programCode ?? null);
+  const codingRequired = programHasCoding(program);
+  // Business programmes (MBA, BBA, ...) get the Case Solver and HR Simulator, and those count; IT programmes get Coding. Nobody gets both sets.
+  const business = programIsBusiness(program);
   const interviewScores = interviews.map(item => item.overallScore ?? 0).filter(value => value > 0);
   const gdScores = discussions.map(item => average(Object.values(item.observerMetrics ?? {}).map(Number)) * 10).filter(value => value > 0);
   const activeApplications = applications.filter(item => item.status !== "saved").length;
@@ -63,11 +80,11 @@ export async function recomputeReadiness(studentId: string, reason = "activity")
     interview: clamp(average(interviewScores)),
     groupDiscussion: clamp(average(gdScores)),
     careerActivity: clamp(activeApplications * 12 + progressedApplications * 16),
+    caseStudy: business ? clamp(average(caseResults.map(item => item.score))) : 0,
+    hrSimulation: business ? clamp(average(hrResults.map(item => item.score))) : 0,
   };
-  const weighted: Array<[number, number]> = [
-    [components.resume, 0.25], [components.aptitude, 0.25], [components.interview, 0.25],
-    [components.groupDiscussion, 0.15], [components.careerActivity, 0.10],
-  ];
+  const weights = readinessWeights(business);
+  const weighted: Array<[number, number]> = (Object.keys(weights) as Array<keyof typeof weights>).map(key => [components[key], weights[key]]);
   const available = weighted.filter(([value]) => value > 0);
   const weightTotal = available.reduce((sum, [, weight]) => sum + weight, 0);
   const score = clamp(weightTotal ? available.reduce((sum, [value, weight]) => sum + value * weight, 0) / weightTotal : 0);
@@ -77,6 +94,10 @@ export async function recomputeReadiness(studentId: string, reason = "activity")
     { key: "aptitude", label: "Aptitude practice", view: "Aptitude Test", used: Boolean(aptitude), score: clamp(aptitude?.scoreTotal ?? 0) },
     { key: "interview", label: "Interview Room", view: "Mock Interview", used: interviews.length > 0, score: components.interview },
     ...(codingRequired ? [{ key: "coding", label: "Coding practice", view: "Coding Practice", used: Boolean(codingTried), score: clamp(solvedProblems.length * 10) }] : []),
+    ...(business ? [
+      { key: "case_study", label: "Business Case Solver", view: "Case Study", used: caseResults.length > 0, score: components.caseStudy },
+      { key: "hr_simulation", label: "HR Manager Simulator", view: "HR Simulator", used: hrResults.length > 0, score: components.hrSimulation },
+    ] : []),
   ];
   const complete = agents.every(agent => agent.used);
   const latest = await ReadinessScore.findOne({ studentId }).sort({ calculatedAt: -1 }).lean();
@@ -97,7 +118,8 @@ export async function studentReadiness(studentId: string) {
   const usedCount = agents.filter(agent => agent.used).length;
   // Before the unlock, earlier overall scores are hidden too, so the trend line can't reveal a number they haven't earned yet.
   const visibleHistory = unlocked ? history.filter(item => item.complete).reverse() : [];
-  return { current, history: visibleHistory, agents, unlocked, usedCount, totalCount: agents.length, overall: unlocked && current ? current.score : null };
+  const weights = readinessWeights(agents.some(agent => agent.key === "case_study"));
+  return { current, history: visibleHistory, agents, weights, unlocked, usedCount, totalCount: agents.length, overall: unlocked && current ? current.score : null };
 }
 
 /** Mongo filter for students who have signed in at least once. Invited-but-never-signed-in students have no activity to score. */

@@ -2,7 +2,7 @@ import { ArrowRight, Check, CircleDashed, PlayCircle, X } from "lucide-react";
 import type { Tool, View } from "@/pages/student/home/st-core";
 import "./onboarding-guide.css";
 
-const CORE: View[] = ["Resume Maker", "Aptitude Test", "Mock Interview"];
+const CORE: View[] = ["Resume Maker", "Aptitude Test", "Mock Interview", "Case Study", "HR Simulator"];
 
 /**
  * A short checklist for new students, driven by real progress: a step ticks itself the moment the student has

@@ -18,12 +18,14 @@ export const TOOL_VIEWS: readonly View[] = ["Resume Maker", "Aptitude Test", "Mo
 export const SHOW_GROUP_DISCUSSION = false;
 export const SHOW_JOB_MATCHING = false;
 
-export type Components = { resume: number; aptitude: number; interview: number; groupDiscussion: number; careerActivity: number };
+export type Components = { resume: number; aptitude: number; interview: number; groupDiscussion: number; careerActivity: number; caseStudy?: number; hrSimulation?: number };
 export type ReadinessPayload = {
   current: { score: number; evidenceCount?: number; components: Components } | null;
   history: Array<{ score: number; calculatedAt: string; reason?: string }>;
   /** Every scored agent, whether the student has used it, and its own score. */
   agents?: Agent[];
+  /** How much each area counts for this student (0 to 1). Business programmes weigh differently from IT ones. */
+  weights?: Partial<Record<keyof Components, number>>;
   /** True once every required agent has been used at least once. Until then there is no overall score. */
   unlocked?: boolean;
   usedCount?: number;
@@ -36,7 +38,7 @@ export type Tool = {
   view: View; name: string; description: string; icon: LucideIcon; cta: string; minutes: string; metric: string; done: boolean;
 };
 
-export type Guidance = { programCode: string | null; programName: string; interviewStyle: "technical" | "business" | "mixed"; roles: string[]; tools?: { coding: boolean; caseStudy?: boolean } } | null | undefined;
+export type Guidance = { programCode: string | null; programName: string; interviewStyle: "technical" | "business" | "mixed"; roles: string[]; tools?: { coding: boolean; caseStudy?: boolean; hrSimulator?: boolean } } | null | undefined;
 
 /** Which tools lead for each kind of programme. Business programmes lean on interviews and communication; technical ones on aptitude and coding-style practice. */
 const ORDER: Record<string, View[]> = {
@@ -52,14 +54,14 @@ export function buildTools(readiness: ReadinessPayload | null, guidance?: Guidan
     { view: "Aptitude Test", name: "Aptitude practice", description: "Strengthen the topics that are holding your score back.", icon: BookOpenCheck, cta: c?.aptitude ? "Practice again" : "Start practice", minutes: "~15 min", metric: c?.aptitude ? `${c.aptitude}% latest` : "Not started", done: Boolean(c?.aptitude) },
     { view: "Mock Interview", name: "Interview Room", description: "Practise role-specific answers and get measured feedback.", icon: Mic2, cta: c?.interview ? "Interview again" : "Start interview", minutes: "~20 min", metric: c?.interview ? `${c.interview}% score` : "Not started", done: Boolean(c?.interview) },
     { view: "Coding Practice", name: "Coding practice", description: "Solve problems in a built-in editor and check them against real test cases.", icon: Code2, cta: "Start coding", minutes: "~30 min", metric: "Open tool", done: false },
-    { view: "Case Study", name: "Business Case Solver", description: "Think like a management consultant: solve a fresh business case and get scored feedback.", icon: Briefcase, cta: "Solve a case", minutes: "~15 min", metric: "Open tool", done: false },
-    { view: "HR Simulator", name: "HR Manager Simulator", description: "Step into the HR Manager role: handle real workplace situations and get scored on your decisions.", icon: UsersRound, cta: "Start simulation", minutes: "~15 min", metric: "Open tool", done: false },
+    { view: "Case Study", name: "Business Case Solver", description: "Think like a management consultant: solve a fresh business case and get scored feedback.", icon: Briefcase, cta: c?.caseStudy ? "Solve another" : "Solve a case", minutes: "~15 min", metric: c?.caseStudy ? `${c.caseStudy}% score` : "Not started", done: Boolean(c?.caseStudy) },
+    { view: "HR Simulator", name: "HR Manager Simulator", description: "Step into the HR Manager role: handle real workplace situations and get scored on your decisions.", icon: UsersRound, cta: c?.hrSimulation ? "Simulate again" : "Start simulation", minutes: "~15 min", metric: c?.hrSimulation ? `${c.hrSimulation}% score` : "Not started", done: Boolean(c?.hrSimulation) },
     { view: "Cover Letter", name: "Cover letter", description: "Turn a job description into a clear, personal letter.", icon: MessageSquareText, cta: "Write a letter", minutes: "~5 min", metric: "Open tool", done: false },
     { view: "Job Matching", name: "Job matching", description: "Find roles where your skills and intent line up.", icon: UserRoundSearch, cta: "See matches", minutes: "~5 min", metric: c?.careerActivity ? `${c.careerActivity}% activity` : "Explore roles", done: Boolean(c?.careerActivity) },
     { view: "Group Discussion", name: "Group discussion", description: "Build clarity, confidence and leadership in a live room.", icon: UsersRound, cta: "Start discussion", minutes: "~15 min", metric: c?.groupDiscussion ? `${c.groupDiscussion}% score` : "Not started", done: Boolean(c?.groupDiscussion) },
   ];
   const order = ORDER[guidance?.interviewStyle ?? "mixed"] ?? ORDER.mixed;
-  return tools.filter(tool => (SHOW_JOB_MATCHING || tool.view !== "Job Matching") && (SHOW_GROUP_DISCUSSION || tool.view !== "Group Discussion") && (tool.view !== "Coding Practice" || guidance?.tools?.coding !== false)).sort((a, b) => order.indexOf(a.view) - order.indexOf(b.view));
+  return tools.filter(tool => (SHOW_JOB_MATCHING || tool.view !== "Job Matching") && (SHOW_GROUP_DISCUSSION || tool.view !== "Group Discussion") && (tool.view !== "Coding Practice" || guidance?.tools?.coding !== false) && (tool.view !== "Case Study" || guidance?.tools?.caseStudy === true) && (tool.view !== "HR Simulator" || guidance?.tools?.hrSimulator === true)).sort((a, b) => order.indexOf(a.view) - order.indexOf(b.view));
 }
 
 export function nextBestAction(readiness: ReadinessPayload | null, guidance?: Guidance): { title: string; text: string; view: View; cta: string; tag: string } {
@@ -81,6 +83,8 @@ export const COMPONENT_META: Array<{ key: keyof Components; label: string; weigh
   { key: "interview", label: "Interview", weight: 25, view: "Mock Interview" },
   { key: "groupDiscussion", label: "Group discussion", weight: 15, view: "Group Discussion" },
   { key: "careerActivity", label: "Career activity", weight: 10, view: "Job Matching" },
+  { key: "caseStudy", label: "Business case solver", weight: 20, view: "Case Study" },
+  { key: "hrSimulation", label: "HR manager simulator", weight: 20, view: "HR Simulator" },
 ];
 
 export const bandLabel = (score: number) => score >= 75 ? "Placement ready" : score >= 60 ? "On track" : score >= 45 ? "Building up" : score > 0 ? "Just getting started" : "Not started";

@@ -29,7 +29,7 @@ import { instituteDetailsFor } from "../services/student-account-service";
 import { currentPlan } from "../services/plans";
 import { closesAt, studentAccess } from "../models/Batch";
 import { onboardingState } from "../services/onboarding-service";
-import { getPrograms, programByCode, programHasCaseStudy, programHasCoding } from "../services/program-service";
+import { getPrograms, programByCode, programHasCaseStudy, programHasCoding, programHasHrSimulator } from "../services/program-service";
 import { ProfileChangeRequest, profileChangeFields } from "../models/ProfileChangeRequest";
 import { EmailActionToken } from "../models/EmailActionToken";
 import { sendAccountLink } from "../services/account-email-service";
@@ -83,7 +83,7 @@ export async function publicUser(user: UserDocument) {
     onboarding: user.role === "student" ? { state } : null,
     graduate: access === "graduate" && user.batchEndsAt ? { endedAt: user.batchEndsAt, closesAt: closesAt(user.batchEndsAt) } : null,
     // What the dashboard tailors itself to: the student's programme and the roles they're aiming for.
-    guidance: user.role === "student" ? { programCode: program?.code ?? null, programName: program?.name ?? profile?.degree ?? "", interviewStyle: program?.interviewStyle ?? "mixed", roles: profile?.preferredRoles ?? [], tools: { coding: programHasCoding(program), caseStudy: programHasCaseStudy(program) } } : null,
+    guidance: user.role === "student" ? { programCode: program?.code ?? null, programName: program?.name ?? profile?.degree ?? "", interviewStyle: program?.interviewStyle ?? "mixed", roles: profile?.preferredRoles ?? [], tools: { coding: programHasCoding(program), caseStudy: programHasCaseStudy(program), hrSimulator: programHasHrSimulator(program) } } : null,
     accountType: user.role === "student" ? (direct ? "direct" : "institute") : null,
     plan: plan ? { plan: plan.plan, interval: plan.interval, renewsAt: plan.renewsAt } : null,
     id: user._id.toString(),

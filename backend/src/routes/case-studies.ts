@@ -4,15 +4,18 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { meter } from "../middleware/usage-limit";
 import { StudentProfile } from "../models/StudentProfile";
 import { CASE_FOCUS, CASE_LEVELS, evaluateCaseAnswers, generateCaseStudy } from "../services/case-study-service";
-import { programByCode } from "../services/program-service";
+import { AgentResult } from "../models/AgentResult";
+import { programByCode, programHasCaseStudy } from "../services/program-service";
+import { scheduleReadiness } from "../services/readiness-service";
 
 const router = Router();
 router.use(requireAuth, requireRole("student"));
 
-/** Temporarily open to every student. To limit it to BBA/MBA again, return 403 when !programHasCaseStudy(program). */
+/** Business programmes only (MBA, BBA, B.Com, M.Com, BA). IT and other programmes don't get this tool. */
 router.use(async (request, response, next) => {
   const profile = await StudentProfile.findOne({ userId: request.auth!.userId }).select("programCode degree preferredRoles").lean();
   const program = await programByCode(profile?.programCode);
+  if (!programHasCaseStudy(program)) return response.status(403).json({ code: "NOT_IN_PROGRAMME", message: "The Business Case Solver isn't part of your programme." });
   response.locals.programName = program?.name ?? profile?.degree ?? "college";
   response.locals.targetRole = profile?.preferredRoles?.[0] ?? "";
   return next();
@@ -37,6 +40,8 @@ router.post("/evaluate", async (request, response) => {
   const input = z.object({ caseStudy: caseSchema, answers: z.array(z.string().trim().max(4000)).length(3) }).parse(request.body);
   if (input.answers.every(answer => answer.length < 20)) return response.status(400).json({ message: "Write a few sentences for at least one question before submitting." });
   const evaluation = await evaluateCaseAnswers({ ...input, programName: response.locals.programName });
+  // Keep the score so it counts towards readiness. Failing to save must never lose the student's feedback.
+  await AgentResult.create({ studentId: request.auth!.userId, agent: "case_study", score: Math.round(evaluation.overallScore) }).then(() => scheduleReadiness(request.auth!.userId, "case_study_completed")).catch(console.error);
   return response.json({ evaluation });
 });
 

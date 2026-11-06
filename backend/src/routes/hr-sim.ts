@@ -4,10 +4,19 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { meter } from "../middleware/usage-limit";
 import { StudentProfile } from "../models/StudentProfile";
 import { HR_CHALLENGE_IDS, HR_LEVELS, HR_STEPS, evaluateHrCase, historySchema, hrCaseSchema, nextHrStep, startHrCase } from "../services/hr-sim-service";
-import { programByCode } from "../services/program-service";
+import { AgentResult } from "../models/AgentResult";
+import { programByCode, programHasHrSimulator } from "../services/program-service";
+import { scheduleReadiness } from "../services/readiness-service";
 
 const router = Router();
 router.use(requireAuth, requireRole("student"));
+
+/** Business programmes only (MBA, BBA, B.Com, M.Com, BA). IT and other programmes don't get this tool. */
+router.use(async (request, response, next) => {
+  const profile = await StudentProfile.findOne({ userId: request.auth!.userId }).select("programCode").lean();
+  if (!programHasHrSimulator(await programByCode(profile?.programCode))) return response.status(403).json({ code: "NOT_IN_PROGRAMME", message: "The HR Manager Simulator isn't part of your programme." });
+  return next();
+});
 
 router.post("/start", meter("hr_simulation"), async (request, response) => {
   const input = z.object({ challenge: z.enum(HR_CHALLENGE_IDS), level: z.enum(HR_LEVELS).default("Medium") }).parse(request.body);
@@ -27,7 +36,10 @@ router.post("/next", async (request, response) => {
 router.post("/evaluate", async (request, response) => {
   const input = z.object({ hrCase: hrCaseSchema, history: historySchema }).parse(request.body);
   if (input.history.length !== HR_STEPS) return response.status(400).json({ message: `Make all ${HR_STEPS} decisions before the evaluation.` });
-  return response.json({ evaluation: await evaluateHrCase(input) });
+  const evaluation = await evaluateHrCase(input);
+  // Keep the score so it counts towards readiness. Failing to save must never lose the student's feedback.
+  await AgentResult.create({ studentId: request.auth!.userId, agent: "hr_simulation", score: Math.round(evaluation.overallScore) }).then(() => scheduleReadiness(request.auth!.userId, "hr_simulation_completed")).catch(console.error);
+  return response.json({ evaluation });
 });
 
 export { router as hrSimRouter };

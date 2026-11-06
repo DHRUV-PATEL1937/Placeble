@@ -125,8 +125,11 @@ export function ProgressPage({ readiness, loaded, go }: { readiness: ReadinessPa
   const unlocked = Boolean(readiness?.unlocked);
   const score = readiness?.overall ?? 0;
   const components = readiness?.current?.components;
-  const ranked = COMPONENT_META.map(item => ({ ...item, value: components?.[item.key] ?? 0 })).sort((a, b) => a.value * a.weight - b.value * b.weight);
-  const available = (key: string) => (key !== "groupDiscussion" || SHOW_GROUP_DISCUSSION) && (key !== "careerActivity" || SHOW_JOB_MATCHING);
+  // Business programmes weigh and show the Case Solver and HR Simulator; IT programmes don't see them at all. The server says which apply.
+  const agentKeys = new Set((readiness?.agents ?? []).map(agent => agent.key));
+  const weightOf = (item: (typeof COMPONENT_META)[number]) => Math.round((readiness?.weights?.[item.key] ?? item.weight / 100) * 100);
+  const ranked = COMPONENT_META.map(item => ({ ...item, weight: weightOf(item), value: components?.[item.key] ?? 0 })).sort((a, b) => a.value * a.weight - b.value * b.weight);
+  const available = (key: string) => (key !== "groupDiscussion" || SHOW_GROUP_DISCUSSION) && (key !== "careerActivity" || SHOW_JOB_MATCHING) && (key !== "caseStudy" || agentKeys.has("case_study")) && (key !== "hrSimulation" || agentKeys.has("hr_simulation"));
   const focus = ranked.filter(item => item.value < 60 && available(item.key)).slice(0, 3);
 
   const width = 640, height = 200, padX = 28, padY = 20;
@@ -166,9 +169,9 @@ export function ProgressPage({ readiness, loaded, go }: { readiness: ReadinessPa
 
       <Card title="Score breakdown" description="Your readiness is a weighted mix of these areas.">
         <div className="st-breakdown">
-          {COMPONENT_META.map(item => { const value = components?.[item.key] ?? 0; return (
+          {COMPONENT_META.filter(item => (item.key !== "caseStudy" && item.key !== "hrSimulation") || available(item.key)).map(item => { const value = components?.[item.key] ?? 0; return (
             <div key={item.key}>
-              <span><b>{item.label}</b><small>{item.weight}% of score</small></span>
+              <span><b>{item.label}</b><small>{weightOf(item)}% of score</small></span>
               <i aria-hidden="true"><u style={{ width: `${value}%` }} /></i>
               <strong>{value ? `${value}%` : "—"}</strong>
             </div>

@@ -47,6 +47,10 @@ export function matchProgram(list: ProgramView[], text: string) {
 /** Does this student's programme include the Coding tool? Unknown programme: yes, so nobody loses it by accident. */
 export const programHasCoding = (program: ProgramView | undefined) => (program ? program.coding : true);
 
-/** The Case Study Lab is for management programmes only. */
-export const CASE_STUDY_PROGRAMS: readonly string[] = ["BBA", "MBA"];
-export const programHasCaseStudy = (program: ProgramView | undefined) => Boolean(program && CASE_STUDY_PROGRAMS.includes(program.code));
+/**
+ * The business tools (Business Case Solver, HR Manager Simulator) are for business programmes: MBA, BBA, B.Com, M.Com, BA and anything
+ * the superadmin marks with the "business" interview style. Everyone else doesn't see them. IT programmes get Coding instead.
+ */
+export const programIsBusiness = (program: ProgramView | undefined) => Boolean(program && program.interviewStyle === "business");
+export const programHasCaseStudy = programIsBusiness;
+export const programHasHrSimulator = programIsBusiness;

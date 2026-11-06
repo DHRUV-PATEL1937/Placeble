@@ -7,6 +7,9 @@ const componentSchema = new Schema({
   interview: { type: Number, min: 0, max: 100, default: 0 },
   groupDiscussion: { type: Number, min: 0, max: 100, default: 0 },
   careerActivity: { type: Number, min: 0, max: 100, default: 0 },
+  // Business programmes only (MBA, BBA, ...): the Business Case Solver and the HR Manager Simulator.
+  caseStudy: { type: Number, min: 0, max: 100, default: 0 },
+  hrSimulation: { type: Number, min: 0, max: 100, default: 0 },
 }, { _id: false });
 
 // Which scored agents the student has used at least once. The overall score is shown only when every required one is used.
