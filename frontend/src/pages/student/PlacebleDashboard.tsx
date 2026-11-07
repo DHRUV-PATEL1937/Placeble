@@ -403,7 +403,7 @@ function Overview({ setCurrent, readiness, user }: { setCurrent: (view: View) =>
         desc: "Strengthen quantitative, logical, and algorithmic problem-solving with your AI coach.",
         view: "Aptitude Test" as View,
         cta: "Start Aptitude Assessment",
-        tag: "High Priority · ~15 mins",
+        tag: "High Priority",
       };
     }
     if (!components?.resume || components.resume < 60) {
@@ -412,7 +412,7 @@ function Overview({ setCurrent, readiness, user }: { setCurrent: (view: View) =>
         desc: "Tailor your projects and skills to beat recruiter screening filters with the Resume Coach.",
         view: "Resume Maker" as View,
         cta: "Improve Resume",
-        tag: "Recommended · ~10 mins",
+        tag: "Recommended",
       };
     }
     if (!components?.interview || components.interview < 60) {
@@ -421,7 +421,7 @@ function Overview({ setCurrent, readiness, user }: { setCurrent: (view: View) =>
         desc: "Rehearse placement questions with real-time feedback on delivery and clarity.",
         view: "Mock Interview" as View,
         cta: "Start Mock Interview",
-        tag: "Interview Prep · ~12 mins",
+        tag: "Interview Prep",
       };
     }
     return {

@@ -56,7 +56,7 @@ export function HomePage({ name, readiness, loaded, accessToken, go, guidance, g
           </div>
         )}
         <div className="st-hero-next">
-          <span className="st-tag"><Clock3 size={13} aria-hidden="true" /> Recommended · {next.tag}</span>
+          <span className="st-tag">Recommended next</span>
           <h3>{next.title}</h3>
           <p>{next.text}</p>
           <button type="button" className="tp-btn primary" onClick={() => go(next.view)}>{next.cta}<ArrowRight size={16} aria-hidden="true" /></button>
@@ -145,7 +145,7 @@ export function ToolsPage({ readiness, go, guidance }: { readiness: ReadinessPay
               </header>
               <h3>{tool.name}</h3>
               <p>{tool.description}</p>
-              <ul className="cs-agent-meta"><li><Clock3 size={13} aria-hidden="true" /> {tool.minutes}</li>{tool.done && <li>{tool.metric}</li>}<li>{TOOL_CATEGORIES.find(category => category.id === tool.category)?.label}</li></ul>
+              <ul className="cs-agent-meta">{tool.done && <li>{tool.metric}</li>}<li>{TOOL_CATEGORIES.find(category => category.id === tool.category)?.label}</li></ul>
               <button type="button" className={`tp-btn ${tool.view === recommended ? "primary" : "secondary"}`} onClick={() => go(tool.view)}>{tool.cta} <ArrowRight size={16} aria-hidden="true" /></button>
             </article>
           ); })}

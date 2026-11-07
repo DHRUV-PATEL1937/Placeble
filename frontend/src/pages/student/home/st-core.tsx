@@ -39,7 +39,7 @@ export type Agent = { key: string; label: string; view: View; used: boolean; sco
 
 export type ToolCategory = "interviews" | "resume" | "aptitude" | "business" | "jobs";
 export type Tool = {
-  view: View; name: string; description: string; icon: LucideIcon; cta: string; minutes: string; metric: string; done: boolean; category: ToolCategory;
+  view: View; name: string; description: string; icon: LucideIcon; cta: string; metric: string; done: boolean; category: ToolCategory;
 };
 /** Filter chips on the Career Studio page, in display order. */
 export const TOOL_CATEGORIES: Array<{ id: ToolCategory; label: string }> = [
@@ -62,31 +62,31 @@ const ORDER: Record<string, View[]> = {
 export function buildTools(readiness: ReadinessPayload | null, guidance?: Guidance): Tool[] {
   const c = readiness?.current?.components;
   const tools: Array<Omit<Tool, "category">> = [
-    { view: "Resume Maker", name: "Resume builder", description: "Shape a focused, ATS-ready resume from your profile.", icon: FileText, cta: c?.resume ? "Improve resume" : "Build resume", minutes: "~10 min", metric: c?.resume ? `ATS score ${c.resume}` : "Not started", done: Boolean(c?.resume) },
-    { view: "Aptitude Test", name: "Aptitude practice", description: "Strengthen the topics that are holding your score back.", icon: BookOpenCheck, cta: c?.aptitude ? "Practice again" : "Start practice", minutes: "~15 min", metric: c?.aptitude ? `${c.aptitude}% latest` : "Not started", done: Boolean(c?.aptitude) },
-    { view: "Mock Interview", name: "Interview Room", description: "Practise role-specific answers and get measured feedback.", icon: Mic2, cta: c?.interview ? "Interview again" : "Start interview", minutes: "~20 min", metric: c?.interview ? `${c.interview}% score` : "Not started", done: Boolean(c?.interview) },
-    { view: "Coding Practice", name: "Coding practice", description: "Solve problems in a built-in editor and check them against real test cases.", icon: Code2, cta: "Start coding", minutes: "~30 min", metric: "Open tool", done: false },
-    { view: "Case Study", name: "Business Case Solver", description: "Think like a management consultant: solve a fresh business case and get scored feedback.", icon: Briefcase, cta: c?.caseStudy ? "Solve another" : "Solve a case", minutes: "~15 min", metric: c?.caseStudy ? `${c.caseStudy}% score` : "Not started", done: Boolean(c?.caseStudy) },
-    { view: "HR Simulator", name: "HR Manager Simulator", description: "Step into the HR Manager role: handle real workplace situations and get scored on your decisions.", icon: UsersRound, cta: c?.hrSimulation ? "Simulate again" : "Start simulation", minutes: "~15 min", metric: c?.hrSimulation ? `${c.hrSimulation}% score` : "Not started", done: Boolean(c?.hrSimulation) },
-    { view: "Cover Letter", name: "Cover letter", description: "Turn a job description into a clear, personal letter.", icon: MessageSquareText, cta: "Write a letter", minutes: "~5 min", metric: "Open tool", done: false },
-    { view: "Job Matching", name: "Job matching", description: "Find roles where your skills and intent line up.", icon: UserRoundSearch, cta: "See matches", minutes: "~5 min", metric: c?.careerActivity ? `${c.careerActivity}% activity` : "Explore roles", done: Boolean(c?.careerActivity) },
-    { view: "Group Discussion", name: "Group discussion", description: "Build clarity, confidence and leadership in a live room.", icon: UsersRound, cta: "Start discussion", minutes: "~15 min", metric: c?.groupDiscussion ? `${c.groupDiscussion}% score` : "Not started", done: Boolean(c?.groupDiscussion) },
+    { view: "Resume Maker", name: "Resume builder", description: "Shape a focused, ATS-ready resume from your profile.", icon: FileText, cta: c?.resume ? "Improve resume" : "Build resume", metric: c?.resume ? `ATS score ${c.resume}` : "Not started", done: Boolean(c?.resume) },
+    { view: "Aptitude Test", name: "Aptitude practice", description: "Strengthen the topics that are holding your score back.", icon: BookOpenCheck, cta: c?.aptitude ? "Practice again" : "Start practice", metric: c?.aptitude ? `${c.aptitude}% latest` : "Not started", done: Boolean(c?.aptitude) },
+    { view: "Mock Interview", name: "Interview Room", description: "Practise role-specific answers and get measured feedback.", icon: Mic2, cta: c?.interview ? "Interview again" : "Start interview", metric: c?.interview ? `${c.interview}% score` : "Not started", done: Boolean(c?.interview) },
+    { view: "Coding Practice", name: "Coding practice", description: "Solve problems in a built-in editor and check them against real test cases.", icon: Code2, cta: "Start coding", metric: "Open tool", done: false },
+    { view: "Case Study", name: "Business Case Solver", description: "Think like a management consultant: solve a fresh business case and get scored feedback.", icon: Briefcase, cta: c?.caseStudy ? "Solve another" : "Solve a case", metric: c?.caseStudy ? `${c.caseStudy}% score` : "Not started", done: Boolean(c?.caseStudy) },
+    { view: "HR Simulator", name: "HR Manager Simulator", description: "Step into the HR Manager role: handle real workplace situations and get scored on your decisions.", icon: UsersRound, cta: c?.hrSimulation ? "Simulate again" : "Start simulation", metric: c?.hrSimulation ? `${c.hrSimulation}% score` : "Not started", done: Boolean(c?.hrSimulation) },
+    { view: "Cover Letter", name: "Cover letter", description: "Turn a job description into a clear, personal letter.", icon: MessageSquareText, cta: "Write a letter", metric: "Open tool", done: false },
+    { view: "Job Matching", name: "Job matching", description: "Find roles where your skills and intent line up.", icon: UserRoundSearch, cta: "See matches", metric: c?.careerActivity ? `${c.careerActivity}% activity` : "Explore roles", done: Boolean(c?.careerActivity) },
+    { view: "Group Discussion", name: "Group discussion", description: "Build clarity, confidence and leadership in a live room.", icon: UsersRound, cta: "Start discussion", metric: c?.groupDiscussion ? `${c.groupDiscussion}% score` : "Not started", done: Boolean(c?.groupDiscussion) },
   ];
   const order = ORDER[guidance?.interviewStyle ?? "mixed"] ?? ORDER.mixed;
   return tools.filter(tool => (SHOW_JOB_MATCHING || tool.view !== "Job Matching") && (SHOW_GROUP_DISCUSSION || tool.view !== "Group Discussion") && (tool.view !== "Coding Practice" || guidance?.tools?.coding !== false) && (tool.view !== "Case Study" || guidance?.tools?.caseStudy === true) && (tool.view !== "HR Simulator" || guidance?.tools?.hrSimulator === true)).sort((a, b) => order.indexOf(a.view) - order.indexOf(b.view)).map(tool => ({ ...tool, category: CATEGORY_OF[tool.view] ?? "resume" }));
 }
 
-export function nextBestAction(readiness: ReadinessPayload | null, guidance?: Guidance): { title: string; text: string; view: View; cta: string; tag: string } {
+export function nextBestAction(readiness: ReadinessPayload | null, guidance?: Guidance): { title: string; text: string; view: View; cta: string } {
   const c = readiness?.current?.components;
   const role = guidance?.roles?.[0];
   const style = guidance?.interviewStyle ?? "mixed";
-  const baseline = { title: "Take your aptitude baseline", text: "Find out where you stand in quantitative, logical and problem-solving questions.", view: "Aptitude Test" as View, cta: "Start assessment", tag: "~15 min" };
-  const resume = { title: "Get your resume ATS-ready", text: role ? `Tailor your projects and skills for ${role} roles so recruiter screening tools can read them.` : "Tailor your projects and skills so recruiter screening tools can read them.", view: "Resume Maker" as View, cta: "Improve resume", tag: "~10 min" };
-  const interview = { title: role ? `Practise a ${role} interview` : "Practise an interview", text: style === "business" ? "Rehearse clear, confident answers. Communication counts for a lot in business roles." : "Rehearse role-specific answers and see exactly where to sharpen them.", view: "Mock Interview" as View, cta: "Start interview", tag: "~20 min" };
+  const baseline = { title: "Take your aptitude baseline", text: "Find out where you stand in quantitative, logical and problem-solving questions.", view: "Aptitude Test" as View, cta: "Start assessment" };
+  const resume = { title: "Get your resume ATS-ready", text: role ? `Tailor your projects and skills for ${role} roles so recruiter screening tools can read them.` : "Tailor your projects and skills so recruiter screening tools can read them.", view: "Resume Maker" as View, cta: "Improve resume" };
+  const interview = { title: role ? `Practise a ${role} interview` : "Practise an interview", text: style === "business" ? "Rehearse clear, confident answers. Communication counts for a lot in business roles." : "Rehearse role-specific answers and see exactly where to sharpen them.", view: "Mock Interview" as View, cta: "Start interview" };
   // Business programmes lead with interviews; technical ones with the aptitude baseline.
   const sequence = style === "business" ? [[c?.interview, 60, interview], [c?.resume, 60, resume], [c?.aptitude, 1, baseline]] as const : [[c?.aptitude, 1, baseline], [c?.resume, 60, resume], [c?.interview, 60, interview]] as const;
   for (const [value, minimum, action] of sequence) if (!value || value < minimum) return action;
-  return { title: "Keep your momentum going", text: "You’re in good shape. Another round of practice keeps your scores fresh for recruiters.", view: "Agents", cta: "Choose a tool", tag: "Anytime" };
+  return { title: "Keep your momentum going", text: "You’re in good shape. Another round of practice keeps your scores fresh for recruiters.", view: "Agents", cta: "Choose a tool" };
 }
 
 export const COMPONENT_META: Array<{ key: keyof Components; label: string; weight: number; view: View }> = [

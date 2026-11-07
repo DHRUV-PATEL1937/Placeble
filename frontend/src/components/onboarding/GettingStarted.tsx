@@ -37,7 +37,7 @@ export function GettingStarted({ tools, go, onTour, onDismiss }: { tools: Tool[]
             <li key={step.view} className={state}>
               <button type="button" onClick={() => go(step.view)} aria-label={`${step.name}: ${state === "done" ? "done" : step.cta}`}>
                 <span className="gs-mark" aria-hidden="true">{step.done ? <Check size={15} /> : state === "current" ? <Icon size={15} /> : <CircleDashed size={15} />}</span>
-                <span className="gs-text"><b>{step.name}</b><small>{step.done ? step.metric : `${step.minutes} · ${step.description}`}</small></span>
+                <span className="gs-text"><b>{step.name}</b><small>{step.done ? step.metric : step.description}</small></span>
                 <span className="gs-cta">{step.done ? "Review" : step.cta}<ArrowRight size={14} aria-hidden="true" /></span>
               </button>
             </li>
