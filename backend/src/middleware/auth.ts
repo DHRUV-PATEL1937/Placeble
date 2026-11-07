@@ -69,7 +69,7 @@ export async function requireAuth(request: Request, response: Response, next: Ne
         payload.graduated = true;
         // Graduates can look and download, but not change anything.
         const mutating = !["GET", "HEAD", "OPTIONS"].includes(request.method);
-        if (mutating && !/\/api\/v1\/auth\/|\/export\//.test(request.originalUrl)) return response.status(403).json({ code: "BATCH_READ_ONLY", message: "Your batch has ended, so your workspace is read-only. You can still view and download your resume and reports." });
+        if (mutating && !/\/api\/v1\/auth\/|\/export\/|\/api\/v1\/support(\/|$)/.test(request.originalUrl)) return response.status(403).json({ code: "BATCH_READ_ONLY", message: "Your batch has ended, so your workspace is read-only. You can still view and download your resume and reports." });
       }
     }
     request.auth = payload;

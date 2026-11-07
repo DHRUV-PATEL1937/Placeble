@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { callStructuredAi, callTextAi } from "./interview-ai-service";
+import { RUBRIC_ANCHORS_10 } from "./scoring";
 
 const observerSchema = z.object({
   clarity: z.number().min(0).max(10),
@@ -54,6 +55,6 @@ Score only the student's participation from 0 to 10 on:
 - leadership: the student advances, reframes, includes others, or manages disagreement constructively;
 - relevance: contributions respond to the topic and preceding discussion.
 
-Be exacting and evidence-based. Feedback must cite concrete moments from the student's turns, synthesize the overall pattern, and give the highest-leverage next step. Do not judge interruption count, silence, or speaking share; those are calculated separately from timestamps. Return structured JSON only.`;
+${RUBRIC_ANCHORS_10} Leadership needs evidence of the student moving the discussion forward; simply agreeing with others is not leadership. Repeating another speaker's point is not relevance. Be exacting and evidence-based. Feedback must cite concrete moments from the student's turns, synthesize the overall pattern, and give the highest-leverage next step. Do not judge interruption count, silence, or speaking share; those are calculated separately from timestamps. Return structured JSON only.`;
   return observerSchema.parse(JSON.parse(await callStructuredAi(prompt, observerJsonSchema, "gd_observer_score")));
 }

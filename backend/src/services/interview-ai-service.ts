@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { env } from "../config/env";
+import { RUBRIC_ANCHORS_10 } from "./scoring";
 
 const scoreOutputSchema = z.object({
   structure: z.object({ score: z.number().min(0).max(10), note: z.string().min(10).transform(value => value.slice(0, 500)) }),
@@ -222,7 +223,7 @@ Earlier turns: ${JSON.stringify(input.history.slice(-5))}
 Interview guidance: ${typeGuidance[input.type] ?? typeGuidance.mixed}
 Verified student context: ${input.resumeContext || "No resume context was available; ask about the student's stated experience without guessing."}
 
-Fixed rubric (each 0-10): structure = clear logical or STAR-like shape; relevance = directly answers the question; specificity = concrete actions, reasoning, evidence and outcomes. Be supportive and fair to an early-career student. Feedback must cite a specific strength and the most useful change; forbid vague praise such as "great job".
+Fixed rubric (each 0-10): structure = clear logical or STAR-like shape; relevance = directly answers the question; specificity = concrete actions, reasoning, evidence and outcomes. ${RUBRIC_ANCHORS_10} A very short answer, or one that restates the question, cannot score above 3 on any criterion. Be supportive in tone and fair to an early-career student, but keep the numbers honest. Feedback must cite a specific strength and the most useful change; forbid vague praise such as "great job".
 For nextQuestion, respond like a real interviewer who listened: use one detail from the transcript or ask the most useful next probe. Use plain language, ask for one clear example or explanation, avoid trick questions and deep specialist knowledge, respect the interview type, and never repeat or lightly rephrase an earlier question. Do not use generic prompts such as "tell me about yourself" after turn one. If the target role seems unrelated to the verified resume or preferred roles, ask a respectful clarification such as whether there is a specific reason the student is applying and what transferable experience connects them to it; never reject the role or make a judgment. If the target role is unusually specific, mention it naturally and ask about motivation or fit. Earlier questions to avoid: ${JSON.stringify(previousQuestions)}. If this is the final turn, still return a short closing reflection question as nextQuestion; it will not be shown.`;
   const result = parseInterviewTurnScore(JSON.parse(await callStructuredAi(prompt, scoreJsonSchema)), input.turnNumber >= input.totalTurns);
   const normalized = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();

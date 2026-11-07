@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { AccountDeletionRequest } from "../models/AccountDeletionRequest";
+import { SupportRequest } from "../models/SupportRequest";
 import { AgentResult } from "../models/AgentResult";
 import { Application } from "../models/Application";
 import { AptitudeAttempt } from "../models/AptitudeAttempt";
@@ -98,6 +99,7 @@ accountDeletionAdminRouter.patch("/:id", async (request, response, next) => {
         RefreshSession.deleteMany({ userId: changed.userId }),
         PushDevice.deleteMany({ userId: changed.userId }),
         Notification.deleteMany({ userId: changed.userId }),
+        SupportRequest.deleteMany({ userId: changed.userId }),
         StudentProfile.deleteOne({ userId: changed.userId }),
         // Everything the student created. Payments and subscriptions stay, as accounting records.
         ...[AgentResult, Application, AptitudeAttempt, CodingSubmission, CodingWorkspace, CoverLetter, GdSession, Interview, MatchScore, ReadinessScore, Resume, StudentActionPlan].map(model => (model as unknown as { deleteMany: (filter: object) => Promise<unknown> }).deleteMany({ studentId: changed.userId })),

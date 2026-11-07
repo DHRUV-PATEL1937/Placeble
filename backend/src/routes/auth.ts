@@ -28,7 +28,7 @@ import { issueActivationInvite } from "../services/invite-issuance-service";
 import { instituteDetailsFor } from "../services/student-account-service";
 import { currentPlan } from "../services/plans";
 import { closesAt, studentAccess } from "../models/Batch";
-import { onboardingState } from "../services/onboarding-service";
+import { onboardingState, yearLimits } from "../services/onboarding-service";
 import { getPrograms, programByCode, programHasCaseStudy, programHasCoding, programHasHrSimulator } from "../services/program-service";
 import { ProfileChangeRequest, profileChangeFields } from "../models/ProfileChangeRequest";
 import { EmailActionToken } from "../models/EmailActionToken";
@@ -319,7 +319,7 @@ router.patch("/profile", requireAuth, requireRole("student"), async (request, re
     const own = z.object({
       name: personName,
       degree: z.string().trim().min(2).max(120).optional(),
-      graduationYear: z.coerce.number().min(new Date().getFullYear() - 1).max(new Date().getFullYear() + 8).optional(),
+      graduationYear: z.coerce.number().int().min(yearLimits().graduationMin, `Choose a graduating year from ${yearLimits().graduationMin}.`).max(yearLimits().graduationMax, `Choose a graduating year up to ${yearLimits().graduationMax}.`).optional(),
       skills: z.array(z.string().trim().min(1).max(60)).min(1).max(40),
       preferredRoles: z.array(z.string().trim().min(1).max(80)).min(1).max(20),
     }).parse(request.body);

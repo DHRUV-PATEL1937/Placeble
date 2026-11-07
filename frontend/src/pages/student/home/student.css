@@ -176,7 +176,10 @@ html[data-reduced-motion="true"] .st-tool, html[data-reduced-motion="true"] .st-
 .st-focus-strip div { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .st-focus-strip em { padding: 3px 10px; border-radius: 999px; background: var(--tp-accent-soft); color: var(--tp-accent); font-size: 12.5px; font-style: normal; font-weight: 600; }
 .st-focus-strip small { color: var(--text-secondary); font-size: 12.5px; }
-.st-focus-strip p { flex-basis: 100%; color: var(--text-secondary); font-size: 13.5px; }
+.st-focus-strip p { flex-basis: 100%; min-width: 0; margin: 0; color: var(--text-secondary); font-size: 13.5px; }
+/* Long words or text never push the student pages wider than the screen. */
+.st-shell .tp-main { min-width: 0; }
+.st-shell .tp-content { min-width: 0; overflow-wrap: break-word; }
 .st-graduate { display: flex; align-items: flex-start; gap: 10px; padding: 11px clamp(16px, 3vw, 36px); background: color-mix(in srgb, var(--pb-amber-500) 16%, var(--surface)); border-bottom: 1px solid color-mix(in srgb, var(--pb-amber-500) 45%, transparent); font-size: 14px; line-height: 1.5; }
 .st-graduate svg { flex: none; margin-top: 2px; color: var(--pb-amber-600); }
 
@@ -263,7 +266,11 @@ html[data-reduced-motion="true"] .st-tool, html[data-reduced-motion="true"] .st-
   .st-hero-score h2 { font-size: 21px; }
   .st-hero-next h3 { font-size: 19px; }
   .st-hero-next .tp-btn.primary { width: 100%; justify-content: center; }
-  .st-focus-strip { flex-direction: column; align-items: flex-start; }
+  /* Stack the strip on phones. Its sentence must size to the screen: with a column layout, "flex-basis: 100%" no longer means
+     full width, and the sentence used to run off the right edge, widening the whole page (zoomed-out page, More tab off-screen). */
+  .st-focus-strip { flex-direction: column; align-items: stretch; }
+  .st-focus-strip > * { min-width: 0; max-width: 100%; }
+  .st-focus-strip p { flex-basis: auto; margin: 0; }
   /* Dialogs become a bottom-anchored sheet that never exceeds the screen. */
   .tp-modal-layer { align-items: end; padding: 0; }
   .tp-modal { width: 100%; max-height: 92dvh; padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; }

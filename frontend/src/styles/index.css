@@ -53,7 +53,7 @@
 }
 
 * { box-sizing: border-box; }
-html { background: var(--background); color-scheme: light; }
+html { background: var(--background); color-scheme: light; touch-action: manipulation; /* no double-tap zoom */ }
 [data-theme="dark"] { color-scheme: dark; }
 body { margin: 0; background: var(--background); color: var(--text-primary); font-family: "Inter", sans-serif; font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
 button, input { font: inherit; }

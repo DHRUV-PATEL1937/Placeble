@@ -33,7 +33,7 @@ const aptitudeQuestionSchema = new Schema({
   hints: [{ type: String }],
   timeLimitSeconds: { type: Number, min: 15, max: 900, default: 120 },
   tags: [{ type: String }],
-  source: { type: String, enum: ["curated", "gemini", "sarvam", "openai"], default: "curated", index: true },
+  source: { type: String, enum: ["curated", "gemini", "sarvam", "openai", "generated"], default: "curated", index: true },
   generationBatchId: { type: String, default: "", index: true },
   generatedAt: { type: Date },
   isActive: { type: Boolean, default: true, index: true },

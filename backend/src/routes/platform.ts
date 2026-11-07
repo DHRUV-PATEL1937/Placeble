@@ -8,7 +8,9 @@ import { personName } from "../services/validation";
 import { env } from "../config/env";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { AdminAuditLogEntry, adminAuditActions } from "../models/AdminAuditLogEntry";
+import { AgentResult } from "../models/AgentResult";
 import { Application } from "../models/Application";
+import { CodingSubmission } from "../models/CodingSubmission";
 import { AptitudeAttempt } from "../models/AptitudeAttempt";
 import { Drive } from "../models/Drive";
 import { DriveAccessGrant } from "../models/DriveAccessGrant";
@@ -324,7 +326,7 @@ router.get("/institutions/:institutionId", async (request, response) => {
   if (!institution) return response.status(404).json({ message: "Institution not found." });
   const students = await User.find({ institutionId, role: "student" }).select("_id").lean();
   const studentIds = students.map(student => student._id);
-  const [primaryTpo, rosterEntries, rosterTotal, rosterMatched, readiness, resumeUsers, aptitudeUsers, interviewUsers, gdUsers, applicationUsers, drives] = await Promise.all([
+  const [primaryTpo, rosterEntries, rosterTotal, rosterMatched, readiness, resumeUsers, aptitudeUsers, interviewUsers, gdUsers, applicationUsers, drives, codingUsers, caseUsers, hrUsers] = await Promise.all([
     User.findOne({ institutionId, role: "tpo" }).sort({ createdAt: 1 }).select("name email status lastLoginAt").lean(),
     StudentRosterEntry.find({ institutionId }).sort({ uploadedAt: -1 }).limit(200).lean(),
     StudentRosterEntry.countDocuments({ institutionId }),
@@ -336,6 +338,9 @@ router.get("/institutions/:institutionId", async (request, response) => {
     GdSession.distinct("studentId", { studentId: { $in: studentIds }, status: "completed" }),
     Application.distinct("studentId", { studentId: { $in: studentIds }, status: { $ne: "saved" } }),
     Drive.find({ institutionId }).sort({ createdAt: -1 }).lean(),
+    CodingSubmission.distinct("studentId", { studentId: { $in: studentIds } }),
+    AgentResult.distinct("studentId", { studentId: { $in: studentIds }, agent: "case_study" }),
+    AgentResult.distinct("studentId", { studentId: { $in: studentIds }, agent: "hr_simulation" }),
   ]);
   const driveIds = drives.map(drive => drive._id);
   const grants = await DriveAccessGrant.find({ institutionId, driveId: { $in: driveIds } }).populate("recruiterOrgId", "companyName companyDomain verificationStatus").sort({ requestedAt: -1 }).lean();
@@ -345,7 +350,7 @@ router.get("/institutions/:institutionId", async (request, response) => {
     primaryTpo,
     roster: { total: rosterTotal, matched: rosterMatched, unmatched: rosterTotal - rosterMatched, entries: rosterEntries },
     logins: { signedIn: readiness.summary.loggedIn, invited: readiness.summary.invited, pending: readiness.students.filter(student => student.loginStatus === "invited").slice(0, 100).map(student => ({ name: student.name, email: student.email, invitedAt: student.invitedAt })) },
-    engagement: { resumes: resumeUsers.length, aptitude: aptitudeUsers.length, interviews: interviewUsers.length, groupDiscussions: gdUsers.length, applications: applicationUsers.length },
+    engagement: { resumes: resumeUsers.length, aptitude: aptitudeUsers.length, interviews: interviewUsers.length, groupDiscussions: gdUsers.length, applications: applicationUsers.length, coding: codingUsers.length, caseStudies: caseUsers.length, hrSimulations: hrUsers.length },
     readiness,
     drives: drives.map(drive => ({ ...drive, grants: grants.filter(grant => String(grant.driveId) === String(drive._id)) })),
   });

@@ -1,4 +1,5 @@
 import { AssistantWidget } from "@/components/assistant/AssistantWidget";
+import { ContactSupportButton } from "@/components/support/ContactSupport";
 import { RecentUpdates } from "@/components/ui/recent-updates";
 import {
   AlertTriangle, FileSpreadsheet, Split, ArrowLeft, Building2, Megaphone, LayoutDashboard, LogOut, Menu, MessageSquareText,
@@ -171,6 +172,7 @@ export function TpoDashboard({ user, accessToken: baseToken, onLogout, universit
             </div>
           ))}
         </nav>
+        <ContactSupportButton accessToken={accessToken} email={user.email} page={`${university ? "university" : "tpo"}: ${active}`} />
         <button type="button" className="tp-user" onClick={() => setSignOutOpen(true)}>
           <Avatar name={user.name} size={36} />
           <span><b>{user.name}</b><small>{user.email}</small></span>

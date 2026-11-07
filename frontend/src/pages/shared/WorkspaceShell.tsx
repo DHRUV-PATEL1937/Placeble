@@ -1,4 +1,5 @@
 import { CircleHelp, LogOut, Menu, Moon, Sun, X, type LucideIcon } from "lucide-react";
+import { ContactSupportButton } from "@/components/support/ContactSupport";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { MobileTabBar } from "@/components/layout/MobileTabBar";
 import { PageGuide, RoleTour, useGuide } from "@/components/guide/Guide";
@@ -9,7 +10,7 @@ import "@/pages/tpo/tpo.css";
 export type NavGroup = { label: string; items: Array<{ key: string; label: string; icon: LucideIcon; badge?: number }> };
 
 /** Sidebar + top bar + theme + sign-out + toasts shared by the university and principal workspaces. */
-export function WorkspaceShell({ nav, active, onNavigate, user, context, brand, onLogout, topbar, banner, guideRole, children }: {
+export function WorkspaceShell({ nav, active, onNavigate, user, context, brand, onLogout, topbar, banner, guideRole, supportToken, children }: {
   nav: NavGroup[];
   active: string;
   onNavigate: (key: string) => void;
@@ -23,6 +24,8 @@ export function WorkspaceShell({ nav, active, onNavigate, user, context, brand, 
   banner?: ReactNode;
   /** Turns on the first-run tour and the page tips for this role. */
   guideRole?: Exclude<GuideRole, "student">;
+  /** Shows "Contact support" in the sidebar. Left out for the platform admin, who is the support team. */
+  supportToken?: string;
   children: (tools: { notify: Notify }) => ReactNode;
 }) {
   const guide = useGuide(guideRole ?? "principal");
@@ -66,6 +69,7 @@ export function WorkspaceShell({ nav, active, onNavigate, user, context, brand, 
             </div>
           ))}
         </nav>
+        {supportToken && <ContactSupportButton accessToken={supportToken} email={user.email} page={`${guideRole ?? "workspace"}: ${active}`} />}
         <button type="button" className="tp-user" onClick={() => setSignOutOpen(true)} aria-label={`Sign out ${user.name}`}>
           <Avatar name={user.name} size={36} />
           <span><b>{user.name}</b><small>{user.email}</small></span>

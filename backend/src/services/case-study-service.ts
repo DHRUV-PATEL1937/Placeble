@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { callStructuredAi } from "./interview-ai-service";
+import { RUBRIC_ANCHORS_10, caseStudyScore } from "./scoring";
 
 export const CASE_FOCUS = ["Profitability", "Marketing", "Finance", "Operations"] as const;
 export const CASE_LEVELS = ["Beginner", "Intermediate", "Advanced"] as const;
@@ -68,7 +69,7 @@ type EvaluateInput = { caseStudy: CaseStudy; answers: string[]; programName: str
 export async function evaluateCaseAnswers(input: EvaluateInput): Promise<CaseEvaluation> {
   const prompt = `You are a strict but encouraging placement-interview evaluator for ${input.programName} students. Evaluate the student's written answers to the business case below.
 
-Scoring (0-10 each): structure (logical framework, clear sequence), analysis (uses the case facts, quantifies where possible), recommendation (decisive, justified, covers risks and next steps), communication (concise, professional). overallScore is 0-100 and must reflect those four scores. Be honest: short, vague or empty answers must score low.
+Scoring (0-10 each): structure (logical framework, clear sequence), analysis (uses the case facts, quantifies where possible), recommendation (decisive, justified, covers risks and next steps), communication (concise, professional). overallScore is 0-100 and must reflect those four scores. ${RUBRIC_ANCHORS_10} Be honest: short, vague or empty answers must score low, and analysis that ignores the case facts cannot score above 4.
 
 Rules:
 - Judge only what the student wrote. Do not credit points they did not make.
@@ -82,5 +83,8 @@ Student answers (in question order):
 ${JSON.stringify(input.answers)}
 
 Return only JSON matching the schema.`;
-  return evaluationSchema.parse(JSON.parse(await callStructuredAi(prompt, evaluationJsonSchema, "case_evaluation")));
+  const evaluation = evaluationSchema.parse(JSON.parse(await callStructuredAi(prompt, evaluationJsonSchema, "case_evaluation")));
+  // The overall score is worked out from the four criteria and how much was written, not taken from the AI, so it always matches them.
+  const overallScore = caseStudyScore({ structure: evaluation.structure.score, analysis: evaluation.analysis.score, recommendation: evaluation.recommendation.score, communication: evaluation.communication.score }, input.answers);
+  return { ...evaluation, overallScore };
 }

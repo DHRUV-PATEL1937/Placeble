@@ -15,7 +15,11 @@
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "test:coding": "node --import tsx --test test-fixtures/coding-library.test.ts",
-    "test:email": "node --import tsx --test test-fixtures/email.test.ts"
+    "test:email": "node --import tsx --test test-fixtures/email.test.ts",
+    "test:scoring": "node --import tsx --test test-fixtures/scoring.test.ts",
+    "test:plans": "node --import tsx --test test-fixtures/plans.test.ts",
+    "test:programs": "node --import tsx --test test-fixtures/program-agents.test.ts",
+    "test:aptitude": "node --import tsx --test test-fixtures/aptitude-generator.test.ts test-fixtures/aptitude-attempts.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

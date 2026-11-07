@@ -19,10 +19,14 @@ const agentSchema = new Schema({
   view: { type: String, required: true },
   used: { type: Boolean, default: false },
   score: { type: Number, min: 0, max: 100, default: 0 },
+  // How much this agent counts towards the overall score, in percent (0 for optional agents).
+  weight: { type: Number, min: 0, max: 100, default: 0 },
 }, { _id: false });
 
 const readinessScoreSchema = new Schema({
   agents: { type: [agentSchema], default: [] },
+  // Agents the student can use that don't count for their programme. Shown with their own score; never part of the overall score or the unlock.
+  optionalAgents: { type: [agentSchema], default: [] },
   complete: { type: Boolean, default: false, index: true },
   studentId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
   institutionId: { type: Schema.Types.ObjectId, ref: "Institution", default: null, index: true },

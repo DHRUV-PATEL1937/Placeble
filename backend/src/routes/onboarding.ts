@@ -6,7 +6,7 @@ import { StudentProfile } from "../models/StudentProfile";
 import { User, type UserDocument } from "../models/User";
 import { appLink, emailConfigured, queueEmail } from "../services/email-service";
 import { queueMatchingRecompute } from "../services/matching-service";
-import { ADULT_AGE, MIN_AGE, ageOn, onboardingState } from "../services/onboarding-service";
+import { ADULT_AGE, MAX_AGE, MIN_AGE, ageOn, onboardingState, yearLimits } from "../services/onboarding-service";
 import { getPrograms, programByCode } from "../services/program-service";
 import { instituteDetailsFor } from "../services/student-account-service";
 import { hashToken } from "../services/token-service";
@@ -14,7 +14,6 @@ import { publicUser } from "./auth";
 
 const router = Router();
 const CONSENT_DAYS = 7;
-const thisYear = () => new Date().getFullYear();
 
 const catalog = async () => (await getPrograms()).map(program => ({ code: program.code, name: program.name, category: program.category, durationYears: program.durationYears, interviewStyle: program.interviewStyle, roles: program.roles }));
 
@@ -53,7 +52,7 @@ router.get("/", requireAuth, requireRole("student"), async (request, response) =
     programs: await catalog(),
     profile: { dateOfBirth: profile?.dateOfBirth ? profile.dateOfBirth.toISOString().slice(0, 10) : "", programCode: profile?.programCode ?? lockedProgram?.code ?? "", admissionYear: profile?.admissionYear ?? null, graduationYear: profile?.graduationYear ?? null, roles: profile?.preferredRoles ?? [], skills: profile?.skills ?? [] },
     guardian: { status: profile?.guardianConsent?.status ?? "not_required", name: profile?.guardianConsent?.guardianName ?? "", email: profile?.guardianConsent?.guardianEmail ?? "" },
-    limits: { minAge: MIN_AGE, adultAge: ADULT_AGE, minYear: thisYear() - 10, maxYear: thisYear() + 10 },
+    limits: { minAge: MIN_AGE, adultAge: ADULT_AGE, maxAge: MAX_AGE, minYear: yearLimits().admissionMin, maxYear: yearLimits().graduationMax, ...yearLimits() },
   });
 });
 
@@ -84,7 +83,7 @@ router.post("/", requireAuth, requireRole("student"), async (request, response, 
       if (Number.isNaN(dob.getTime()) || dob.getTime() > Date.now()) return response.status(400).json({ message: "Enter a valid date of birth." });
       const age = ageOn(dob);
       if (age < MIN_AGE) return response.status(403).json({ code: "TOO_YOUNG", message: `You need to be at least ${MIN_AGE} to use Placeble.` });
-      if (age > 100) return response.status(400).json({ message: "Enter a valid date of birth." });
+      if (age > MAX_AGE) return response.status(400).json({ message: `Enter a valid date of birth. Placeble is for students up to ${MAX_AGE}.` });
       profile.dateOfBirth = dob;
     }
     const age = ageOn(profile.dateOfBirth!);
@@ -100,6 +99,9 @@ router.post("/", requireAuth, requireRole("student"), async (request, response, 
     // Batch years: the institute's batch wins; otherwise the student gives their own.
     if (direct && !institute?.batchLabel && (!profile.admissionYear || !profile.graduationYear)) {
       if (!input.admissionYear || !input.graduationYear) return response.status(400).json({ message: "Choose your admission year and graduating year." });
+      const years = yearLimits();
+      if (input.admissionYear < years.admissionMin || input.admissionYear > years.admissionMax) return response.status(400).json({ message: `Choose an admission year from ${years.admissionMin} to ${years.admissionMax}.` });
+      if (input.graduationYear < years.graduationMin || input.graduationYear > years.graduationMax) return response.status(400).json({ message: `Choose a graduating year from ${years.graduationMin} to ${years.graduationMax}.` });
       if (input.graduationYear < input.admissionYear || input.graduationYear - input.admissionYear > 8) return response.status(400).json({ message: "Your graduating year should be after your admission year." });
       profile.admissionYear = input.admissionYear; profile.graduationYear = input.graduationYear;
     }

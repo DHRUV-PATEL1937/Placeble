@@ -14,7 +14,7 @@ type Setup = {
   programs: Program[];
   profile: { dateOfBirth: string; programCode: string; admissionYear: number | null; graduationYear: number | null; roles: string[]; skills: string[] };
   guardian: { status: string; name: string; email: string };
-  limits: { minAge: number; adultAge: number; maxAge?: number; minYear: number; maxYear: number };
+  limits: { minAge: number; adultAge: number; maxAge?: number; minYear: number; maxYear: number; admissionMin?: number; admissionMax?: number; graduationMin?: number; graduationMax?: number };
 };
 
 const MAX_AGE_FALLBACK = 45;
@@ -25,8 +25,16 @@ const dobRange = (minAge: number, maxAge: number) => {
   const latest = new Date(); latest.setFullYear(latest.getFullYear() - minAge);
   return { min: isoDay(earliest), max: isoDay(latest) };
 };
-/** Graduating year for an admission year and programme length, e.g. 2027 + 2 years = 2029. */
-const graduationFor = (admissionYear: string, durationYears: number | undefined) => admissionYear && durationYears ? String(Number(admissionYear) + durationYears) : "";
+/** Years a student can pick: admission from 10 years back to next year, graduating from 5 years back (graduates looking for placement) to 5 years ahead. The server sends the same limits. */
+const THIS_YEAR = new Date().getFullYear();
+const yearsOf = (limits: Setup["limits"]) => ({ admissionMin: limits.admissionMin ?? THIS_YEAR - 10, admissionMax: limits.admissionMax ?? THIS_YEAR + 1, graduationMin: limits.graduationMin ?? THIS_YEAR - 5, graduationMax: limits.graduationMax ?? THIS_YEAR + 5 });
+const span = (from: number, to: number) => from > to ? [] : Array.from({ length: to - from + 1 }, (_, index) => to - index);
+/** Graduating year for an admission year and programme length, e.g. 2027 + 2 years = 2029. Empty when that falls outside the years on offer. */
+const graduationFor = (admissionYear: string, durationYears: number | undefined) => {
+  if (!admissionYear || !durationYears) return "";
+  const year = Number(admissionYear) + durationYears;
+  return year >= THIS_YEAR - 5 && year <= THIS_YEAR + 5 ? String(year) : "";
+};
 
 const ageFrom = (value: string) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -110,6 +118,7 @@ export function OnboardingScreen({ user, accessToken, onComplete, onLogout }: { 
       if (setup.needs.batch) {
         if (!form.admissionYear || !form.graduationYear) return "Choose your admission year and graduating year.";
         if (Number(form.graduationYear) < Number(form.admissionYear)) return "Your graduating year should be after your admission year.";
+        if (Number(form.graduationYear) > yearsOf(setup.limits).graduationMax) return `Choose a graduating year up to ${yearsOf(setup.limits).graduationMax}.`;
       }
     }
     if (which === "goals") {
@@ -203,8 +212,8 @@ export function OnboardingScreen({ user, accessToken, onComplete, onLogout }: { 
           {setup.locked.batch && <div className="ob-locked"><Lock size={14} aria-hidden="true" /><span>Batch</span><b>{setup.locked.batch.label} · {setup.locked.batch.period}</b><small>Set by your institute</small></div>}
           {setup.needs.batch && (
             <div className="ob-row">
-              <div className="ob-field"><label htmlFor="ob-adm">Admission year</label><select id="ob-adm" value={form.admissionYear} onChange={event => { const year = event.target.value; setForm(current => ({ ...current, admissionYear: year, graduationYear: graduationAuto || !current.graduationYear || current.graduationYear === graduationFor(current.admissionYear, program?.durationYears) ? graduationFor(year, program?.durationYears) : current.graduationYear })); }}><option value="">Select…</option>{Array.from({ length: setup.limits.maxYear - setup.limits.minYear + 1 }, (_, index) => setup.limits.maxYear - index).map(year => <option key={year} value={year}>{year}</option>)}</select></div>
-              <div className="ob-field"><label htmlFor="ob-grad">Graduating year</label><select id="ob-grad" value={form.graduationYear} onChange={event => { setGraduationAuto(!event.target.value); setForm({ ...form, graduationYear: event.target.value }); }}><option value="">Select…</option>{Array.from({ length: setup.limits.maxYear - setup.limits.minYear + 1 }, (_, index) => setup.limits.maxYear - index).map(year => <option key={year} value={year}>{year}</option>)}</select></div>
+              <div className="ob-field"><label htmlFor="ob-adm">Admission year</label><select id="ob-adm" value={form.admissionYear} onChange={event => { const year = event.target.value; setForm(current => ({ ...current, admissionYear: year, graduationYear: graduationAuto || !current.graduationYear || current.graduationYear === graduationFor(current.admissionYear, program?.durationYears) ? graduationFor(year, program?.durationYears) : current.graduationYear })); }}><option value="">Select…</option>{span(yearsOf(setup.limits).admissionMin, yearsOf(setup.limits).admissionMax).map(year => <option key={year} value={year}>{year}</option>)}</select></div>
+              <div className="ob-field"><label htmlFor="ob-grad">Graduating year</label><select id="ob-grad" value={form.graduationYear} onChange={event => { setGraduationAuto(!event.target.value); setForm({ ...form, graduationYear: event.target.value }); }}><option value="">Select…</option>{span(Math.max(yearsOf(setup.limits).graduationMin, Number(form.admissionYear) || 0), yearsOf(setup.limits).graduationMax).map(year => <option key={year} value={year}>{year}</option>)}</select></div>
             </div>
           )}
         </>)}

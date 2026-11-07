@@ -1,3 +1,4 @@
+import { AgentResult } from "../models/AgentResult";
 import { Router } from "express";
 import mongoose from "mongoose";
 import { requireAuth, requireInstitutionScope, requireRole } from "../middleware/auth";
@@ -86,7 +87,7 @@ export async function buildStudentReport(institutionId: string, studentId: strin
   if (!user) return null;
   const rosterBatch = await StudentRosterEntry.findOne({ institutionId: institutionId, matchedUserId: studentId }).select("batchId").lean();
   const batchDoc = rosterBatch?.batchId ? await Batch.findById(rosterBatch.batchId).lean() : null;
-  const [profile, roster, history, aptitude, interviews, resumes, discussions, applications] = await Promise.all([
+  const [profile, roster, history, aptitude, interviews, resumes, discussions, applications, agentResults] = await Promise.all([
     StudentProfile.findOne({ userId: studentId }).select("degree graduationYear skills preferredRoles").lean(),
     StudentRosterEntry.findOne({ institutionId: institutionId, matchedUserId: studentId }).select("rollNumber branch batchYear").lean(),
     ReadinessScore.find({ studentId }).sort({ calculatedAt: -1 }).limit(12).lean(),
@@ -95,8 +96,10 @@ export async function buildStudentReport(institutionId: string, studentId: strin
     Resume.find({ studentId }).sort({ updatedAt: -1 }).limit(3).select("title atsScore isCurrent updatedAt").lean(),
     GdSession.find({ studentId, status: "completed" }).sort({ completedAt: -1 }).limit(3).select("topic completedAt").lean(),
     Application.find({ studentId }).select("status").lean(),
+    AgentResult.find({ studentId }).sort({ createdAt: -1 }).limit(20).select("agent score title detail createdAt").lean(),
   ]);
   const latest = history[0];
+  const recentResults = (agent: string) => agentResults.filter(item => item.agent === agent).slice(0, 5).map(item => ({ score: item.score, title: item.title ?? "", detail: item.detail ?? "", completedAt: item.createdAt }));
   const score = latest?.score ?? 0;
   const byStatus = applications.reduce<Record<string, number>>((acc, item) => { acc[item.status] = (acc[item.status] ?? 0) + 1; return acc; }, {});
   return ({
@@ -107,12 +110,14 @@ export async function buildStudentReport(institutionId: string, studentId: strin
       skills: profile?.skills ?? [], preferredRoles: profile?.preferredRoles ?? [],
     },
     // The overall score and its trend exist only once the student has used every required agent. Before that, the per-agent components are the real numbers.
-    readiness: { score, complete: Boolean(latest?.complete), agentsUsed: (latest?.agents ?? []).filter(agent => agent.used).length, agentsTotal: (latest?.agents ?? []).length, status: !latest?.complete ? "In progress" : score >= 75 ? "Ready" : score >= 60 ? "On track" : score >= 45 ? "Stalled" : "At risk", components: latest?.components ?? null, history: latest?.complete ? [...history].reverse().filter(item => item.complete).map(item => ({ score: item.score, calculatedAt: item.calculatedAt })) : [] },
+    readiness: { score, agents: (latest?.agents ?? []).map(agent => ({ key: agent.key, label: agent.label, used: agent.used, score: agent.score })), optionalAgents: (latest?.optionalAgents ?? []).map(agent => ({ key: agent.key, label: agent.label, used: agent.used, score: agent.score })), complete: Boolean(latest?.complete), agentsUsed: (latest?.agents ?? []).filter(agent => agent.used).length, agentsTotal: (latest?.agents ?? []).length, status: !latest?.complete ? "In progress" : score >= 75 ? "Ready" : score >= 60 ? "On track" : score >= 45 ? "Stalled" : "At risk", components: latest?.components ?? null, history: latest?.complete ? [...history].reverse().filter(item => item.complete).map(item => ({ score: item.score, calculatedAt: item.calculatedAt })) : [] },
     activity: {
       aptitude: aptitude.map(item => ({ score: item.scoreTotal ?? 0, completedAt: item.completedAt, mode: item.mode })),
       interviews: interviews.map(item => ({ score: item.overallScore ?? 0, completedAt: item.completedAt, role: item.targetRole, type: item.type })),
       resumes: resumes.map(item => ({ title: item.title, atsScore: item.atsScore ?? 0, current: Boolean(item.isCurrent), updatedAt: item.updatedAt })),
       groupDiscussions: discussions.map(item => ({ topic: item.topic, completedAt: item.completedAt })),
+      caseStudies: recentResults("case_study"),
+      hrSimulations: recentResults("hr_simulation"),
       applications: { total: applications.length, byStatus },
     },
   });

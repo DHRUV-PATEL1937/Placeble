@@ -15,6 +15,9 @@ import { installScrollFlag } from "./hooks/use-motion";
 import "./styles/motion.css";
 import "./styles/mobile-app.css";
 
+// No pinch zoom. The viewport tag turns it off on Android, but iPhone Safari ignores that for pinch gestures, so block them here too.
+for (const gesture of ["gesturestart", "gesturechange", "gestureend"]) document.addEventListener(gesture, event => event.preventDefault(), { passive: false });
+
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element #root not found in index.html");
 

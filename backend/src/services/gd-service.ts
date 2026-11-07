@@ -4,6 +4,7 @@ import { assertivePersona } from "./gd-persona-assertive";
 import { analyticalPersona } from "./gd-persona-analytical";
 import { bridgingPersona } from "./gd-persona-bridging";
 import { generatePersonaSpeech, scoreGroupDiscussion } from "./gd-ai-service";
+import { gdSessionScore } from "./scoring";
 
 type PersonaKey = typeof gdPersonaKeys[number];
 type GdJobKind = "gd:personaTurn" | "gd:scoreSession";
@@ -163,7 +164,9 @@ export async function enqueueSessionScore(sessionId: string, userId: string) {
       const heuristicFlags = computeGdHeuristics(current.turns.map(turn => ({ speaker: turn.speaker, timestampStart: turn.timestampStart, timestampEnd: turn.timestampEnd })));
       update(55, "The Observer is reviewing your contribution");
       const observer = await scoreGroupDiscussion({ topic: current.topic, transcript: current.turns.map(turn => ({ speaker: speakerName(current, turn.speaker), text: turn.text })) });
-      Object.assign(current, { observerMetrics: { clarity: observer.clarity, confidence: observer.confidence, leadership: observer.leadership, relevance: observer.relevance }, heuristicFlags, observerFeedback: observer.feedback, observerStrengths: observer.strengths, observerImprovements: observer.improvements, status: "completed", completedAt: new Date() });
+      const observerMetrics = { clarity: observer.clarity, confidence: observer.confidence, leadership: observer.leadership, relevance: observer.relevance };
+      const overallScore = gdSessionScore(observerMetrics, heuristicFlags, current.turns.filter(turn => turn.speaker === "student").map(turn => turn.text));
+      Object.assign(current, { observerMetrics, heuristicFlags, overallScore, observerFeedback: observer.feedback, observerStrengths: observer.strengths, observerImprovements: observer.improvements, status: "completed", completedAt: new Date() });
       current.orchestration.processing = false;
       await current.save();
       update(90, "Preparing your discussion scorecard");

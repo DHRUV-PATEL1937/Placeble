@@ -5,6 +5,7 @@ import { AptitudeAttempt } from "../models/AptitudeAttempt";
 import { AptitudeQuestion, aptitudeCategories, aptitudeDifficulties } from "../models/AptitudeQuestion";
 import { aptitudeQuestionSeeds, ensureAptitudeQuestionBank, getDynamicQuestionBankStatus, refreshDynamicAptitudeQuestionBank } from "./aptitude-question-bank";
 import { executeCodeAgainstCases } from "./coding-service";
+import { generateQuestion, generatedTopics, type GenCategory } from "./aptitude-generator";
 
 export type AptitudeCategory = typeof aptitudeCategories[number];
 export type AptitudeDifficulty = typeof aptitudeDifficulties[number];
@@ -53,26 +54,66 @@ function sampleMixedDifficulty(pool: PlainQuestion[], count: number) {
   return shuffle(chosen).slice(0, count);
 }
 
+/** How many questions each section gets: an even split, with the extra ones going to the first sections. */
+function splitCount(total: number, sections: AptitudeCategory[]) {
+  const base = Math.floor(total / sections.length);
+  return sections.map((category, index) => ({ category, count: base + (index < total % sections.length ? 1 : 0) })).filter(item => item.count > 0);
+}
+
 export async function createAptitudeAttempt(input: { userId: string; sections: AptitudeCategory[]; questionCount: number; durationMinutes: number; difficulty: AptitudeDifficulty | "mixed"; topic?: string; topicFilters?: Partial<Record<AptitudeCategory, string[]>> }) {
   await ensureAptitudeQuestionBank();
-  const recent = await AptitudeAttempt.find({ studentId: input.userId }).sort({ createdAt: -1 }).limit(3).select("questionIds").lean();
-  const recentIds = new Set(recent.flatMap(attempt => attempt.questionIds.map(id => id.toString())));
-  const filteredSections = input.sections.map(category => ({ category, topics: input.topicFilters?.[category]?.filter(Boolean) ?? [] }));
-  const query: Record<string, unknown> = {
-    isActive: true,
-    $or: filteredSections.map(({ category, topics }) => topics.length ? { category, topic: { $in: topics } } : { category }),
-  };
-  if (input.topic) query.topic = input.topic;
-  if (input.difficulty !== "mixed") query.difficulty = input.difficulty;
-  const all = await AptitudeQuestion.find(query).lean() as unknown as PlainQuestion[];
-  if (!all.length) throw new Error("No active questions match this practice setup.");
-  const fresh = all.filter(question => !recentIds.has(String(question._id)));
-  const pool = fresh.length >= Math.min(input.questionCount, all.length) ? fresh : all;
-  const selected = input.difficulty === "mixed" ? sampleMixedDifficulty(pool, input.questionCount) : shuffle(pool).slice(0, input.questionCount);
+  // Everything the student has already been asked, so nothing comes back until the bank is truly used up.
+  const history = await AptitudeAttempt.find({ studentId: input.userId }).sort({ createdAt: -1 }).limit(40).select("questionIds").lean();
+  const seenIds = [...new Set(history.flatMap(attempt => attempt.questionIds.map(id => id.toString())))];
+  const seenRows = seenIds.length ? await AptitudeQuestion.find({ _id: { $in: seenIds } }).select("prompt").lean() : [];
+  const seenPrompts = new Set(seenRows.map(row => row.prompt));
+  const seenIdSet = new Set(seenIds);
+
+  const selected: Array<PlainQuestion | { generated: ReturnType<typeof generateQuestion> }> = [];
+  const used = new Set<string>();
+  for (const { category, count } of splitCount(input.questionCount, input.sections)) {
+    const topics = (input.topic ? [input.topic] : input.topicFilters?.[category]?.filter(Boolean) ?? []);
+    const query: Record<string, unknown> = { isActive: true, category };
+    if (topics.length) query.topic = { $in: topics };
+    if (input.difficulty !== "mixed") query.difficulty = input.difficulty;
+    const bank = await AptitudeQuestion.find(query).lean() as unknown as PlainQuestion[];
+    const freshBank = bank.filter(question => !seenIdSet.has(String(question._id)));
+    // Written questions (coding) come from the bank. Everything else is mostly generated fresh, with some unseen bank questions mixed in.
+    const generatable = category !== "coding" && generatedTopics[category as GenCategory]?.some(topic => !topics.length || topics.includes(topic));
+    const bankShare = generatable ? Math.min(freshBank.length, Math.round(count * 0.25)) : count;
+    const fromBank = (freshBank.length >= bankShare ? sampleMixedDifficulty(freshBank, bankShare) : []);
+    for (const question of fromBank) { selected.push(question); used.add(question.prompt); }
+    let missing = count - fromBank.length;
+    if (generatable) {
+      const avoid = new Set([...seenPrompts, ...used]);
+      while (missing > 0) {
+        const generated = generateQuestion({ category: category as GenCategory, topics, difficulty: input.difficulty, avoid });
+        if (!generated) break;
+        avoid.add(generated.prompt); used.add(generated.prompt);
+        selected.push({ generated }); missing -= 1;
+      }
+    }
+    // Still short (the generator has nothing for these topics): reuse bank questions, unseen ones first.
+    if (missing > 0) {
+      const rest = shuffle([...freshBank, ...bank.filter(question => seenIdSet.has(String(question._id)))].filter(question => !used.has(question.prompt)));
+      for (const question of rest.slice(0, missing)) { selected.push(question); used.add(question.prompt); }
+    }
+  }
+  if (!selected.length) throw new Error("No active questions match this practice setup.");
+
+  // Generated questions are saved (inactive, so they never enter the shared bank) so results and review can read them like any other.
+  const generatedDocs = selected.filter((item): item is { generated: NonNullable<ReturnType<typeof generateQuestion>> } => "generated" in item && !!item.generated);
+  const created = generatedDocs.length ? await AptitudeQuestion.insertMany(generatedDocs.map(({ generated }) => ({
+    ...generated, seedKey: `generated-${randomUUID()}`, source: "generated", isActive: false, generatedAt: new Date(),
+  }))) : [];
+  const createdById = new Map(created.map((doc, index) => [generatedDocs[index], doc._id]));
+  const ids = shuffle(selected.map(item => "generated" in item ? createdById.get(item as typeof generatedDocs[number]) : (item as PlainQuestion)._id)
+    .map(id => new mongoose.Types.ObjectId(String(id))));
+  const chosen = await AptitudeQuestion.find({ _id: { $in: ids } }).select("category").lean();
   const attempt = await AptitudeAttempt.create({
     studentId: input.userId,
-    sections: [...new Set(selected.map(question => question.category))],
-    questionIds: selected.map(question => new mongoose.Types.ObjectId(String(question._id))),
+    sections: [...new Set(chosen.map(question => question.category))],
+    questionIds: ids,
     responses: [],
     startedAt: new Date(),
     durationSeconds: input.durationMinutes * 60,
@@ -194,6 +235,7 @@ export async function getAptitudeSummary(userId: string) {
   ]);
   const topicsByCategory = Object.fromEntries(["quant", "logical", "verbal"].map(category => [category, Array.from(new Set([
     ...aptitudeQuestionSeeds.filter(item => item.category === category).map(item => item.topic),
+    ...(generatedTopics[category as GenCategory] ?? []),
     ...topicRows.filter(item => item._id.category === category).map(item => item._id.topic),
   ])).sort()]));
   return { attempts, inProgress, heatmap, questionCounts: Object.fromEntries(counts.map(item => [item._id, item.count])), topicsByCategory, ...currentBankStatus, dynamicRefreshWarning: "" };

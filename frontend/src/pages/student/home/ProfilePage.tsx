@@ -12,7 +12,8 @@ type ProfileForm = Editable & { email: string; rollNumber: string; locked?: stri
 type Program = { code: string; name: string; category: string; interviewStyle: string; roles: string[] };
 
 const THIS_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: 10 }, (_, index) => THIS_YEAR - 1 + index);
+/** Graduating years on offer: 5 years back (graduates looking for placement) up to 5 years ahead. The server accepts the same range. */
+const YEARS = Array.from({ length: 11 }, (_, index) => THIS_YEAR - 5 + index);
 const same = (a: string[], b: string[]) => a.length === b.length && a.every((item, index) => item === b[index]);
 
 export function ProfilePage({ accessToken, notify }: { accessToken: string; notify: Notify }) {
@@ -47,7 +48,7 @@ export function ProfilePage({ accessToken, notify }: { accessToken: string; noti
   const problems = {
     name: locked ? "" : nameProblem(profile.name),
     degree: locked || !fieldOpen("degree") ? "" : profile.degree.trim().length < 2 ? "Choose your programme." : "",
-    graduationYear: locked || !fieldOpen("graduationYear") ? "" : !profile.graduationYear || profile.graduationYear < THIS_YEAR - 1 || profile.graduationYear > THIS_YEAR + 8 ? "Choose your graduating year." : "",
+    graduationYear: locked || !fieldOpen("graduationYear") ? "" : !profile.graduationYear || profile.graduationYear < THIS_YEAR - 5 || profile.graduationYear > THIS_YEAR + 5 ? "Choose your graduating year." : "",
     skills: profile.skills.length ? "" : "Add at least one skill.",
     preferredRoles: profile.preferredRoles.length ? "" : "Add at least one role you’d apply for.",
   };

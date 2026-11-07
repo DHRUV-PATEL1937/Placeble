@@ -5,6 +5,7 @@ import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import PDFDocument from "pdfkit";
 import { cosineSimilarity, embedText, EMBEDDING_PIPELINE_VERSION } from "./embedding-service";
 import { cloudinaryEnabled, privateDownloadUrl, uploadPrivateRaw } from "./cloudinary-service";
+import { resumeAtsScore } from "./scoring";
 
 export type ResumeSection = {
   type: "summary" | "experience" | "education" | "skills" | "projects" | "certifications" | "languages" | "interests" | "courses" | "awards" | "organizations" | "publications" | "references" | "declaration" | "custom";
@@ -126,7 +127,9 @@ export function scoreResume(sections: ResumeSection[], targetJdText = "") {
   const keywordOverlap = jdTerms.length ? Math.round(matches.length / jdTerms.length * 100) : 0;
   const union = new Set([...jdTerms, ...resumeTerms]);
   const semanticSimilarity = union.size ? Math.round(matches.length / union.size * 100 * 2.8) : 0;
-  return { atsScore: Math.min(98, Math.round(keywordOverlap * .68 + semanticSimilarity * .32)), keywordOverlap, semanticSimilarity: Math.min(100, semanticSimilarity), missingKeywords };
+  // Fit to the job decides most of the score, but a keyword-stuffed resume with missing sections is still held back by its completeness.
+  const completeness = resumeCompleteness(sections, text);
+  return { atsScore: resumeAtsScore(keywordOverlap * .68 + Math.min(100, semanticSimilarity) * .32, completeness.score), keywordOverlap, semanticSimilarity: Math.min(100, semanticSimilarity), missingKeywords };
 }
 
 export async function scoreResumeWithEmbeddings(sections: ResumeSection[], targetJdText = "") {
@@ -138,7 +141,8 @@ export async function scoreResumeWithEmbeddings(sections: ResumeSection[], targe
       embedText(`[${EMBEDDING_PIPELINE_VERSION}|resume-ats-v1] TARGET JOB: ${targetJdText}`),
     ]);
     const semanticSimilarity = Math.round(Math.max(0, Math.min(1, cosineSimilarity(resumeEmbedding, jobEmbedding))) * 100);
-    return { ...lexical, semanticSimilarity, atsScore: Math.min(98, Math.round(lexical.keywordOverlap * .62 + semanticSimilarity * .38)) };
+    const completeness = resumeCompleteness(sections, resumeText(sections));
+    return { ...lexical, semanticSimilarity, atsScore: resumeAtsScore(lexical.keywordOverlap * .62 + semanticSimilarity * .38, completeness.score) };
   } catch {
     return lexical;
   }

@@ -1,4 +1,5 @@
 import { AssistantWidget } from "@/components/assistant/AssistantWidget";
+import { ContactSupportButton } from "@/components/support/ContactSupport";
 import { OrgBrand, useLiveBranding, type UserBranding } from "@/components/ui/org-brand";
 import { Crown, GraduationCap, LayoutDashboard, LogOut, Menu, MessageSquareText, Moon, Settings, Sun, TrendingUp, UserRound, WandSparkles, X, type LucideIcon, ChevronRight, House, Target, ChartNoAxesColumn, Gem, MessageCircle, LayoutGrid } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -169,6 +170,7 @@ export function StudentDashboard({ user, accessToken, onLogout }: { user: Studen
           ))}
         </nav>
         {direct && user.plan?.plan !== "pro" && <button type="button" className="st-upgrade" onClick={() => go("Plan")}><Crown size={16} aria-hidden="true" /><span><b>Free plan</b><small>Upgrade for unlimited practice</small></span></button>}
+        <ContactSupportButton accessToken={accessToken} email={user.email} page={`student: ${current}`} />
         <button type="button" className="tp-user" onClick={() => setSignOutOpen(true)} aria-label={`Sign out ${user.name}`}>
           <Avatar name={user.name} size={36} />
           <span><b>{user.name}</b><small>{user.email}</small></span>

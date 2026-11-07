@@ -5,6 +5,7 @@ import { meter } from "../middleware/usage-limit";
 import { StudentProfile } from "../models/StudentProfile";
 import { CASE_FOCUS, CASE_LEVELS, evaluateCaseAnswers, generateCaseStudy } from "../services/case-study-service";
 import { AgentResult } from "../models/AgentResult";
+import { agentResultHistory } from "../services/agent-results";
 import { programByCode, programHasCaseStudy } from "../services/program-service";
 import { scheduleReadiness } from "../services/readiness-service";
 
@@ -41,8 +42,11 @@ router.post("/evaluate", async (request, response) => {
   if (input.answers.every(answer => answer.length < 20)) return response.status(400).json({ message: "Write a few sentences for at least one question before submitting." });
   const evaluation = await evaluateCaseAnswers({ ...input, programName: response.locals.programName });
   // Keep the score so it counts towards readiness. Failing to save must never lose the student's feedback.
-  await AgentResult.create({ studentId: request.auth!.userId, agent: "case_study", score: Math.round(evaluation.overallScore) }).then(() => scheduleReadiness(request.auth!.userId, "case_study_completed")).catch(console.error);
+  await AgentResult.create({ studentId: request.auth!.userId, agent: "case_study", score: Math.round(evaluation.overallScore), title: input.caseStudy.title, detail: input.caseStudy.company }).then(() => scheduleReadiness(request.auth!.userId, "case_study_completed")).catch(console.error);
   return response.json({ evaluation });
 });
+
+/** The student's case study progress: attempts, best, average and recent results. */
+router.get("/history", async (request, response) => response.json(await agentResultHistory(request.auth!.userId, "case_study")));
 
 export { router as caseStudyRouter };

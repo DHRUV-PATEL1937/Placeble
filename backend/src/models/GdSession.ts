@@ -47,6 +47,8 @@ const gdSessionSchema = new Schema({
     longestSilenceSeconds: { type: Number, min: 0, default: 0 },
     speakingTimeShare: { type: Number, min: 0, max: 1, default: 0 },
   },
+  // The student's discussion score out of 100, from the Observer's ratings and how they took part. See gdSessionScore.
+  overallScore: { type: Number, min: 0, max: 100 },
   observerFeedback: { type: String, maxlength: 3000, default: "" },
   observerStrengths: { type: [String], default: [] },
   observerImprovements: { type: [String], default: [] },

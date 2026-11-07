@@ -3,6 +3,7 @@ import { env } from "../config/env";
 import { Interview, type InterviewType } from "../models/Interview";
 import { Resume } from "../models/Resume";
 import { StudentProfile } from "../models/StudentProfile";
+import { interviewOverallScore } from "./scoring";
 import { createInterviewDebrief, fillerWordRate, generateInterviewOpeningQuestion, scoreTurnAndGenerateNext, transcribeInterviewRecording } from "./interview-ai-service";
 
 type InterviewJobKind = "interview:scoreTurn" | "interview:renderQuestionAudio" | "interview:debrief";
@@ -99,10 +100,9 @@ export async function generateInterviewDebrief(interviewId: string, userId: stri
   if (!interview || !interview.turns.length) throw new Error("Complete at least one answer before opening a debrief.");
   update(40, "Looking for patterns across your answers");
   const result = await createInterviewDebrief({ type: interview.type, targetRole: interview.targetRole, turns: interview.turns.map(turn => turn.toObject()) });
-  // The score comes from the per-answer scores (structure, relevance, specificity, each out of 10), so it can never disagree with them.
-  // The AI debrief still writes the feedback, strengths and improvements.
-  const perAnswer = interview.turns.map(turn => ((turn.scores?.structure ?? 0) + (turn.scores?.relevance ?? 0) + (turn.scores?.specificity ?? 0)) / 3);
-  const computedScore = Math.max(0, Math.min(100, Math.round(perAnswer.reduce((sum, value) => sum + value, 0) / Math.max(1, perAnswer.length) * 10)));
+  // The score comes from the per-answer scores (relevance, specificity, structure, filler words, answer length) and how much of the
+  // interview was completed, so it can never disagree with them. The AI debrief still writes the feedback, strengths and improvements.
+  const computedScore = interviewOverallScore(interview.turns, interview.totalTurns);
   Object.assign(interview, { overallScore: computedScore, overallFeedback: result.overallFeedback, strengths: result.strengths, improvements: result.improvements, status: "completed", completedAt: new Date(), currentQuestion: "", processingTurn: 0 });
   await interview.save();
   update(88, "Finishing your coaching notes");

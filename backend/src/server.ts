@@ -24,6 +24,7 @@ import { chatRouter } from "./routes/chat";
 import { branchRouter } from "./routes/branches";
 import { batchRouter } from "./routes/batches";
 import { accountDeletionAdminRouter, accountRouter } from "./routes/account-deletion";
+import { supportRouter } from "./routes/support";
 import { onboardingRouter } from "./routes/onboarding";
 import { reportsRouter } from "./routes/reports";
 import { universityRouter } from "./routes/university";
@@ -134,6 +135,7 @@ app.use("/api/v1/chat", chatRouter);
 app.use("/api/v1/branches", branchRouter);
 app.use("/api/v1/batches", batchRouter);
 app.use("/api/v1/onboarding", onboardingRouter);
+app.use("/api/v1/support", supportRouter);
 app.use("/api/v1/reports", reportsRouter);
 app.use("/api/v1/university", universityRouter);
 
